@@ -1,39 +1,42 @@
 """
-sanpo_loader.py — Load SANPO-Real dataset frames and depth maps with validation.
+sanpo_loader.py — Load SANPO-Real dataset from Google Cloud Storage.
 
 This module handles:
-1. Reading video frames from SANPO MP4 files (local or GCS)
-2. Loading aligned depth maps (.npz format, meters)
-3. Validating frame-depth synchronization
+1. Reading video frames from SANPO PNG frame sequences (GCS)
+2. Loading aligned depth maps (.float16.gz format, meters)
+3. Parsing metadata from description.json
 4. Efficiently iterating through session data with memory management
 
-SANPO-Real Structure (works with both local and gs:// GCS paths):
-    sanpo_data/
-    ├── videos/
-    │   ├── 001.mp4
-    │   ├── 002.mp4
-    │   └── ...
-    ├── depth_maps/
-    │   ├── 001/
-    │   │   ├── depth_0000.npz (contains array of shape [H, W])
-    │   │   ├── depth_0001.npz
-    │   │   └── ...
-    │   └── ...
-    └── metadata.json
+SANPO-Real GCS Structure (gs://gresearch/sanpo_dataset/v0/):
+    sanpo-real/
+    ├── {session_id_hash}/
+    │   ├── description.json (metadata)
+    │   ├── camera_chest/
+    │   │   ├── left/
+    │   │   │   ├── video_frames_$folder$ (PNG images)
+    │   │   │   │   ├── 000000.png
+    │   │   │   │   ├── 000001.png
+    │   │   │   │   └── ...
+    │   │   │   └── depth_maps/ (.float16.gz files)
+    │   │   │       ├── 000000.float16.gz
+    │   │   │       ├── 000001.float16.gz
+    │   │   │       └── ...
+    │   │   └── right/
+    │   └── camera_head/
+    └── ...
 
 Usage:
-    # Local path
-    loader = SANPOLoader("/path/to/sanpo")
+    loader = SANPOLoader("gs://gresearch/sanpo_dataset/v0/sanpo-real", camera="chest", view="left")
     
-    # Google Cloud Storage
-    loader = SANPOLoader("gs://my-bucket/sanpo")
+    for session_id in loader.list_sessions()[:5]:
+        for frame in loader.iter_frames(session_id):
+            process_frame(frame)
 
 Key Design:
-- Generator-based frame iteration (never loads full video into memory)
-- On-demand depth loading synchronized with frames
-- GCS streaming via google-cloud-storage library
-- Early validation of frame-depth alignment
-- Logging for debugging data issues
+- Streams PNG frames from GCS (no local storage)
+- Decompresses .float16.gz depth on-the-fly
+- Generator-based iteration (memory efficient)
+- Supports multiple cameras (chest/head) and views (left/right)
 """
 
 import os
@@ -42,8 +45,9 @@ import numpy as np
 import json
 import logging
 import tempfile
+import gzip
 import io
-from typing import Generator, Dict, Optional, Tuple
+from typing import Generator, Dict, Optional, Tuple, List
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -64,322 +68,246 @@ class Frame:
     rgb: np.ndarray  # [H, W, 3] uint8
     depth: np.ndarray  # [H, W] float32, in meters
     session_id: str
+    camera: str  # "chest" or "head"
+    view: str  # "left" or "right"
     fps: int
     resolution: Tuple[int, int]
 
 
 class SANPOLoader:
     """
-    Generator-based loader for SANPO-Real dataset (local or GCS).
+    Loader for SANPO-Real dataset from Google Cloud Storage.
     
-    Supports both local paths and Google Cloud Storage gs:// URIs.
+    Handles PNG frame sequences + .float16.gz depth maps.
+    Supports multiple camera views (chest/head, left/right).
     
     Usage:
-        # Local
-        loader = SANPOLoader("/path/to/sanpo")
+        loader = SANPOLoader(
+            "gs://gresearch/sanpo_dataset/v0/sanpo-real",
+            camera="chest",
+            view="left"
+        )
         
-        # GCS
-        loader = SANPOLoader("gs://bucket-name/sanpo")
-        
-        for session_id in ["001", "002", "003"]:
+        for session_id in loader.list_sessions()[:5]:
             for frame in loader.iter_frames(session_id):
                 process_frame(frame)
     """
     
-    def __init__(self, sanpo_root: str, metadata_file: str = "metadata.json"):
+    def __init__(self, 
+                 sanpo_root: str = "gs://gresearch/sanpo_dataset/v0/sanpo-real",
+                 camera: str = "chest",
+                 view: str = "left"):
         """
         Args:
-            sanpo_root: Path to root SANPO directory (local or gs://bucket/path)
-            metadata_file: Name of metadata JSON file
+            sanpo_root: Root path (must be GCS gs:// path)
+            camera: "chest" or "head"
+            view: "left" or "right"
         """
-        self.sanpo_root = sanpo_root
-        self.is_gcs = sanpo_root.startswith("gs://")
-        self.gcs_client = None
-        self.gcs_bucket = None
+        if not sanpo_root.startswith("gs://"):
+            raise ValueError("sanpo_root must be a GCS path starting with gs://")
         
-        if self.is_gcs:
-            if not GCS_AVAILABLE:
-                raise ImportError("google-cloud-storage not installed. Run: pip install google-cloud-storage")
-            self._init_gcs()
+        if not GCS_AVAILABLE:
+            raise ImportError("google-cloud-storage not installed. Run: pip install google-cloud-storage")
         
-        # Load metadata
-        metadata_path = f"{sanpo_root.rstrip('/')}/{metadata_file}"
-        metadata_content = self._read_file(metadata_path)
-        self.metadata = json.loads(metadata_content)
-        
-        self.sessions = {s["session_id"]: s for s in self.metadata.get("sessions", [])}
-        logger.info(f"Loaded SANPO metadata: {len(self.sessions)} sessions found (GCS: {self.is_gcs})")
-    
-    def _init_gcs(self):
-        """Initialize Google Cloud Storage client."""
+        self.sanpo_root = sanpo_root.rstrip("/")
+        self.camera = camera
+        self.view = view
         self.gcs_client = storage.Client()
-        # Extract bucket name from gs://bucket-name/path
+        
+        # Parse bucket and prefix
         parts = self.sanpo_root.split("/")
-        bucket_name = parts[2]
-        self.gcs_bucket = self.gcs_client.bucket(bucket_name)
-        self.gcs_prefix = "/".join(parts[3:])  # Path within bucket
-        logger.info(f"Initialized GCS: bucket={bucket_name}, prefix={self.gcs_prefix}")
-    
-    def _read_file(self, file_path: str) -> str:
-        """
-        Read file content as string (works with local and GCS).
+        self.bucket_name = parts[2]
+        self.gcs_prefix = "/".join(parts[3:])
+        self.bucket = self.gcs_client.bucket(self.bucket_name)
         
-        Args:
-            file_path: Path to file (local or gs://bucket/path)
+        logger.info(f"Initialized SANPO loader: bucket={self.bucket_name}, prefix={self.gcs_prefix}")
+        logger.info(f"Camera: {camera}/{view}")
+        
+        self.session_cache = None
+    
+    def list_sessions(self) -> List[str]:
+        """
+        List all available session IDs in the bucket.
         
         Returns:
-            File content as string
+            List of session hash IDs
         """
-        if self.is_gcs:
-            # Convert gs:// path to blob path within bucket
-            blob_path = file_path.replace(f"gs://{self.gcs_bucket.name}/", "")
-            blob = self.gcs_bucket.blob(blob_path)
-            return blob.download_as_string().decode('utf-8')
-        else:
-            with open(file_path, 'r') as f:
-                return f.read()
-    
-    def _read_bytes(self, file_path: str) -> bytes:
-        """Read file content as bytes (works with local and GCS)."""
-        if self.is_gcs:
-            blob_path = file_path.replace(f"gs://{self.gcs_bucket.name}/", "")
-            blob = self.gcs_bucket.blob(blob_path)
-            return blob.download_as_bytes()
-        else:
-            with open(file_path, 'rb') as f:
-                return f.read()
-    
-    def _get_video_file(self, session_id: str) -> Optional[str]:
-        """
-        Get path to video file (download from GCS if needed).
+        if self.session_cache is not None:
+            return self.session_cache
         
-        Returns:
-            Path to video file (local for both local and GCS)
-        """
-        session_meta = self.sessions.get(session_id)
-        if not session_meta:
-            return None
-        
-        video_filename = session_meta["video_file"].split("/")[-1]
-        
-        if self.is_gcs:
-            # Download to temp file
-            gcs_path = f"{self.gcs_prefix}/videos/{video_filename}"
-            blob = self.gcs_bucket.blob(gcs_path)
+        try:
+            # List all blobs with prefix
+            prefix = f"{self.gcs_prefix}/"
+            blobs = self.bucket.list_blobs(prefix=prefix, delimiter="/")
             
-            # Create temp file
-            temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-            blob.download_to_filename(temp_file.name)
-            logger.info(f"Downloaded {gcs_path} to {temp_file.name}")
-            return temp_file.name
-        else:
-            return str(Path(self.sanpo_root) / session_meta["video_file"])
+            sessions = []
+            for blob in blobs:
+                # Each subfolder is a session
+                session_id = blob.name.split("/")[-2]
+                if session_id and not session_id.endswith("_"):
+                    sessions.append(session_id)
+            
+            self.session_cache = sorted(sessions)
+            logger.info(f"Found {len(self.session_cache)} sessions")
+            return self.session_cache
+        
+        except Exception as e:
+            logger.error(f"Failed to list sessions: {e}")
+            return []
     
-    def _get_depth_file(self, session_id: str, frame_id: int) -> Optional[np.ndarray]:
+    def get_session_metadata(self, session_id: str) -> Dict:
         """
-        Get depth map for frame (works with both local and GCS).
-        
-        Returns:
-            Depth array [H, W] float32
-        """
-        depth_filename = f"depth_{frame_id:04d}.npz"
-        
-        if self.is_gcs:
-            gcs_path = f"{self.gcs_prefix}/depth_maps/{session_id}/{depth_filename}"
-            try:
-                blob = self.gcs_bucket.blob(gcs_path)
-                depth_bytes = blob.download_as_bytes()
-                depth_file = io.BytesIO(depth_bytes)
-                depth_data = np.load(depth_file)
-                return depth_data['arr_0'].astype(np.float32)
-            except:
-                logger.warning(f"Could not load depth from GCS: {gcs_path}")
-                return None
-        else:
-            depth_path = Path(self.sanpo_root) / "depth_maps" / session_id / depth_filename
-            try:
-                depth_data = np.load(depth_path)
-                return depth_data['arr_0'].astype(np.float32)
-            except:
-                logger.warning(f"Could not load depth file: {depth_path}")
-                return None
-    
-    def validate_session(self, session_id: str) -> bool:
-        """
-        Validate that video files exist for a session.
-        
-        For GCS, we skip validation and rely on download errors.
+        Load description.json for a session.
         
         Args:
-            session_id: Session identifier (e.g., "001")
+            session_id: Session hash ID
         
         Returns:
-            True if session exists in metadata
+            Metadata dict from description.json
         """
-        if session_id not in self.sessions:
-            logger.error(f"Session {session_id} not in metadata")
-            return False
-        
-        if not self.is_gcs:
-            # Local validation
-            session_meta = self.sessions[session_id]
-            video_path = Path(self.sanpo_root) / session_meta["video_file"]
-            if not video_path.exists():
-                logger.error(f"Video missing: {video_path}")
-                return False
-        
-        return True
+        try:
+            metadata_path = f"{self.gcs_prefix}/{session_id}/description.json"
+            blob = self.bucket.blob(metadata_path)
+            metadata_content = blob.download_as_string().decode('utf-8')
+            return json.loads(metadata_content)
+        except Exception as e:
+            logger.warning(f"Could not load metadata for {session_id}: {e}")
+            return {}
     
-    def iter_frames(self, session_id: str) -> Generator[Frame, None, None]:
+    def _get_png_frame(self, session_id: str, frame_id: int) -> Optional[np.ndarray]:
+        """
+        Load a single PNG frame from GCS.
+        
+        Returns:
+            [H, W, 3] uint8 RGB array
+        """
+        try:
+            frame_path = (
+                f"{self.gcs_prefix}/{session_id}/camera_{self.camera}/{self.view}/"
+                f"video_frames_{self.view}/{frame_id:06d}.png"
+            )
+            blob = self.bucket.blob(frame_path)
+            frame_bytes = blob.download_as_bytes()
+            
+            # Decode PNG
+            frame_array = cv2.imdecode(
+                np.frombuffer(frame_bytes, dtype=np.uint8),
+                cv2.IMREAD_COLOR
+            )
+            
+            # Convert BGR to RGB
+            if frame_array is not None:
+                frame_array = cv2.cvtColor(frame_array, cv2.COLOR_BGR2RGB)
+            
+            return frame_array
+        
+        except Exception as e:
+            logger.warning(f"Could not load frame {frame_id}: {e}")
+            return None
+    
+    def _get_depth_frame(self, session_id: str, frame_id: int) -> Optional[np.ndarray]:
+        """
+        Load and decompress .float16.gz depth map from GCS.
+        
+        Returns:
+            [H, W] float32 depth array (in meters)
+        """
+        try:
+            depth_path = (
+                f"{self.gcs_prefix}/{session_id}/camera_{self.camera}/{self.view}/"
+                f"depth_maps/{frame_id:06d}.float16.gz"
+            )
+            blob = self.bucket.blob(depth_path)
+            compressed_bytes = blob.download_as_bytes()
+            
+            # Decompress gzip
+            depth_bytes = gzip.decompress(compressed_bytes)
+            
+            # Load float16 array
+            depth_float16 = np.frombuffer(depth_bytes, dtype=np.float16)
+            
+            # Reshape (assuming square or standard resolution)
+            # SANPO default is typically 720x1280 or similar
+            # We'll infer from the byte count
+            num_pixels = len(depth_float16)
+            h = int(np.sqrt(num_pixels * 720 / 1280))  # Maintain aspect ratio
+            w = int(h * 1280 / 720)
+            
+            # If that doesn't work, try common resolutions
+            if h * w != num_pixels:
+                common_resolutions = [(720, 1280), (1080, 1920), (480, 640)]
+                for try_h, try_w in common_resolutions:
+                    if try_h * try_w == num_pixels:
+                        h, w = try_h, try_w
+                        break
+            
+            depth_float16 = depth_float16.reshape((h, w))
+            
+            # Convert to float32
+            depth_float32 = depth_float16.astype(np.float32)
+            
+            return depth_float32
+        
+        except Exception as e:
+            logger.warning(f"Could not load depth frame {frame_id}: {e}")
+            return None
+    
+    def iter_frames(self, session_id: str, max_frames: Optional[int] = None) -> Generator[Frame, None, None]:
         """
         Generator: Iterate through frames of a session with synchronized depth.
         
-        Memory efficient: Each frame is yielded and can be processed/discarded
-        immediately without keeping history in memory.
-        Works with both local and GCS paths.
-        
         Args:
-            session_id: Session to load (e.g., "001")
+            session_id: Session hash ID
+            max_frames: Limit number of frames (for testing)
         
         Yields:
-            Frame objects with rgb + depth synchronized
-        
-        Raises:
-            FileNotFoundError: If session files don't exist
-            ValueError: If frame-depth synchronization fails
+            Frame objects with rgb + depth + metadata
         """
-        if not self.validate_session(session_id):
-            raise FileNotFoundError(f"Session {session_id} not found")
+        # Get metadata
+        metadata = self.get_session_metadata(session_id)
+        fps = metadata.get("fps", 15)  # Default to 15 fps
         
-        session_meta = self.sessions[session_id]
-        fps = session_meta["fps"]
-        resolution = tuple(session_meta["resolution"])
+        # Detect resolution from first frame
+        first_frame = self._get_png_frame(session_id, 0)
+        if first_frame is None:
+            logger.error(f"Could not load first frame for {session_id}")
+            return
         
-        # Get video file (downloads if GCS)
-        video_path = self._get_video_file(session_id)
-        if not video_path:
-            raise FileNotFoundError(f"Could not get video for session {session_id}")
-        
-        # Open video
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise RuntimeError(f"Could not open video: {video_path}")
+        resolution = (first_frame.shape[1], first_frame.shape[0])  # (W, H)
+        logger.info(f"Session {session_id}: Resolution {resolution}, FPS {fps}")
         
         frame_id = 0
-        try:
-            while True:
-                ret, frame_rgb = cap.read()
-                if not ret:
-                    break
-                
-                # Ensure correct shape
-                if frame_rgb.shape[:2] != resolution:
-                    frame_rgb = cv2.resize(frame_rgb, (resolution[1], resolution[0]))
-                
-                # Get synchronized depth
-                depth_m = self._get_depth_file(session_id, frame_id)
-                if depth_m is None:
-                    logger.warning(f"Depth missing for frame {frame_id}, skipping")
-                    frame_id += 1
-                    continue
-                
-                timestamp = frame_id / fps
-                
-                yield Frame(
-                    frame_id=frame_id,
-                    timestamp=timestamp,
-                    rgb=frame_rgb,
-                    depth=depth_m,
-                    session_id=session_id,
-                    fps=fps,
-                    resolution=resolution
-                )
-                
+        while True:
+            if max_frames and frame_id >= max_frames:
+                break
+            
+            # Load PNG frame
+            rgb_frame = self._get_png_frame(session_id, frame_id)
+            if rgb_frame is None:
+                break  # No more frames
+            
+            # Load depth frame
+            depth_frame = self._get_depth_frame(session_id, frame_id)
+            if depth_frame is None:
+                logger.warning(f"Skipping frame {frame_id} (no depth data)")
                 frame_id += 1
-        
-        finally:
-            cap.release()
-            # Clean up temp file if GCS
-            if self.is_gcs:
-                try:
-                    os.remove(video_path)
-                    logger.info(f"Cleaned up temp video file: {video_path}")
-                except:
-                    pass
-        """
-        if not self.validate_session(session_id):
-            raise FileNotFoundError(f"Invalid session: {session_id}")
-        
-        session_meta = self.sessions[session_id]
-        video_file = self.video_dir / session_meta["video_file"].replace("videos/", "")
-        depth_folder = self.depth_dir / session_id
-        fps = session_meta["fps"]
-        resolution = tuple(session_meta["resolution"])
-        
-        # Open video
-        cap = cv2.VideoCapture(str(video_file))
-        if not cap.isOpened():
-            raise IOError(f"Cannot open video: {video_file}")
-        
-        frame_id = 0
-        try:
-            while True:
-                ret, frame_rgb = cap.read()
-                if not ret:
-                    break  # End of video
-                
-                # Convert BGR to RGB
-                frame_rgb = cv2.cvtColor(frame_rgb, cv2.COLOR_BGR2RGB)
-                
-                # Load corresponding depth map
-                depth_file = depth_folder / f"depth_{frame_id:04d}.npz"
-                if not depth_file.exists():
-                    logger.warning(f"Depth file missing: {depth_file}, skipping frame")
-                    frame_id += 1
-                    continue
-                
-                try:
-                    depth_data = np.load(depth_file)
-                    # Extract the depth array (npz may have multiple arrays)
-                    # Typical key: 'arr_0' or 'depth'
-                    key = list(depth_data.files)[0]
-                    depth = depth_data[key].astype(np.float32)
-                except Exception as e:
-                    logger.error(f"Error loading depth {depth_file}: {e}")
-                    frame_id += 1
-                    continue
-                
-                # Validate alignment
-                if frame_rgb.shape[:2] != depth.shape[:2]:
-                    raise ValueError(
-                        f"Frame {frame_id}: RGB shape {frame_rgb.shape} != "
-                        f"Depth shape {depth.shape}"
-                    )
-                
-                timestamp = frame_id / fps
-                yield Frame(
-                    frame_id=frame_id,
-                    timestamp=timestamp,
-                    rgb=frame_rgb,
-                    depth=depth,
-                    session_id=session_id,
-                    fps=fps,
-                    resolution=resolution
-                )
-                
-                frame_id += 1
-        
-        finally:
-            cap.release()
-            logger.info(f"Session {session_id}: Processed {frame_id} frames")
-    
-    def get_session_info(self, session_id: str) -> Dict:
-        """Get metadata for a specific session."""
-        return self.sessions.get(session_id, {})
-    
-    def list_sessions(self) -> list:
-        """List all available session IDs."""
-        return list(self.sessions.keys())
+                continue
+            
+            timestamp = frame_id / fps
+            
+            yield Frame(
+                frame_id=frame_id,
+                timestamp=timestamp,
+                rgb=rgb_frame,
+                depth=depth_frame,
+                session_id=session_id,
+                camera=self.camera,
+                view=self.view,
+                fps=fps,
+                resolution=resolution
+            )
+            
+            frame_id += 1
 
 
 # ============================================================================

@@ -26,13 +26,13 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 import time
 
-from sanpo_loader import SANPOLoader
-from scenario_filter import ScenarioFilter
-from frame_processor import FrameProcessor
-from training_dataset import TrainingDatasetAccumulator
+from .sanpo_loader import SANPOLoader
+from .scenario_filter import ScenarioFilter
+from .frame_processor import FrameProcessor
+from .training_dataset import TrainingDatasetAccumulator
 
 # Set up logging
 logging.basicConfig(
