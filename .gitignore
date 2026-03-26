@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS Code / IDEs
+.vscode/
+.idea/
+
+# Virtual Environments
+venv/
+env/
+.env/
+
+# Data and Models
+# DO NOT COMMIT massive datasets or model weights to git
+data/
+models/**/*.pt
+models/**/*.onnx
+models/**/*.gguf
+models/**/*.bin
+
+# Logs and outputs
+logs/
+evaluation/logs/
+*.log
+
+# Temp files
+.DS_Store
+Thumbs.db
