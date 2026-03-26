@@ -1,7 +1,7 @@
 # CPE Phase 1 — Perception Pipeline Dependencies
 
 # Core inference
-ultralytics>=8.2.0          # YOLO + ByteTrack (bytetrack.yaml is bundled)
+ultralytics>=8.9.0          # YOLO26n + ByteTrack (bytetrack.yaml is bundled)
 torch>=2.2.0
 torchvision>=0.17.0
 
