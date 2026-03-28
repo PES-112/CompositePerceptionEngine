@@ -92,6 +92,7 @@ def build_fact_sheets(
     fps: float,
     lookahead_s: float,
     out_path: Path,
+    append: bool = False,
 ) -> tuple[int, int]:
     """
     Iterate over all frames, score objects with K₀ and K₊₂, write train.jsonl.
@@ -109,7 +110,8 @@ def build_fact_sheets(
     frame_indices    = sorted(frames.keys())
     written = skipped = 0
 
-    with open(out_path, "w") as f:
+    mode = "a" if append else "w"
+    with open(out_path, mode) as f:
         for frame_idx in frame_indices:
             objects = frames[frame_idx]
 
