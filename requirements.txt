@@ -2,6 +2,7 @@
 
 # Core inference
 ultralytics>=8.9.0          # YOLO26n + ByteTrack (bytetrack.yaml is bundled)
+lap>=0.5.12                 # linear assignment — required by ByteTrack
 torch>=2.2.0
 torchvision>=0.17.0
 
@@ -15,3 +16,4 @@ pandas>=2.2.0
 
 # Utilities
 tqdm>=4.66.0
+google-cloud-storage>=2.8.0  # anonymous download of SANPO-Synthetic from GCS
