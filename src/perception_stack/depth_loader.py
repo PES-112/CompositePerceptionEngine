@@ -78,20 +78,74 @@ def load_depth_map(depth_path: Path, source: str = "sanpo") -> np.ndarray | None
 def median_depth_in_box(
     depth_map: np.ndarray,
     x1: int, y1: int, x2: int, y2: int,
+    center_frac: float = 0.2,
+    exclude_boxes: list | None = None,
 ) -> float | None:
     """
-    Return the median metric depth (metres) of valid pixels inside a bounding box.
-    Crops ROI, filters noise, returns None if no valid pixels found.
+    Sample depth from the **central patch** of a bounding box.
+
+    Uses only the inner `center_frac` fraction of the box — avoids averaging
+    depth from edges / background pixels that bleed into the bbox.
+
+    Args:
+        depth_map:     2-D float32 depth array (metres).
+        x1, y1, x2, y2: Bounding box corners.
+        center_frac:   Fraction of bbox width/height to sample (default 0.2).
+        exclude_boxes: List of (x1, y1, x2, y2) boxes to mask OUT before
+                       sampling.  Used to prevent a background object from
+                       reading depth *through* a closer foreground object
+                       that overlaps it in image space.
+
+    Returns:
+        Median depth in metres, or None if no valid pixels found.
     """
-    # Clamp bbox to depth map bounds (SANPO frames may be downscaled by YOLO)
     h, w = depth_map.shape[:2]
-    x1, x2 = max(0, x1), min(w, x2)
-    y1, y2 = max(0, y1), min(h, y2)
-    if x1 >= x2 or y1 >= y2:
+
+    cx = (x1 + x2) // 2
+    cy = (y1 + y2) // 2
+    bw = max(1, int((x2 - x1) * center_frac / 2))
+    bh = max(1, int((y2 - y1) * center_frac / 2))
+
+    rx1, rx2 = max(0, cx - bw), min(w, cx + bw)
+    ry1, ry2 = max(0, cy - bh), min(h, cy + bh)
+    if rx1 >= rx2 or ry1 >= ry2:
         return None
 
-    roi   = depth_map[y1:y2, x1:x2]
-    valid = roi[(roi > MIN_DEPTH_M) & (roi < MAX_DEPTH_M)]
+    # Build usability mask — True = pixel is valid for sampling
+    patch_h = ry2 - ry1
+    patch_w = rx2 - rx1
+    mask = np.ones((patch_h, patch_w), dtype=bool)
+
+    # Mask out pixels that belong to any foreground (occluding) box
+    if exclude_boxes:
+        for (ex1, ey1, ex2, ey2) in exclude_boxes:
+            mx1 = max(0, ex1 - rx1)
+            my1 = max(0, ey1 - ry1)
+            mx2 = min(patch_w, ex2 - rx1)
+            my2 = min(patch_h, ey2 - ry1)
+            if mx1 < mx2 and my1 < my2:
+                mask[my1:my2, mx1:mx2] = False
+
+    roi   = depth_map[ry1:ry2, rx1:rx2]
+    valid = roi[(roi > MIN_DEPTH_M) & (roi < MAX_DEPTH_M) & mask]
+
+    # ── Sparse depth fallback — expand patch 3× if no readings ────
+    if valid.size == 0:
+        bw2, bh2 = bw * 3, bh * 3
+        rx1, rx2 = max(0, cx - bw2), min(w, cx + bw2)
+        ry1, ry2 = max(0, cy - bh2), min(h, cy + bh2)
+        patch_h = ry2 - ry1
+        patch_w = rx2 - rx1
+        mask2 = np.ones((patch_h, patch_w), dtype=bool)
+        if exclude_boxes:
+            for (ex1, ey1, ex2, ey2) in exclude_boxes:
+                mx1 = max(0, ex1 - rx1); my1 = max(0, ey1 - ry1)
+                mx2 = min(patch_w, ex2 - rx1); my2 = min(patch_h, ey2 - ry1)
+                if mx1 < mx2 and my1 < my2:
+                    mask2[my1:my2, mx1:mx2] = False
+        roi   = depth_map[ry1:ry2, rx1:rx2]
+        valid = roi[(roi > MIN_DEPTH_M) & (roi < MAX_DEPTH_M) & mask2]
+
     if valid.size == 0:
         return None
     return float(np.median(valid))

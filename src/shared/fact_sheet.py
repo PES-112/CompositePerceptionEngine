@@ -9,18 +9,9 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 import json
 
-
-# Object classes and their base severity weights
-CLASS_SEVERITY = {
-    "car": 1.0,
-    "truck": 1.5,
-    "bus": 1.5,
-    "motorcycle": 0.9,
-    "bicycle": 0.6,
-    "pedestrian": 0.7,
-    "construction": 0.8,
-    "unknown": 0.5,
-}
+# ── Import canonical severity weights from physics module ─────────────────────
+# (single source of truth — avoids divergent copies)
+from src.perception_stack.physics import CLASS_SEVERITY
 
 # Mass weights (used in threat score)
 CLASS_MASS_WEIGHT = {

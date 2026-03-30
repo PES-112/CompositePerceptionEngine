@@ -10,14 +10,15 @@ downstream code stable when internal structure changes.
 from src.perception_stack.depth_loader      import load_depth_map, median_depth_in_box
 from src.perception_stack.physics           import (
     compute_bearing, compute_velocity, kinetic_score, bearing_label,
+    batch_compute_bearing, batch_kinetic_score,
     CLASS_SEVERITY,
 )
 from src.perception_stack.yolo_tracker      import YoloTracker
-from src.perception_stack.csv_writer        import CSV_FIELDS, write_csv
+from src.perception_stack.csv_writer        import CSV_FIELDS, write_csv, StreamingCSVWriter
 from src.perception_stack.fact_sheet_builder import (
     load_perception_csv, build_fact_sheets,
 )
-from src.perception_stack.pipeline          import run_perception
+from src.perception_stack.pipeline          import run_perception, run_perception_stream
 
 __all__ = [
     # depth
@@ -25,12 +26,13 @@ __all__ = [
     # physics
     "compute_bearing", "compute_velocity", "kinetic_score",
     "bearing_label", "CLASS_SEVERITY",
+    "batch_compute_bearing", "batch_kinetic_score",
     # tracking
     "YoloTracker",
     # csv
-    "CSV_FIELDS", "write_csv",
+    "CSV_FIELDS", "write_csv", "StreamingCSVWriter",
     # fact sheets
     "load_perception_csv", "build_fact_sheets",
     # orchestrator
-    "run_perception",
+    "run_perception", "run_perception_stream",
 ]

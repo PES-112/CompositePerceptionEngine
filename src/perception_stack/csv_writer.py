@@ -42,3 +42,40 @@ def write_csv(rows: list[dict], out_path: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
         writer.writeheader()
         writer.writerows(rows)
+
+
+class StreamingCSVWriter:
+    """
+    Context manager for streaming CSV output — writes rows incrementally
+    as the perception generator yields them, without holding all data in RAM.
+
+    Usage:
+        with StreamingCSVWriter(out_path) as writer:
+            for frame_rows in run_perception_stream(...):
+                writer.write_rows(frame_rows)
+    """
+
+    def __init__(self, out_path: Path):
+        self.out_path = out_path
+        self._file = None
+        self._writer = None
+        self.rows_written = 0
+
+    def __enter__(self):
+        self.out_path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = open(self.out_path, "w", newline="")
+        self._writer = csv.DictWriter(self._file, fieldnames=CSV_FIELDS)
+        self._writer.writeheader()
+        return self
+
+    def write_rows(self, rows: list[dict]) -> None:
+        """Write a batch of row dicts (typically one frame's worth)."""
+        if self._writer is None:
+            raise RuntimeError("StreamingCSVWriter not open — use as context manager")
+        self._writer.writerows(rows)
+        self.rows_written += len(rows)
+
+    def __exit__(self, *exc):
+        if self._file:
+            self._file.close()
+        return False

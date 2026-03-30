@@ -89,3 +89,54 @@ def bearing_label(deg: float) -> str:
     if deg < 30:
         return "right"
     return "far-right"
+
+
+# ── Vectorised batch operations (torch tensors) ──────────────────────────────
+
+def batch_compute_bearing(
+    cx_tensor,
+    frame_width: int,
+    hfov_deg: float = 70.0,
+):
+    """
+    Vectorised bearing for N detections at once.
+
+    Args:
+        cx_tensor: 1-D tensor/array of centre-x pixel coordinates (N,).
+        frame_width: Frame width in pixels.
+        hfov_deg:    Horizontal field-of-view in degrees.
+
+    Returns:
+        Tensor/array of bearing values in degrees (N,).
+    """
+    import torch
+    if not isinstance(cx_tensor, torch.Tensor):
+        cx_tensor = torch.tensor(cx_tensor, dtype=torch.float32)
+    normalised = (cx_tensor - frame_width / 2) / (frame_width / 2)
+    return normalised * (hfov_deg / 2)
+
+
+def batch_kinetic_score(
+    distances,
+    velocities,
+    severity_weights,
+):
+    """
+    Vectorised kinetic score for N detections: K = severity × v² / max(d, ε).
+
+    Args:
+        distances:        1-D tensor/array of distances in metres (N,).
+        velocities:       1-D tensor/array of closing velocities m/s (N,).
+        severity_weights: 1-D tensor/array of class severity weights (N,).
+
+    Returns:
+        Tensor/array of kinetic scores (N,).
+    """
+    import torch
+    if not isinstance(distances, torch.Tensor):
+        distances = torch.tensor(distances, dtype=torch.float32)
+    if not isinstance(velocities, torch.Tensor):
+        velocities = torch.tensor(velocities, dtype=torch.float32)
+    if not isinstance(severity_weights, torch.Tensor):
+        severity_weights = torch.tensor(severity_weights, dtype=torch.float32)
+    return severity_weights * (velocities ** 2) / torch.clamp(distances, min=EPSILON)
