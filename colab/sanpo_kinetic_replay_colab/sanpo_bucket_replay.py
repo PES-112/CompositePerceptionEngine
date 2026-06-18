@@ -52,6 +52,10 @@ class ObjectFact:
     distance_m: Optional[float]
     velocity_ms: float
     position: str
+    bbox_xyxy: Optional[tuple[int, int, int, int]] = None
+    bearing_deg: Optional[float] = None
+    confidence: Optional[float] = None
+    track_id: Optional[str] = None
 
 
 OBJECT_PREFIX = re.compile(r"^(Object_\d+):\s*(.+)$")
@@ -144,8 +148,79 @@ def parse_object_segment(segment: str) -> Optional[ObjectFact]:
     )
 
 
+def _as_float(value: object) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_bbox_xyxy(value: object) -> Optional[tuple[int, int, int, int]]:
+    if not isinstance(value, list) or len(value) != 4:
+        return None
+    try:
+        x1, y1, x2, y2 = [int(round(float(v))) for v in value]
+    except (TypeError, ValueError):
+        return None
+    return (x1, y1, x2, y2)
+
+
+def _parse_new_schema_record(row: dict) -> Optional[tuple[int, list[ObjectFact]]]:
+    if "frame_id" not in row:
+        return None
+
+    try:
+        frame_id = int(row["frame_id"])
+    except (TypeError, ValueError):
+        return None
+
+    objects_raw = row.get("objects", [])
+    if not isinstance(objects_raw, list):
+        objects_raw = []
+
+    objects: list[ObjectFact] = []
+    for i, obj in enumerate(objects_raw):
+        if not isinstance(obj, dict):
+            continue
+
+        object_id = str(obj.get("object_id") or f"Object_{i + 1:02d}")
+        obj_class = str(obj.get("class") or "unknown")
+        distance_m = _as_float(obj.get("distance_m"))
+        velocity_ms = _as_float(obj.get("velocity_ms"))
+        bearing_deg = _as_float(obj.get("bearing_deg"))
+        position_label = str(obj.get("position_label") or "unknown")
+
+        if velocity_ms is None:
+            velocity_ms = 0.0
+
+        objects.append(
+            ObjectFact(
+                object_id=object_id,
+                obj_class=obj_class,
+                distance_m=distance_m,
+                velocity_ms=velocity_ms,
+                position=position_label,
+                bbox_xyxy=_parse_bbox_xyxy(obj.get("bbox_xyxy")),
+                bearing_deg=bearing_deg,
+                confidence=_as_float(obj.get("confidence")),
+                track_id=str(obj.get("track_id")) if obj.get("track_id") is not None else None,
+            )
+        )
+
+    return frame_id, objects
+
+
 def parse_jsonl_record(raw_line: str):
     row = json.loads(raw_line)
+
+    # New processed schema (one record per frame with `objects` array).
+    if isinstance(row, dict) and "schema_version" in row and "objects" in row:
+        parsed = _parse_new_schema_record(row)
+        if parsed is not None:
+            return parsed
+
     assistant = json.loads(row.get("assistant", "{}"))
     if "frame_id" not in assistant:
         return None
@@ -294,6 +369,35 @@ def _score_color(value: float, max_value: float) -> tuple[int, int, int]:
     return (b, g, r)
 
 
+def _draw_scaled_bbox(
+    image: np.ndarray,
+    bbox_xyxy: tuple[int, int, int, int],
+    scale: float,
+    color: tuple[int, int, int],
+    thickness: int = 2,
+) -> tuple[int, int, int, int]:
+    h, w = image.shape[:2]
+    x1, y1, x2, y2 = bbox_xyxy
+
+    x1s = int(round(x1 * scale))
+    y1s = int(round(y1 * scale))
+    x2s = int(round(x2 * scale))
+    y2s = int(round(y2 * scale))
+
+    x1s = max(0, min(w - 1, x1s))
+    y1s = max(0, min(h - 1, y1s))
+    x2s = max(0, min(w - 1, x2s))
+    y2s = max(0, min(h - 1, y2s))
+
+    if x2s <= x1s:
+        x2s = min(w - 1, x1s + 1)
+    if y2s <= y1s:
+        y2s = min(h - 1, y1s + 1)
+
+    cv2.rectangle(image, (x1s, y1s), (x2s, y2s), color, thickness)
+    return (x1s, y1s, x2s, y2s)
+
+
 def render_replay_from_bucket(
     client: storage.Client,
     session_id: str,
@@ -418,6 +522,14 @@ def render_replay_from_bucket(
                 fill = int(bar_w * (score / max_k)) if max_k > 0 else 0
                 if fill > 0:
                     cv2.rectangle(img, (bar_x, y - 11), (bar_x + fill, y + 5), color, -1)
+
+            if obj.bbox_xyxy is not None:
+                x1, y1, x2, y2 = _draw_scaled_bbox(img, obj.bbox_xyxy, scale, color, thickness=2)
+                label = f"{obj.object_id} {obj.obj_class} K*={score:.3f}"
+                if obj.confidence is not None:
+                    label += f" c={obj.confidence:.2f}"
+                label_y = y1 - 6 if y1 > 20 else min(out_h - 6, y1 + 18)
+                cv2.putText(img, label, (x1, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
 
             y += 28
 
