@@ -1,0 +1,27 @@
+date,component,feature,status,files_changed,notes
+2026-03-25,Architecture,Dual-SLM system design (Reflex + Cognitive + Physics Verification),done,architecture.md,Initial CPE architecture finalized
+2026-03-25,Perception Stack,YOLO26n + ByteTrack integration,done,"src/perception_stack/yolo_tracker.py",Basic tracking pipeline
+2026-03-25,Perception Stack,SANPO + UASOL depth map loading,done,"src/perception_stack/depth_loader.py",Auto-detects .float16.gz vs .png
+2026-03-25,Perception Stack,Stage 1 pipeline (RGB+Depth → CSV),done,"src/perception_stack/pipeline.py",run_perception() batch mode
+2026-03-25,Perception Stack,CSV canonical schema + writer,done,"src/perception_stack/csv_writer.py",CSV_FIELDS contract defined
+2026-03-25,Perception Stack,Physics calculations (bearing/velocity/kinetic score),done,"src/perception_stack/physics.py",Scalar functions
+2026-03-25,Perception Stack,Stage 2 fact sheet builder (CSV → JSONL),done,"src/perception_stack/fact_sheet_builder.py",K0 + K+2 lookahead
+2026-03-25,Physics Verification,Adjudication logic (4-rule judge + RL rewards),done,"src/physics_verification/physics_verification.py",PhysicsVerification class
+2026-03-25,Tools,run_perception.py CLI (Stage 1),done,"tools/run_perception.py",Initial batch API
+2026-03-25,Tools,run_fact_sheets.py CLI (Stage 2),done,"tools/run_fact_sheets.py",Initial implementation
+2026-03-27,Perception Stack,Unlabeled obstacle detection via depth scan,done,"src/perception_stack/pipeline.py",Single central-ROI scan for poles/bollards
+2026-03-30,Perception Stack,Centre-patch depth sampling (20% patch),done,"src/perception_stack/depth_loader.py",Fixes bbox edge bleed
+2026-03-30,Perception Stack,Occlusion exclusion masking in depth sampling,done,"src/perception_stack/depth_loader.py",exclude_boxes param added to median_depth_in_box
+2026-03-30,Perception Stack,Sparse depth 3x fallback,done,"src/perception_stack/depth_loader.py",Auto-expands patch if no valid pixels found
+2026-03-30,Perception Stack,Class whitelist filter,done,"src/perception_stack/yolo_tracker.py",ALLOWED_CLASSES set — drops non-navigation COCO classes
+2026-03-30,Perception Stack,Geometric validation (aspect ratio + area + edge FPs),done,"src/perception_stack/yolo_tracker.py",is_valid_detection()
+2026-03-30,Perception Stack,3-pass depth rescoring (size sanity + conf + depth NMS),done,"src/perception_stack/yolo_tracker.py",depth_rescore() function
+2026-03-30,Perception Stack,Grid-based unlabeled obstacle sweep (5 columns),done,"src/perception_stack/pipeline.py",Replaces single-ROI scan
+2026-03-30,Perception Stack,Front-to-back occlusion ordering,done,"src/perception_stack/pipeline.py",Sorting + cumulative occluder list
+2026-03-30,Perception Stack,Nth-frame skip (frame_step param),done,"src/perception_stack/pipeline.py, tools/run_perception.py",frame_step=3 → ~67% compute reduction
+2026-03-30,Perception Stack,Streaming generator architecture (run_perception_stream),done,"src/perception_stack/pipeline.py",Generator yields per-frame; breaks RAM bottleneck
+2026-03-30,Perception Stack,tqdm progress bar,done,"src/perception_stack/pipeline.py",Replaces print every 50 frames
+2026-03-30,Perception Stack,StreamingCSVWriter context manager,done,"src/perception_stack/csv_writer.py",Incremental disk writes paired with generator
+2026-03-30,Perception Stack,Batch tensor physics (torch vectorised),done,"src/perception_stack/physics.py",batch_compute_bearing + batch_kinetic_score
+2026-03-30,Perception Stack,CLASS_SEVERITY deduplication,done,"src/perception_stack/fact_sheet_builder.py",fact_sheet_builder now imports from physics.py
+2026-03-30,Tools,--frame_step CLI arg + streaming API in run_perception.py,done,"tools/run_perception.py",Uses StreamingCSVWriter
