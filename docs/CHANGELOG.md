@@ -2,6 +2,11 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-10] — Implementation Plans for YOLO Fine-Tuning & Gap Analysis
+### Documentation
+- **`docs/plan_yolo_finetune.md`**: Detailed implementation plan for fine-tuning YOLO26n. Includes class curation rationale (dropping `cat`, `umbrella`, `backpack`, `suitcase`; adding `pole`, `stairs`, `crosswalk`, `overhanging_hazard`), SANPO panoptic-to-YOLO label conversion pipeline, dataset split strategy, training script outline, and benchmark targets.
+- **`docs/plan_gap_analysis.md`**: Step-by-step implementation plan for running the gap analysis notebook across SANPO. Documents all config parameters, output folder management (frame sampling to prevent bloat), visualization legend, CSV column definitions, and post-run analysis queries.
+
 ## [2026-07-10] — SANPO Analysis & YOLO Class Curation
 ### Research & Tooling
 - **SANPO dataset clarified**: SANPO is a Google Research egocentric navigation dataset (701 real + 1961 synthetic sessions), NOT an Indian dataset. Confirmed 30-class taxonomy covering sidewalks, poles, crosswalks, pedestrians, and cyclists.
