@@ -110,6 +110,12 @@ YOLO26 Nano + ByteTrack + Depth Map overlay. Outputs per object:
 - Metric distance `d` (**extracted from dataset depth map at bbox centroid**)
 - Velocity `v = Δd / Δt` across frames
 
+**Edge Optimization (YOLO Fine-Tuning):**
+The YOLO26n model is fine-tuned on a domain-specific hazard dataset (potholes, bollards, overhanging branches, puddles) rather than standard COCO classes. This provides critical semantic labels for navigation hazards at the edge.
+
+**Compute Reduction (N-Frame Skip):**
+To achieve 30+ FPS on edge devices, the system employs an N-frame skip (e.g., every 3rd frame). Between detections, the system relies on depth-guided ByteTrack interpolation, yielding a ~67% compute reduction without sacrificing safety.
+
 ---
 
 ### 2.3 Threat Prioritizer
@@ -293,7 +299,21 @@ This loop runs thousands of times across the SANPO and UASOL video frames. **SLM
 
 ---
 
-## 9. Minor Architecture Recommendations
+## 9. Offline Training & Knowledge Distillation (Teacher-Student)
+
+To bridge the gap between rich semantic understanding and edge-device constraints (battery, memory, latency), the system uses a **Knowledge Distillation** pipeline for SLM-1.
+
+### 1. Offline Generation (The Teacher)
+Massive VLM models (e.g., Grounding DINO, GPT-4V, YOLOv10x) process thousands of street-view images offline. These slow, heavy models generate perfect pseudo-labels, bounding boxes, and rich natural-language descriptions of the scene (e.g., "Deep pothole immediately ahead at foot level, requiring a full stop").
+
+### 2. Edge Fine-Tuning (The Student)
+The edge-deployed **SLM-1 (e.g., Qwen2.5-1.5B)** is fine-tuned on this generated dataset. It learns to map the extremely lightweight, edge-generated "Fact Sheet" (YOLO class + Depth + Kinetic Score) to the rich semantic understanding demonstrated by the Teacher model.
+
+This allows the edge system to mimic the reasoning capabilities of a 100B+ parameter model while executing in ~500ms on a mobile NPU.
+
+---
+
+## 10. Minor Architecture Recommendations
 
 To refine the architecture without making major structural changes:
 

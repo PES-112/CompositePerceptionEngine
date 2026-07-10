@@ -1,0 +1,7 @@
+# Documentation and Paper Integrity Rule
+
+Whenever you are asked to make changes to the codebase, add new features, or alter the system design, you MUST automatically perform the following documentation updates before concluding your task:
+
+1. **Architecture (`docs/architecture.md`)**: Check if the changes affect the system architecture, data flow, or components. If they do, update `docs/architecture.md` to reflect these changes accurately.
+2. **Changelog (`docs/CHANGELOG.md`)**: Always append a new entry to `docs/CHANGELOG.md` under the current date, summarizing the modifications made to the codebase or documentation.
+3. **Research Prompts (`docs/research_paper_prompts.md`)**: Review `docs/research_paper_prompts.md`. If the recent changes introduce new methodologies, metrics, or architectural concepts that should be highlighted in the academic paper, update the relevant LLM prompts to include these new details.
