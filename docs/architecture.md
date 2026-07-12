@@ -116,6 +116,13 @@ The YOLO26n model is fine-tuned on a domain-specific hazard dataset (potholes, b
 **Compute Reduction (N-Frame Skip):**
 To achieve 30+ FPS on edge devices, the system employs an N-frame skip (e.g., every 3rd frame). Between detections, the system relies on depth-guided ByteTrack interpolation, yielding a ~67% compute reduction without sacrificing safety.
 
+**Error Analysis & Dataset Gap Analysis Workflow:**
+To identify blind spots in the YOLO detection stack and prioritize fine-tuning efforts, the engine includes a dedicated gap analysis workflow (`notebooks/sanpo_yolo_gap_analysis.ipynb`):
+- **Depth-only Candidate Region Detection:** It identifies regions in the depth map within navigation ranges (0.5m - 6.0m) that have no corresponding YOLO detections.
+- **Robust Component Filtering:** Applies Gaussian smoothing and morphological operations to suppress sensor noise and isolate physical obstructions.
+- **Hard Example Mining:** Automatically flags and saves challenging frames (cluttered scenes, low confidence, large unexplained depth gaps) to `hard_examples/` for manual labeling.
+- **Recommendations Report:** Automatically compiles statistics to recommend target categories (e.g., ground-level clutter, head-level hazards) and prioritization plans for subsequent YOLO fine-tuning iterations.
+
 ---
 
 ### 2.3 Threat Prioritizer

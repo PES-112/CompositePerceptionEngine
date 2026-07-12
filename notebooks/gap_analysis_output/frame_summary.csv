@@ -1,0 +1,2 @@
+stream_id,frame_id,detection_count,candidate_region_count,total_candidate_area,largest_candidate_area,coverage_percentage,unexplained_percentage,average_confidence,notes
+-5OCPnbrwJdu3jH70ieU7pUiFsOJQoeG,0,2,2,141509,140276,33.36048779823722,66.63951220176278,0.42968888580799103,"Large gap, Low confidence overlay"

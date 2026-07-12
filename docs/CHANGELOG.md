@@ -2,6 +2,16 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-12] — YOLO Gap Analysis Expansion & Automation
+### Tooling & Inference
+- **Expanded YOLO Gap Analysis Notebook**: Overhauled `notebooks/sanpo_yolo_gap_analysis.ipynb` with centralized configuration, robust morphological object extraction, 5-panel visualizations, and automated fine-tuning advice reports.
+- **GCS-Aware Stream Fallback**: Integrated streaming logic in `SANPOLoader` to dynamically fetch images and depth maps from Google Cloud Storage anonymously when local files are missing.
+- **Automated Verification**: Created verification test scripts to execute and validate the notebook code cells under headless conditions.
+
+### Architecture & Documentation
+- **Architecture Doc Update**: Documented the new error analysis and dataset gap analysis pipeline in `docs/architecture.md`.
+- **Research Prompt Curation**: Added prompt guidelines for writing methodology sections on connected component extraction and hard example mining in `docs/research_paper_prompts.md`.
+
 ## [2026-07-10] — Implementation Plans for YOLO Fine-Tuning & Gap Analysis
 ### Documentation
 - **`docs/plan_yolo_finetune.md`**: Detailed implementation plan for fine-tuning YOLO26n. Includes class curation rationale (dropping `cat`, `umbrella`, `backpack`, `suitcase`; adding `pole`, `stairs`, `crosswalk`, `overhanging_hazard`), SANPO panoptic-to-YOLO label conversion pipeline, dataset split strategy, training script outline, and benchmark targets.
