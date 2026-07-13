@@ -1,0 +1,31 @@
+# CPE Navigation Hazard dataset for YOLO26n fine-tuning.
+# Expected layout:
+#   data/yolo_finetune/images/train
+#   data/yolo_finetune/images/val
+#   data/yolo_finetune/images/test
+#   data/yolo_finetune/labels/train
+#   data/yolo_finetune/labels/val
+#   data/yolo_finetune/labels/test
+path: data/yolo_finetune
+train: images/train
+val: images/val
+test: images/test
+
+nc: 16
+names:
+  0: person
+  1: bicycle
+  2: car
+  3: motorcycle
+  4: bus
+  5: truck
+  6: traffic light
+  7: stop sign
+  8: fire hydrant
+  9: pole
+  10: bollard
+  11: stairs
+  12: crosswalk
+  13: pothole
+  14: puddle
+  15: overhanging_hazard

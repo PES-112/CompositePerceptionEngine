@@ -2,6 +2,14 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-14] - YOLO26n Hazard Fine-Tuning Entrypoint
+### Training
+- Added `training/scripts/train_yolo26n_hazards.py`, a lab-GPU training script that fine-tunes `yolo26n.pt` on CPE navigation hazards while preserving the nano architecture, freezing early layers, applying rare-class weighting, and optionally exporting INT8 edge artifacts with an export-only mode for finished checkpoints.
+- Added `training/configs/cpe_hazard_classes.yaml` with a 16-class CPE hazard taxonomy covering retained COCO safety classes plus non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, `puddle`, and `overhanging_hazard`.
+
+### Documentation
+- Updated the architecture and research-paper prompts to describe the edge-preserving YOLO26n fine-tuning workflow.
+
 ## [2026-07-12] — YOLO Gap Analysis Expansion & Automation
 ### Tooling & Inference
 - **Expanded YOLO Gap Analysis Notebook**: Overhauled `notebooks/sanpo_yolo_gap_analysis.ipynb` with centralized configuration, robust morphological object extraction, 5-panel visualizations, and automated fine-tuning advice reports.

@@ -113,6 +113,8 @@ YOLO26 Nano + ByteTrack + Depth Map overlay. Outputs per object:
 **Edge Optimization (YOLO Fine-Tuning):**
 The YOLO26n model is fine-tuned on a domain-specific hazard dataset (potholes, bollards, overhanging branches, puddles) rather than standard COCO classes. This provides critical semantic labels for navigation hazards at the edge.
 
+The fine-tuning entry point is `training/scripts/train_yolo26n_hazards.py`, backed by `training/configs/cpe_hazard_classes.yaml`. It keeps the YOLO26n nano backbone as the student model, reduces the detector head from COCO's broad 80-class taxonomy to 16 CPE navigation classes, freezes early layers by default, and supports INT8 export for edge deployment. This adds non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, `puddle`, and `overhanging_hazard` without moving to a larger model family.
+
 **Compute Reduction (N-Frame Skip):**
 To achieve 30+ FPS on edge devices, the system employs an N-frame skip (e.g., every 3rd frame). Between detections, the system relies on depth-guided ByteTrack interpolation, yielding a ~67% compute reduction without sacrificing safety.
 

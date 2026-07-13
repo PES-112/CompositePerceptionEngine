@@ -22,6 +22,7 @@ Use the following prompts with an LLM (like Gemini) to systematically draft the 
 **Prompt:**
 > "Write the Methodology subsection detailing our 'Hybrid Perception Stack'. Explain how we process RGB and depth data on the edge. Include the following technical details:
 > - We fine-tune YOLO26n specifically for street hazards (potholes, bollards, branches) rather than using standard COCO classes, as COCO is insufficient for navigation.
+> - The training workflow keeps the nano architecture fixed, freezes early backbone layers during transfer learning, replaces the broad COCO head with a compact 16-class CPE hazard taxonomy, and exports INT8 edge artifacts to avoid increasing runtime latency.
 > - We implement an N-frame detection skip (e.g., every 3rd frame). Between detection frames, we rely on depth-guided tracking and interpolation, reducing compute load by ~67% while maintaining high safety margins.
 > - We use the depth map to extract precise distance (d) at the bounding box centroid to calculate a 'Kinetic Score' based on velocity and distance.
 > - We implement an empirical 'YOLO Gap Analysis' pipeline that cross-references depth map structures with YOLO detections using morphological connected component labeling. This system mines hard examples automatically (saved under `hard_examples/`) and constructs fine-tuning action plans targeting ground clutter or head-height hazards."
