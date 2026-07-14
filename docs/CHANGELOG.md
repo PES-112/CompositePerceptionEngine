@@ -2,12 +2,19 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
-## [2026-07-14] - YOLO26n Hazard Fine-Tuning Entrypoint
+## [2026-07-14] - YOLO26n Hazard Fine-Tuning & Multi-Range Gap Analysis
+### Tooling & Evaluation
+- **Multi-Range Gap Analysis Script**: Added `tools/gap_analysis_experiments.py` to evaluate and compare 4 distinct depth ranges across 20 valid streams using all YOLO classes (whitelist disabled).
+- **JSON Hard Example Logging**: Configured the script to save session ID and frame number mappings of hard examples in a range-specific JSON format (`hard_examples.json`) rather than writing large raw frame images to disk.
+- **Experimental Reports**: Configured the script to output range-specific CSV summaries and a master comparison report (`distance_metric_comparison.md`) under the `gap_analysis_output/` folder.
+- **Workspace Cleanup**: Cleaned up the workspace by deleting legacy visual output PNGs.
+
 ### Training
 - Added `training/scripts/train_yolo26n_hazards.py`, a lab-GPU training script that fine-tunes `yolo26n.pt` on CPE navigation hazards while preserving the nano architecture, freezing early layers, applying rare-class weighting, and optionally exporting INT8 edge artifacts with an export-only mode for finished checkpoints.
 - Added `training/configs/cpe_hazard_classes.yaml` with a 16-class CPE hazard taxonomy covering retained COCO safety classes plus non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, `puddle`, and `overhanging_hazard`.
 
 ### Documentation
+- Updated `docs/architecture.md` and `docs/research_paper_prompts.md` to document the multi-range gap analysis capabilities, whitelist removal, and JSON logging format.
 - Updated the architecture and research-paper prompts to describe the edge-preserving YOLO26n fine-tuning workflow.
 
 ## [2026-07-12] — YOLO Gap Analysis Expansion & Automation

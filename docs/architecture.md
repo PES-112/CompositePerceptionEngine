@@ -119,11 +119,12 @@ The fine-tuning entry point is `training/scripts/train_yolo26n_hazards.py`, back
 To achieve 30+ FPS on edge devices, the system employs an N-frame skip (e.g., every 3rd frame). Between detections, the system relies on depth-guided ByteTrack interpolation, yielding a ~67% compute reduction without sacrificing safety.
 
 **Error Analysis & Dataset Gap Analysis Workflow:**
-To identify blind spots in the YOLO detection stack and prioritize fine-tuning efforts, the engine includes a dedicated gap analysis workflow (`notebooks/sanpo_yolo_gap_analysis.ipynb`):
-- **Depth-only Candidate Region Detection:** It identifies regions in the depth map within navigation ranges (0.5m - 6.0m) that have no corresponding YOLO detections.
-- **Robust Component Filtering:** Applies Gaussian smoothing and morphological operations to suppress sensor noise and isolate physical obstructions.
-- **Hard Example Mining:** Automatically flags and saves challenging frames (cluttered scenes, low confidence, large unexplained depth gaps) to `hard_examples/` for manual labeling.
-- **Recommendations Report:** Automatically compiles statistics to recommend target categories (e.g., ground-level clutter, head-level hazards) and prioritization plans for subsequent YOLO fine-tuning iterations.
+To identify blind spots in the YOLO detection stack and prioritize fine-tuning efforts, the engine includes a dedicated gap analysis workflow (`notebooks/sanpo_yolo_gap_analysis.ipynb`) and a batch evaluation utility (`tools/gap_analysis_experiments.py`):
+- **Depth-only Candidate Region Detection:** It identifies regions in the depth map within customizable navigation ranges that have no corresponding YOLO detections.
+- **Whitelist-agnostic Analysis:** The system can evaluate gaps across all 80 standard COCO classes (rather than a constrained subset) to check for general perception failures.
+- **Multi-Range Evaluation:** Supports running parallel comparisons across multiple depth ranges (e.g., Immediate 0.5m-2.0m, Mid-range 0.5m-4.0m, Standard 0.5m-6.0m, and Far-range 2.0m-6.0m) to optimize the system configuration.
+- **Hard Example Logging:** Instead of exporting heavy images to disk, it flags challenging frames and saves their metadata (`session_id` and list of `frame_id`s) to range-specific JSON files (`hard_examples.json`) for downstream annotation workflows.
+- **Comparison & Recommendations:** Compiles frame stats, candidate regions, and generates a structured comparison report (`distance_metric_comparison.md`) to guide target dataset curation.
 
 ---
 
