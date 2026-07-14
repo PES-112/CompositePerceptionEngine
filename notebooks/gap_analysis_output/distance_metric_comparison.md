@@ -1,5 +1,5 @@
 # Multi-Range Gap Analysis Comparison Report
-**Generated on:** 2026-07-14 11:19:02
+**Generated on:** 2026-07-14 12:46:10
 
 ## Executive Summary
 This report compares the detection profile of object-agnostic perception gaps (obstacles seen by depth but missed by YOLO26n)
