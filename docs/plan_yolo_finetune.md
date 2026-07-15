@@ -87,6 +87,45 @@ For classes NOT in SANPO's taxonomy (`overhanging_hazard`, `stairs`, `crosswalk`
 - Use **Grounding DINO** (offline) to auto-annotate frames from SANPO real sessions.
 - Target: 2,000–3,000 bounding box examples per new class.
 
+### 3.3.1 Roboflow Universe Supplementary Intake
+
+Use Roboflow Universe only for class gaps that remain after SANPO pseudo-label conversion and gap-analysis hard-example mining. The repo provides:
+
+- `training/configs/roboflow_universe_sources.example.json` — copy this to `roboflow_universe_sources.json` and replace each placeholder with the `workspace`, `project`, and `version` from a Universe URL.
+- `training/scripts/download_roboflow_universe.py` — downloads each dataset in YOLOv8 format, remaps source labels into the CPE 16-class taxonomy, and merges images/labels into `data/yolo_finetune`.
+
+SSH workflow:
+
+```bash
+pip install roboflow pyyaml
+# Either export the key for this SSH session:
+export ROBOFLOW_API_KEY="your_private_key"
+# Or put ROBOFLOW_API_KEY=your_private_key in .env at the repo root or Projects root.
+cp training/configs/roboflow_universe_sources.example.json training/configs/roboflow_universe_sources.json
+python training/scripts/download_roboflow_universe.py --manifest training/configs/roboflow_universe_sources.json --dry-run
+python training/scripts/download_roboflow_universe.py --manifest training/configs/roboflow_universe_sources.json
+
+# GPU fine-tuning preflight/smoke test
+.venv/bin/python training/scripts/train_yolo26n_hazards.py --epochs 1 --batch 2 --imgsz 320 --device 0 --name cpe_yolo26n_smoke --exist-ok --export-formats
+
+# Full single-GPU run, auto-batch enabled
+.venv/bin/python training/scripts/train_yolo26n_hazards.py --device 0 --batch -1 --epochs 100 --cache disk
+```
+
+Minimum useful targets per new CPE class:
+
+| Class | Minimum images | Preferred images | Notes |
+|---|---:|---:|---|
+| `pole` | 1,500 | 3,000+ | Vary lamp posts, utility poles, sign posts, occlusions, day/night. |
+| `bollard` | 1,500 | 3,000+ | Include curbside posts, traffic bollards, short/reflective variants. |
+| `stairs` | 1,200 | 2,500+ | Include up/down stairs, partial stair edges, indoor/outdoor only if visually relevant. |
+| `crosswalk` | 1,200 | 2,500+ | Include zebra crossings, worn paint, angled ego views, wet roads. |
+| `pothole` | 1,500 | 3,000+ | Include small/large potholes, shadows, asphalt texture variation. |
+| `puddle` | 1,000 | 2,000+ | Include reflections and wet-road negatives to reduce false positives. |
+| `overhanging_hazard` | 2,000 | 4,000+ | Hardest class; include branches, scaffolding, open shutters, head-height signs. |
+
+For each class, keep at least 10–15% validation images and 10% held-out test images. If the dataset is video-derived, split by source video/session, not by adjacent frames, to avoid temporal leakage.
+
 ### 3.4 Dataset Split
 | Split | Fraction | Notes |
 |---|---|---|

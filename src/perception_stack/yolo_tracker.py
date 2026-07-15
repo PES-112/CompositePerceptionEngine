@@ -24,11 +24,12 @@ DEFAULT_MODEL      = "yolo26n.pt"
 DEFAULT_CONF       = 0.30
 DEFAULT_TRACKER    = "bytetrack.yaml"
 
-# ── Navigation-relevant classes (COCO subset) ─────────────────────────────────
+# ── Navigation-relevant classes (fine-tuned CPE hazard taxonomy) ──────────────
 ALLOWED_CLASSES = {
     "person", "bicycle", "car", "motorcycle", "bus", "truck",
-    "dog", "cat", "traffic light", "stop sign", "umbrella",
-    "backpack", "suitcase", "unlabeled_obstacle",
+    "traffic light", "stop sign", "fire hydrant", "pole", "bollard",
+    "stairs", "crosswalk", "pothole", "puddle", "overhanging_hazard",
+    "unlabeled_obstacle",
 }
 
 # ── Expected pixel height at 1m for size sanity check ─────────────────────────
@@ -42,13 +43,16 @@ CLASS_REAL_HEIGHT_M = {
     "motorcycle":    1.1,
     "bus":           3.0,
     "truck":         2.5,
-    "dog":           0.5,
-    "cat":           0.3,
     "traffic light": 0.9,
     "stop sign":     0.75,
-    "umbrella":      1.0,
-    "backpack":      0.5,
-    "suitcase":      0.6,
+    "fire hydrant":  0.7,
+    "pole":          2.5,
+    "bollard":       0.9,
+    "stairs":        0.8,
+    "crosswalk":     0.1,
+    "pothole":       0.08,
+    "puddle":        0.02,
+    "overhanging_hazard": 2.5,
 }
 SIZE_TOLERANCE = 4.0   # allow 4× slack — depth is noisy
 

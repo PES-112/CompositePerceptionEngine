@@ -1,0 +1,46 @@
+{
+  "output_root": "data/yolo_finetune",
+  "download_root": "data/roboflow_universe",
+  "format": "yolov8",
+  "datasets": [
+    {
+      "name": "pole-detection-86abv",
+      "workspace": "electrical-poles",
+      "project": "pole-detection-86abv",
+      "version": 2,
+      "class_map": {
+        "Pole": "pole"
+      }
+    },
+    {
+      "name": "bollard-3icj2",
+      "workspace": "facility",
+      "project": "bollard-3icj2",
+      "version": 1,
+      "class_map": {
+        "bollard_damage": "bollard",
+        "bollard_drop": "bollard",
+        "bollard_nomal": "bollard",
+        "bollard_nomark": "bollard"
+      }
+    },
+    {
+      "name": "stairs-i2yia",
+      "workspace": "tom-lai-8bp7n",
+      "project": "stairs-i2yia",
+      "version": 3,
+      "class_map": {
+        "stairs": "stairs"
+      }
+    },
+    {
+      "name": "pothole-vhmow",
+      "workspace": "yeeun-kim-fyvoj",
+      "project": "pothole-vhmow",
+      "version": 18,
+      "class_map": {
+        "pothole": "pothole"
+      }
+    }
+  ]
+}

@@ -13,13 +13,23 @@ Functions:
 # ── Class severity weights ─────────────────────────────────────────────────────
 # Higher = more dangerous when combined with velocity/distance in kinetic score.
 CLASS_SEVERITY: dict[str, float] = {
-    "person":     1.0,
-    "bicycle":    1.2,
-    "car":        2.0,
-    "motorcycle": 1.8,
-    "bus":        2.5,
-    "truck":      2.5,
-    "dog":        0.8,
+    "person":              1.0,
+    "bicycle":             1.2,
+    "car":                 2.0,
+    "motorcycle":          1.8,
+    "bus":                 2.5,
+    "truck":               2.5,
+    "traffic light":       0.4,
+    "stop sign":           0.4,
+    "fire hydrant":        1.0,
+    "pole":                1.3,
+    "bollard":             1.4,
+    "stairs":              2.0,
+    "crosswalk":           0.5,
+    "pothole":             1.8,
+    "puddle":              1.1,
+    "overhanging_hazard":  2.0,
+    "unlabeled_obstacle":  1.2,
 }
 DEFAULT_SEVERITY = 1.0
 EPSILON = 0.5   # metres — prevents division by zero for very close objects

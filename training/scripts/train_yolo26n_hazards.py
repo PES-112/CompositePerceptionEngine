@@ -21,6 +21,7 @@ For a longer lab run:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -83,7 +84,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--batch",
-        type=float,
+        type=int,
         default=-1,
         help="Batch size. Use -1 for Ultralytics auto-batch on the lab GPU.",
     )
@@ -97,6 +98,28 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=8,
         help="Data loader workers.",
+    )
+    parser.add_argument(
+        "--cache",
+        choices=["false", "ram", "disk"],
+        default="false",
+        help="Ultralytics dataset cache mode. Use 'ram' only when memory is plentiful.",
+    )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="Enable torch.compile through Ultralytics when supported by the local stack.",
+    )
+    parser.add_argument(
+        "--amp",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Use automatic mixed precision on CUDA. Pass --no-amp to disable.",
+    )
+    parser.add_argument(
+        "--deterministic",
+        action="store_true",
+        help="Force deterministic training. Slower, but useful for exact reproducibility.",
     )
     parser.add_argument(
         "--freeze",
@@ -184,6 +207,55 @@ def parse_device(value: str):
         return value
 
 
+def configure_cuda_runtime(device) -> None:
+    """Enable safe CUDA speed knobs and print the selected GPU plan."""
+    try:
+        import torch
+    except Exception as exc:
+        print(f"Torch import failed during GPU setup: {exc}", file=sys.stderr)
+        return
+
+    if device == "cpu" or not torch.cuda.is_available():
+        print("Training runtime: CPU")
+        return
+
+    torch.backends.cudnn.benchmark = True
+    if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
+        torch.backends.cuda.matmul.allow_tf32 = True
+    if hasattr(torch.backends.cudnn, "allow_tf32"):
+        torch.backends.cudnn.allow_tf32 = True
+    if hasattr(torch, "set_float32_matmul_precision"):
+        torch.set_float32_matmul_precision("high")
+
+    if isinstance(device, list):
+        device_ids = device
+    elif isinstance(device, int):
+        device_ids = [device]
+    else:
+        device_ids = list(range(torch.cuda.device_count()))
+
+    print("Training runtime: CUDA")
+    for idx in device_ids:
+        if idx >= torch.cuda.device_count():
+            print(f"  cuda:{idx}: unavailable", file=sys.stderr)
+            continue
+        props = torch.cuda.get_device_properties(idx)
+        total_gb = props.total_memory / (1024 ** 3)
+        reserved_gb = torch.cuda.memory_reserved(idx) / (1024 ** 3)
+        print(f"  cuda:{idx}: {props.name}, total={total_gb:.1f}GB, reserved={reserved_gb:.1f}GB")
+
+
+def cache_arg(value: str):
+    return False if value == "false" else value
+
+
+def worker_count(value: int) -> int:
+    if value >= 0:
+        return value
+    cpu_count = os.cpu_count() or 2
+    return max(2, min(8, cpu_count // 2))
+
+
 def validate_inputs(weights: Path, data: Path) -> None:
     if not weights.exists():
         raise FileNotFoundError(f"Missing weights file: {weights}")
@@ -245,6 +317,7 @@ def best_checkpoint_from(results, model: YOLO) -> Path | None:
 
 
 def export_model(best_pt: Path, data: Path, args: argparse.Namespace) -> None:
+    device = parse_device(str(args.device))
     if not args.export_formats:
         print("Skipping export.")
         return
@@ -255,7 +328,7 @@ def export_model(best_pt: Path, data: Path, args: argparse.Namespace) -> None:
             "format": export_format,
             "imgsz": args.imgsz,
             "batch": 1,
-            "device": parse_device(str(args.device)),
+            "device": device,
         }
         if not args.no_export_int8:
             kwargs.update(
@@ -286,6 +359,8 @@ def main() -> None:
     data = normalized_path(args.data)
     validate_inputs(weights, data)
     print_class_plan(EDGE_HAZARD_CLASSES)
+    device = parse_device(str(args.device))
+    configure_cuda_runtime(device)
 
     if args.export_only:
         export_model(weights, data, args)
@@ -298,8 +373,8 @@ def main() -> None:
         "epochs": args.epochs,
         "imgsz": args.imgsz,
         "batch": args.batch,
-        "device": parse_device(str(args.device)),
-        "workers": args.workers,
+        "device": device,
+        "workers": worker_count(args.workers),
         "freeze": args.freeze,
         "lr0": args.lr0,
         "warmup_epochs": 3,
@@ -307,7 +382,10 @@ def main() -> None:
         "optimizer": "auto",
         "cls_pw": args.cls_pw,
         "close_mosaic": 10,
-        "amp": True,
+        "amp": args.amp,
+        "cache": cache_arg(args.cache),
+        "compile": args.compile,
+        "deterministic": args.deterministic,
         "val": True,
         "plots": True,
         "save": True,

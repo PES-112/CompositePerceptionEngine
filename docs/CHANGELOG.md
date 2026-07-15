@@ -2,6 +2,20 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-15] - Roboflow Universe Dataset Intake for YOLO26n
+### Training Data
+- Optimized `training/scripts/train_yolo26n_hazards.py` for GPU fine-tuning with CUDA runtime reporting, TF32/cuDNN benchmark flags, multi-GPU device parsing, integer batch handling, AMP controls, cache mode, and optional torch compile.
+- Fixed the YOLO26n training preflight by using integer batch sizes and normalizing Roboflow labels to 5-column detection format before training.
+- Added `.env` loading to `training/scripts/download_roboflow_universe.py` so SSH users can keep `ROBOFLOW_API_KEY` outside source code while running Roboflow Universe downloads.
+- Added `training/scripts/download_roboflow_universe.py` to download selected Roboflow Universe datasets, remap source labels into the 16-class CPE hazard taxonomy, and merge YOLO images/labels into `data/yolo_finetune`.
+- Added `training/configs/roboflow_universe_sources.example.json` as a manifest template for Universe workspace/project/version sources and class mappings.
+
+### Perception Stack
+- Aligned `src/perception_stack/yolo_tracker.py` and `src/perception_stack/physics.py` with the current 16-class hazard fine-tuning taxonomy so newly trained hazard classes are not filtered out at inference.
+
+### Documentation
+- Updated `docs/plan_yolo_finetune.md` with the SSH Roboflow workflow and minimum/preferred image-count targets for each new hazard class.
+
 ## [2026-07-14] - YOLO26n Hazard Fine-Tuning & Multi-Range Gap Analysis
 ### Tooling & Evaluation
 - **Multi-Range Gap Analysis Script**: Added `tools/gap_analysis_experiments.py` to evaluate and compare 4 distinct depth ranges across 20 valid streams using all YOLO classes (whitelist disabled).

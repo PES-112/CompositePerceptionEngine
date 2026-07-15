@@ -10,7 +10,8 @@ __pycache__/
 # Virtual Environments
 .venv/
 env/
-.env/
+.env
+venv/
 
 # Data and Models
 # DO NOT COMMIT massive datasets or model weights to git
