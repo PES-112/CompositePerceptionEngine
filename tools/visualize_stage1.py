@@ -136,7 +136,7 @@ def draw_hud(img, frame_idx: int, rows: list, h: int, w: int):
                     FONT, 0.55, (0, 100, 255), 1, cv2.LINE_AA)
 
     # CPE watermark
-    cv2.putText(img, "Argus-REI CPE | Stage 1 Perception", (w - 320, 18),
+    cv2.putText(img, "CPE | Stage 1 Perception", (w - 230, 18),
                 FONT, 0.42, (100, 100, 100), 1, cv2.LINE_AA)
 
 

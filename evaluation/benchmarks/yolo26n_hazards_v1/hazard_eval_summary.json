@@ -1,0 +1,83 @@
+{
+  "map50_95": 0.43206571503433056,
+  "map50": 0.6508416191192359,
+  "map75": 0.4849448876869702,
+  "per_class": [
+    {
+      "class_id": 0,
+      "class_name": "person"
+    },
+    {
+      "class_id": 1,
+      "class_name": "bicycle"
+    },
+    {
+      "class_id": 2,
+      "class_name": "car"
+    },
+    {
+      "class_id": 3,
+      "class_name": "motorcycle"
+    },
+    {
+      "class_id": 4,
+      "class_name": "bus"
+    },
+    {
+      "class_id": 5,
+      "class_name": "truck"
+    },
+    {
+      "class_id": 6,
+      "class_name": "traffic light"
+    },
+    {
+      "class_id": 7,
+      "class_name": "stop sign"
+    },
+    {
+      "class_id": 8,
+      "class_name": "fire hydrant"
+    },
+    {
+      "class_id": 9,
+      "class_name": "pole",
+      "precision": 0.7552764806431002,
+      "recall": 0.9402985074626866,
+      "map50": 0.9368851958578165,
+      "map50_95": 0.6489386814695308
+    },
+    {
+      "class_id": 10,
+      "class_name": "bollard",
+      "precision": 0.8020016252749986,
+      "recall": 0.9608294930875576,
+      "map50": 0.9335428828679333,
+      "map50_95": 0.7004434030346859
+    },
+    {
+      "class_id": 11,
+      "class_name": "stairs",
+      "precision": 0.30403506944058944,
+      "recall": 0.10052910052910052,
+      "map50": 0.08635736822879533,
+      "map50_95": 0.020154360162455375
+    },
+    {
+      "class_id": 12,
+      "class_name": "crosswalk"
+    },
+    {
+      "class_id": 13,
+      "class_name": "pothole",
+      "precision": 0.6497722893375397,
+      "recall": 0.6190476190476191,
+      "map50": 0.6465810295223986,
+      "map50_95": 0.35872641547065
+    },
+    {
+      "class_id": 14,
+      "class_name": "puddle"
+    }
+  ]
+}

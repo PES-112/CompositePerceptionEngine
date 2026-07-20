@@ -1,7 +1,7 @@
 """
 Download Roboflow Universe datasets and merge selected labels into CPE YOLO data.
 
-The manifest maps source labels from each Universe dataset into the 16-class CPE
+The manifest maps source labels from each Universe dataset into the 17-class CPE
 hazard taxonomy in training/configs/cpe_hazard_classes.yaml.
 
 Example:
@@ -34,16 +34,35 @@ TARGET_CLASSES = [
     "traffic light",
     "stop sign",
     "fire hydrant",
+    "dog",
+    "bench",
     "pole",
     "bollard",
     "stairs",
     "crosswalk",
     "pothole",
     "puddle",
-    "overhanging_hazard",
 ]
 TARGET_CLASS_TO_ID = {name: idx for idx, name in enumerate(TARGET_CLASSES)}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+DEFAULT_CLASS_IMAGE_LIMITS = {
+    "person": 500,
+    "bicycle": 400,
+    "car": 500,
+    "motorcycle": 400,
+    "bus": 300,
+    "truck": 300,
+    "traffic light": 300,
+    "stop sign": 250,
+    "fire hydrant": 250,
+    "dog": 400,
+    "bench": 400,
+    "stairs": 1500,
+    "crosswalk": 600,
+    "pothole": 1500,
+    "puddle": 1000,
+}
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +84,11 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Validate manifest and print the download plan without copying data.",
+    )
+    parser.add_argument(
+        "--no-class-limits",
+        action="store_true",
+        help="Copy every matching image instead of enforcing class_image_limits.",
     )
     return parser.parse_args()
 
@@ -108,6 +132,22 @@ def load_manifest(path: Path) -> dict[str, Any]:
     if not manifest.get("datasets"):
         raise ValueError("Manifest must contain a non-empty 'datasets' list.")
     return manifest
+
+
+def class_image_limits(manifest: dict[str, Any], disabled: bool) -> dict[str, int | None]:
+    if disabled:
+        return {name: None for name in TARGET_CLASSES}
+    raw_limits = manifest.get("class_image_limits") or DEFAULT_CLASS_IMAGE_LIMITS
+    limits: dict[str, int | None] = {}
+    for class_name in TARGET_CLASSES:
+        value = raw_limits.get(class_name)
+        limits[class_name] = None if value is None else int(value)
+    return limits
+
+
+def under_limit(class_name: str, limits: dict[str, int | None], counts: Counter[str]) -> bool:
+    limit = limits.get(class_name)
+    return limit is None or counts[class_name] < limit
 
 
 def read_dataset_names(data_yaml: Path) -> dict[int, str]:
@@ -184,6 +224,8 @@ def remap_split(
     source_names: dict[int, str],
     class_map: dict[str, str],
     prefix: str,
+    limits: dict[str, int | None],
+    running_images: Counter[str],
 ) -> tuple[Counter[str], Counter[str]]:
     dirs = source_dirs(source_root, source_split)
     if dirs is None:
@@ -196,6 +238,7 @@ def remap_split(
     for label_path in sorted(labels_dir.glob("*.txt")):
         remapped_lines: list[str] = []
         present_classes: set[str] = set()
+        present_instances: Counter[str] = Counter()
         for raw in label_path.read_text(encoding="utf-8").splitlines():
             parts = raw.strip().split()
             if len(parts) < 5:
@@ -212,9 +255,14 @@ def remap_split(
                 " ".join([str(TARGET_CLASS_TO_ID[target_class]), *parts[1:5]])
             )
             present_classes.add(target_class)
-            instance_counts[target_class] += 1
+            present_instances[target_class] += 1
 
         if not remapped_lines:
+            continue
+
+        if present_classes and not any(
+            under_limit(class_name, limits, running_images) for class_name in present_classes
+        ):
             continue
 
         image_path = find_image(images_dir, label_path.stem)
@@ -228,6 +276,8 @@ def remap_split(
         out_label.write_text("\n".join(remapped_lines) + "\n", encoding="utf-8")
         for class_name in present_classes:
             image_counts[class_name] += 1
+            running_images[class_name] += 1
+        instance_counts.update(present_instances)
 
     return image_counts, instance_counts
 
@@ -260,6 +310,12 @@ def main() -> None:
         rf = Roboflow(api_key=api_key)
     total_images: Counter[str] = Counter()
     total_instances: Counter[str] = Counter()
+    limits = class_image_limits(manifest, args.no_class_limits)
+    if not args.no_class_limits:
+        print("Class image caps:")
+        for class_name in TARGET_CLASSES:
+            if limits[class_name] is not None:
+                print(f"  {class_name:20s} max_images={limits[class_name]}")
 
     for item in manifest["datasets"]:
         name = item.get("name") or f"{item['workspace']}_{item['project']}_v{item['version']}"
@@ -285,6 +341,8 @@ def main() -> None:
                 source_names=source_names,
                 class_map=item["class_map"],
                 prefix=prefix,
+                limits=limits,
+                running_images=total_images,
             )
             if image_counts:
                 print(f"  merged {source_split} -> {target_split}: {dict(image_counts)}")

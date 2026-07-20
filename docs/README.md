@@ -1,6 +1,6 @@
 # CPE Documentation Index
 
-**Project:** Composite Perception Engine (Argus-REI)
+**Project:** Composite Perception Engine (CPE)
 **Goal:** Neuro-symbolic pedestrian navigation assistant for visually impaired users.
 **Current Phase:** Phase 1 — Offline Data Curation + SLM-1 Supervised Fine-Tuning
 
@@ -73,3 +73,7 @@ Example:
 ```
 2026-04-15,Perception Stack,Kalman filter on depth velocity,done,"src/perception_stack/physics.py","Smooths jittery d values"
 ```
+
+### Repository Hygiene
+- **[`artifact_structure.md`](./artifact_structure.md)** — Naming conventions and cleanup rules for datasets, training runs, benchmarks, and local model checkpoints.
+- **[`plan_yolo_v2_finetune.md`](./plan_yolo_v2_finetune.md)** — Checklist for v2 fine-tuning from the v1 `best.pt` checkpoint.

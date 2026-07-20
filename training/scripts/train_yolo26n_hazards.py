@@ -10,12 +10,16 @@ Dataset layout expected by Ultralytics:
       images/train, images/val, images/test
       labels/train, labels/val, labels/test
 
-Example:
-    python training/scripts/train_yolo26n_hazards.py --device 0 --batch -1
+Example GB10 high-throughput run:
+    python training/scripts/train_yolo26n_hazards.py \
+        --weights training/runs/cpe_yolo26n_hazards/weights/best.pt \
+        --device 0 \
+        --epochs 50 \
+        --name cpe_yolo26n_hazards_v2 \
+        --export-formats
 
-For a longer lab run:
-    python training/scripts/train_yolo26n_hazards.py ^
-        --epochs 120 --device 0 --batch -1 --export-formats onnx engine
+Defaults are tuned for the ARM Grace-Blackwell GB10 lab server: RAM cache,
+AutoBatch, high worker count, no epoch-time validation, and no plots.
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA = PROJECT_ROOT / "training" / "configs" / "cpe_hazard_classes.yaml"
 DEFAULT_WEIGHTS = PROJECT_ROOT / "yolo26n.pt"
 DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
+DEFAULT_RESERVED_CPU_CORES = 4
 
 EDGE_HAZARD_CLASSES = [
     "person",
@@ -44,13 +49,14 @@ EDGE_HAZARD_CLASSES = [
     "traffic light",
     "stop sign",
     "fire hydrant",
+    "dog",
+    "bench",
     "pole",
     "bollard",
     "stairs",
     "crosswalk",
     "pothole",
     "puddle",
-    "overhanging_hazard",
 ]
 
 
@@ -96,14 +102,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workers",
         type=int,
-        default=8,
-        help="Data loader workers.",
+        default=-1,
+        help=(
+            "Data loader workers. Use -1 to saturate CPU minus reserved OS cores "
+            "(16 workers on the 20-core GB10 with the default reserve)."
+        ),
+    )
+    parser.add_argument(
+        "--reserve-cpu-cores",
+        type=int,
+        default=DEFAULT_RESERVED_CPU_CORES,
+        help="CPU cores left free when --workers -1 is used.",
     )
     parser.add_argument(
         "--cache",
         choices=["false", "ram", "disk"],
-        default="false",
-        help="Ultralytics dataset cache mode. Use 'ram' only when memory is plentiful.",
+        default="ram",
+        help="Ultralytics dataset cache mode. Default 'ram' is intended for the 120GB GB10 memory pool.",
     )
     parser.add_argument(
         "--compile",
@@ -137,7 +152,7 @@ def parse_args() -> argparse.Namespace:
         "--patience",
         type=int,
         default=20,
-        help="Early stopping patience.",
+        help="Early stopping patience. Only applies when --val is enabled.",
     )
     parser.add_argument(
         "--cls-pw",
@@ -162,11 +177,29 @@ def parse_args() -> argparse.Namespace:
         help="Optional teacher checkpoint such as YOLO26s/x. No inference cost.",
     )
     parser.add_argument(
+        "--val",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Run Ultralytics validation during training. Disabled by default for maximum throughput.",
+    )
+    parser.add_argument(
+        "--plots",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Generate Ultralytics training plots/previews. Disabled by default for maximum throughput.",
+    )
+    parser.add_argument(
+        "--save-period",
+        type=int,
+        default=-1,
+        help="Checkpoint save interval in epochs. -1 saves only normal best/last checkpoints.",
+    )
+    parser.add_argument(
         "--export-formats",
         nargs="*",
-        default=["onnx"],
+        default=[],
         choices=["onnx", "engine", "openvino", "torchscript"],
-        help="Export formats after training. Use no values to skip export.",
+        help="Export formats after training. Default skips export to avoid dependency overhead during fast lab runs.",
     )
     parser.add_argument(
         "--export-only",
@@ -249,11 +282,46 @@ def cache_arg(value: str):
     return False if value == "false" else value
 
 
-def worker_count(value: int) -> int:
+def worker_count(value: int, reserve_cpu_cores: int) -> int:
     if value >= 0:
         return value
     cpu_count = os.cpu_count() or 2
-    return max(2, min(8, cpu_count // 2))
+    reserve = max(0, reserve_cpu_cores)
+    return max(2, cpu_count - reserve)
+
+
+def dataset_root_from_yaml(data: Path) -> Path | None:
+    for raw_line in data.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if line.startswith("path:"):
+            return normalized_path(Path(line.split(":", 1)[1].strip()))
+    return None
+
+
+def format_bytes(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            return f"{value:.1f}{unit}"
+        value /= 1024
+    return f"{value:.1f}TB"
+
+
+def directory_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(file.stat().st_size for file in path.rglob("*") if file.is_file())
+
+
+def print_throughput_plan(args: argparse.Namespace, data: Path) -> None:
+    root = dataset_root_from_yaml(data)
+    images_size = directory_size(root / "images") if root else 0
+    labels_size = directory_size(root / "labels") if root else 0
+    print("GB10 throughput profile:")
+    print(f"  cache={cache_arg(args.cache)!r} (images={format_bytes(images_size)}, labels={format_bytes(labels_size)})")
+    print(f"  batch={args.batch} ({'AutoBatch maximum-fit search' if args.batch == -1 else 'static batch'})")
+    print(f"  workers={worker_count(args.workers, args.reserve_cpu_cores)} (reserve_cpu_cores={args.reserve_cpu_cores})")
+    print(f"  val_during_train={args.val}, plots={args.plots}, save_period={args.save_period}")
 
 
 def validate_inputs(weights: Path, data: Path) -> None:
@@ -262,17 +330,9 @@ def validate_inputs(weights: Path, data: Path) -> None:
     if not data.exists():
         raise FileNotFoundError(f"Missing dataset YAML: {data}")
 
-    dataset_root = None
-    for raw_line in data.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if line.startswith("path:"):
-            dataset_root = line.split(":", 1)[1].strip()
-            break
-
-    if not dataset_root:
+    root_path = dataset_root_from_yaml(data)
+    if root_path is None:
         return
-
-    root_path = normalized_path(Path(dataset_root))
     expected = [
         root_path / "images" / "train",
         root_path / "images" / "val",
@@ -291,11 +351,11 @@ def validate_inputs(weights: Path, data: Path) -> None:
 def print_class_plan(classes: Iterable[str]) -> None:
     print("CPE hazard classes:")
     for idx, name in enumerate(classes):
-        source = "COCO" if idx <= 8 else "custom"
+        source = "COCO" if idx <= 10 else "custom"
         print(f"  {idx:2d}: {name} ({source})")
     print(
         "\nEdge constraint: this run keeps the YOLO26n architecture and reduces "
-        "the 80-class COCO head to a 16-class CPE head."
+        "the 80-class COCO head to a 17-class CPE head."
     )
 
 
@@ -361,6 +421,7 @@ def main() -> None:
     print_class_plan(EDGE_HAZARD_CLASSES)
     device = parse_device(str(args.device))
     configure_cuda_runtime(device)
+    print_throughput_plan(args, data)
 
     if args.export_only:
         export_model(weights, data, args)
@@ -374,7 +435,7 @@ def main() -> None:
         "imgsz": args.imgsz,
         "batch": args.batch,
         "device": device,
-        "workers": worker_count(args.workers),
+        "workers": worker_count(args.workers, args.reserve_cpu_cores),
         "freeze": args.freeze,
         "lr0": args.lr0,
         "warmup_epochs": 3,
@@ -386,8 +447,9 @@ def main() -> None:
         "cache": cache_arg(args.cache),
         "compile": args.compile,
         "deterministic": args.deterministic,
-        "val": True,
-        "plots": True,
+        "val": args.val,
+        "plots": args.plots,
+        "save_period": args.save_period,
         "save": True,
         "project": str(DEFAULT_PROJECT),
         "name": args.name,
@@ -403,7 +465,8 @@ def main() -> None:
         print("Training finished, but best.pt was not found in the run directory.")
         return
 
-    print(f"Best checkpoint: {best_pt}")
+    checkpoint_label = "Best checkpoint" if best_pt.name == "best.pt" else "Last checkpoint"
+    print(f"{checkpoint_label}: {best_pt}")
     export_model(best_pt, data, args)
 
 

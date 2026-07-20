@@ -27,8 +27,9 @@ DEFAULT_TRACKER    = "bytetrack.yaml"
 # ── Navigation-relevant classes (fine-tuned CPE hazard taxonomy) ──────────────
 ALLOWED_CLASSES = {
     "person", "bicycle", "car", "motorcycle", "bus", "truck",
-    "traffic light", "stop sign", "fire hydrant", "pole", "bollard",
-    "stairs", "crosswalk", "pothole", "puddle", "overhanging_hazard",
+    "traffic light", "stop sign", "fire hydrant", "dog", "bench",
+    "pole", "bollard",
+    "stairs", "crosswalk", "pothole", "puddle",
     "unlabeled_obstacle",
 }
 
@@ -46,13 +47,14 @@ CLASS_REAL_HEIGHT_M = {
     "traffic light": 0.9,
     "stop sign":     0.75,
     "fire hydrant":  0.7,
+    "dog":           0.6,
+    "bench":         0.9,
     "pole":          2.5,
     "bollard":       0.9,
     "stairs":        0.8,
     "crosswalk":     0.1,
     "pothole":       0.08,
     "puddle":        0.02,
-    "overhanging_hazard": 2.5,
 }
 SIZE_TOLERANCE = 4.0   # allow 4× slack — depth is noisy
 

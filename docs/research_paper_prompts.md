@@ -21,11 +21,12 @@ Use the following prompts with an LLM (like Gemini) to systematically draft the 
 ## 3. Methodology: Perception Stack & N-Frame Skip
 **Prompt:**
 > "Write the Methodology subsection detailing our 'Hybrid Perception Stack'. Explain how we process RGB and depth data on the edge. Include the following technical details:
-> - We fine-tune YOLO26n specifically for street hazards (potholes, bollards, branches) rather than using standard COCO classes, as COCO is insufficient for navigation.
-> - The training workflow keeps the nano architecture fixed, freezes early backbone layers during transfer learning, replaces the broad COCO head with a compact 16-class CPE hazard taxonomy, and exports INT8 edge artifacts to avoid increasing runtime latency.
+> - We fine-tune YOLO26n specifically for street hazards (potholes, bollards, stairs, crosswalks, poles, puddles, dogs, and benches) rather than using standard COCO classes, as COCO is insufficient for navigation.
+> - The training workflow keeps the nano architecture fixed, freezes early backbone layers during transfer learning, replaces the broad COCO head with a compact 17-class CPE hazard taxonomy, and exports INT8 edge artifacts to avoid increasing runtime latency.
+> - We use a staged v2 fine-tuning protocol that continues from the prior CPE checkpoint for weak-class repair, uses GB10 high-throughput training settings (RAM dataset cache, AutoBatch, CPU-saturated data loading, and deferred validation), then validates all classes and compares retained COCO-class precision/recall against the base YOLO26n model with explicit class-name remapping.
 > - We implement an N-frame detection skip (e.g., every 3rd frame). Between detection frames, we rely on depth-guided tracking and interpolation, reducing compute load by ~67% while maintaining high safety margins.
 > - We use the depth map to extract precise distance (d) at the bounding box centroid to calculate a 'Kinetic Score' based on velocity and distance.
-- We supplement egocentric SANPO pseudo-labels with carefully remapped Roboflow Universe datasets for rare hazard classes, enforcing a fixed 16-class taxonomy and session/source-level validation splits to prevent leakage.
+- We supplement egocentric SANPO pseudo-labels with carefully remapped Roboflow Universe datasets for rare hazard classes, enforcing a fixed 17-class taxonomy and session/source-level validation splits to prevent leakage.
 > - We implement an empirical 'YOLO Gap Analysis' pipeline that cross-references depth map structures with YOLO detections using morphological component labeling. The pipeline runs without class whitelist constraints to evaluate general perception failures, compares multi-range depth configurations (from immediate hazards to far-range path planning), compiles comparison metrics, and logs hard examples in structured JSON files for downstream annotation workflows."
 
 ## 4. Methodology: Knowledge Distillation & SLM

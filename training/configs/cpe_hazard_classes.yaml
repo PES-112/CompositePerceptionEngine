@@ -11,7 +11,7 @@ train: images/train
 val: images/val
 test: images/test
 
-nc: 16
+nc: 17
 names:
   0: person
   1: bicycle
@@ -22,10 +22,11 @@ names:
   6: traffic light
   7: stop sign
   8: fire hydrant
-  9: pole
-  10: bollard
-  11: stairs
-  12: crosswalk
-  13: pothole
-  14: puddle
-  15: overhanging_hazard
+  9: dog
+  10: bench
+  11: pole
+  12: bollard
+  13: stairs
+  14: crosswalk
+  15: pothole
+  16: puddle

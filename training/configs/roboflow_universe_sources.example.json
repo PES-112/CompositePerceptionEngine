@@ -4,6 +4,25 @@
   "format": "yolov8",
   "datasets": [
     {
+      "name": "replace-with-retained-coco-obstacle-dataset-name",
+      "workspace": "workspace-from-universe-url",
+      "project": "project-from-universe-url",
+      "version": 1,
+      "class_map": {
+        "person": "person",
+        "bicycle": "bicycle",
+        "car": "car",
+        "motorcycle": "motorcycle",
+        "bus": "bus",
+        "truck": "truck",
+        "traffic light": "traffic light",
+        "stop sign": "stop sign",
+        "fire hydrant": "fire hydrant",
+        "dog": "dog",
+        "bench": "bench"
+      }
+    },
+    {
       "name": "replace-with-pole-dataset-name",
       "workspace": "workspace-from-universe-url",
       "project": "project-from-universe-url",
@@ -44,17 +63,40 @@
         "pothole": "pothole",
         "puddle": "puddle"
       }
-    },
-    {
-      "name": "replace-with-overhead-hazard-dataset-name",
-      "workspace": "workspace-from-universe-url",
-      "project": "project-from-universe-url",
-      "version": 1,
-      "class_map": {
-        "branch": "overhanging_hazard",
-        "tree branch": "overhanging_hazard",
-        "scaffolding": "overhanging_hazard"
-      }
     }
-  ]
+  ],
+  "class_image_limits": {
+    "person": 500,
+    "bicycle": 400,
+    "car": 500,
+    "motorcycle": 400,
+    "bus": 300,
+    "truck": 300,
+    "traffic light": 300,
+    "stop sign": 250,
+    "fire hydrant": 250,
+    "dog": 400,
+    "bench": 400,
+    "stairs": 1500,
+    "crosswalk": 600,
+    "pothole": 1500,
+    "puddle": 1000
+  },
+  "class_image_minimums": {
+    "person": 300,
+    "bicycle": 250,
+    "car": 300,
+    "motorcycle": 250,
+    "bus": 200,
+    "truck": 200,
+    "traffic light": 200,
+    "stop sign": 150,
+    "fire hydrant": 150,
+    "dog": 200,
+    "bench": 200,
+    "stairs": 800,
+    "crosswalk": 300,
+    "pothole": 800,
+    "puddle": 500
+  }
 }

@@ -22,13 +22,14 @@ CLASS_SEVERITY: dict[str, float] = {
     "traffic light":       0.4,
     "stop sign":           0.4,
     "fire hydrant":        1.0,
+    "dog":                 1.4,
+    "bench":               0.9,
     "pole":                1.3,
     "bollard":             1.4,
     "stairs":              2.0,
     "crosswalk":           0.5,
     "pothole":             1.8,
     "puddle":              1.1,
-    "overhanging_hazard":  2.0,
     "unlabeled_obstacle":  1.2,
 }
 DEFAULT_SEVERITY = 1.0

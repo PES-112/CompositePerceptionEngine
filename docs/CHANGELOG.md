@@ -2,16 +2,58 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-20] - Roboflow Class-Balanced Intake Caps
+### Training Data
+- Added per-class image caps to `training/scripts/download_roboflow_universe.py` so multiple Roboflow Universe URLs can be supplied per class without letting oversized source datasets dominate v2 fine-tuning.
+- Documented the v2 class cap policy and SANPO domain-alignment guidance in `docs/plan_yolo_v2_finetune.md`, and added class limit/minimum examples to the Roboflow manifest template.
+
+## [2026-07-20] - Retained COCO Class Expansion
+### Training & Perception
+- Added `dog` and `bench` back into the active CPE YOLO taxonomy as retained COCO navigation-obstacle classes, expanding the active detector head to 17 classes.
+- Updated training, dataset-download, evaluation, retention-comparison, perception-filtering, physics severity, and planning docs to use retained class IDs 0-10 and custom hazard IDs 11-16.
+
+## [2026-07-20] - CPE Taxonomy Simplification
+### Training & Perception
+- Reduced the active CPE YOLO hazard taxonomy from 16 to 15 classes by removing the broad head-height obstacle catch-all from training configs, scripts, perception filters, and docs.
+- Kept `puddle` separate from `pothole` because it represents a different navigation risk, while noting that v2 data quality should decide whether it remains active long term.
+
+## [2026-07-20] - GB10 YOLO26n Training Throughput Optimization
+### Training
+- Retuned `training/scripts/train_yolo26n_hazards.py` for the Grace-Blackwell GB10 lab server with RAM dataset caching, AutoBatch defaults, CPU-saturating worker selection, disabled training-loop validation/plots, skipped default export, and startup throughput reporting.
+- Updated `docs/plan_yolo_v2_finetune.md` with the GB10 high-throughput profile, the 6.7GB dataset-cache estimate, and the fast v2 command/checklist.
+
+## [2026-07-20] - Project Branding Cleanup
+### Documentation & UI Text
+- Removed visible legacy project-branding references from repository documentation and the Stage 1 visualization overlay, standardizing project-facing text on Composite Perception Engine (CPE).
+
+## [2026-07-20] - Repository Artifact Cleanup & Model Registry
+### Repository Hygiene
+- Removed generated Ultralytics plot/preview artifacts from tracked training runs while preserving compact metrics and checkpoint metadata.
+- Added `docs/artifact_structure.md`, `training/README.md`, `evaluation/benchmarks/README.md`, and `models/yolo/README.md` to clarify artifact locations, naming conventions, and cleanup rules.
+- Added a local model registry entry under `models/yolo/cpe_yolo26n_hazards_v1/` and compact v1 benchmark summaries under `evaluation/benchmarks/yolo26n_hazards_v1/`.
+- Updated `.gitignore` to keep datasets, secrets, binary weights, training plots, and local Roboflow manifests out of version control.
+
+## [2026-07-20] - YOLO26n v2 Fine-Tuning Plan & Retention Comparison
+### Training & Evaluation
+- Added `docs/plan_yolo_v2_finetune.md`, a checklist-driven plan for continuing from the v1 `best.pt` checkpoint, repairing weak `stairs`/`pothole` performance, and adding retained-class validation data.
+- Added `training/scripts/compare_yolo26n_retention.py` to compare a fine-tuned CPE checkpoint against base `yolo26n.pt` for retained COCO classes using class-name remapping, while validating the candidate on all active CPE classes.
+- Updated `docs/architecture.md`, `docs/plan_yolo_finetune.md`, and `docs/research_paper_prompts.md` to document the v2 staged fine-tuning and retained-class validation workflow.
+
+## [2026-07-20] - YOLO26n Hazard Checkpoint Evaluation
+### Training & Evaluation
+- Added `training/scripts/evaluate_yolo26n_hazards.py` to validate a fine-tuned checkpoint on `val` or `test`, export per-class metrics, generate a Markdown report, and save prediction previews for the new navigation-hazard classes.
+- Documented the held-out test evaluation command in `docs/plan_yolo_finetune.md`.
+
 ## [2026-07-15] - Roboflow Universe Dataset Intake for YOLO26n
 ### Training Data
 - Optimized `training/scripts/train_yolo26n_hazards.py` for GPU fine-tuning with CUDA runtime reporting, TF32/cuDNN benchmark flags, multi-GPU device parsing, integer batch handling, AMP controls, cache mode, and optional torch compile.
 - Fixed the YOLO26n training preflight by using integer batch sizes and normalizing Roboflow labels to 5-column detection format before training.
 - Added `.env` loading to `training/scripts/download_roboflow_universe.py` so SSH users can keep `ROBOFLOW_API_KEY` outside source code while running Roboflow Universe downloads.
-- Added `training/scripts/download_roboflow_universe.py` to download selected Roboflow Universe datasets, remap source labels into the 16-class CPE hazard taxonomy, and merge YOLO images/labels into `data/yolo_finetune`.
+- Added `training/scripts/download_roboflow_universe.py` to download selected Roboflow Universe datasets, remap source labels into the CPE hazard taxonomy, and merge YOLO images/labels into `data/yolo_finetune`.
 - Added `training/configs/roboflow_universe_sources.example.json` as a manifest template for Universe workspace/project/version sources and class mappings.
 
 ### Perception Stack
-- Aligned `src/perception_stack/yolo_tracker.py` and `src/perception_stack/physics.py` with the current 16-class hazard fine-tuning taxonomy so newly trained hazard classes are not filtered out at inference.
+- Aligned `src/perception_stack/yolo_tracker.py` and `src/perception_stack/physics.py` with the current hazard fine-tuning taxonomy so newly trained hazard classes are not filtered out at inference.
 
 ### Documentation
 - Updated `docs/plan_yolo_finetune.md` with the SSH Roboflow workflow and minimum/preferred image-count targets for each new hazard class.
@@ -25,7 +67,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 
 ### Training
 - Added `training/scripts/train_yolo26n_hazards.py`, a lab-GPU training script that fine-tunes `yolo26n.pt` on CPE navigation hazards while preserving the nano architecture, freezing early layers, applying rare-class weighting, and optionally exporting INT8 edge artifacts with an export-only mode for finished checkpoints.
-- Added `training/configs/cpe_hazard_classes.yaml` with a 16-class CPE hazard taxonomy covering retained COCO safety classes plus non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, `puddle`, and `overhanging_hazard`.
+- Added `training/configs/cpe_hazard_classes.yaml` with a CPE hazard taxonomy covering retained COCO safety classes plus non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, and `puddle`.
 
 ### Documentation
 - Updated `docs/architecture.md` and `docs/research_paper_prompts.md` to document the multi-range gap analysis capabilities, whitelist removal, and JSON logging format.
@@ -43,7 +85,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 
 ## [2026-07-10] — Implementation Plans for YOLO Fine-Tuning & Gap Analysis
 ### Documentation
-- **`docs/plan_yolo_finetune.md`**: Detailed implementation plan for fine-tuning YOLO26n. Includes class curation rationale (dropping `cat`, `umbrella`, `backpack`, `suitcase`; adding `pole`, `stairs`, `crosswalk`, `overhanging_hazard`), SANPO panoptic-to-YOLO label conversion pipeline, dataset split strategy, training script outline, and benchmark targets.
+- **`docs/plan_yolo_finetune.md`**: Detailed implementation plan for fine-tuning YOLO26n. Includes class curation rationale (dropping non-navigation COCO classes while adding `pole`, `stairs`, `crosswalk`, and surface hazards), SANPO panoptic-to-YOLO label conversion pipeline, dataset split strategy, training script outline, and benchmark targets.
 - **`docs/plan_gap_analysis.md`**: Step-by-step implementation plan for running the gap analysis notebook across SANPO. Documents all config parameters, output folder management (frame sampling to prevent bloat), visualization legend, CSV column definitions, and post-run analysis queries.
 
 ## [2026-07-10] — SANPO Analysis & YOLO Class Curation
