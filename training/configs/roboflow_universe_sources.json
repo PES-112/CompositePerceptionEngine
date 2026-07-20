@@ -1,5 +1,5 @@
 {
-  "output_root": "data/yolo_finetune",
+  "output_root": "data/yolo_finetune_v2_full",
   "download_root": "data/roboflow_universe",
   "format": "yolov8",
   "datasets": [
@@ -9,7 +9,8 @@
       "project": "pole-detection-86abv",
       "version": 2,
       "class_map": {
-        "Pole": "pole"
+        "Pole": "pole",
+        "pole": "pole"
       }
     },
     {
@@ -21,7 +22,17 @@
         "bollard_damage": "bollard",
         "bollard_drop": "bollard",
         "bollard_nomal": "bollard",
-        "bollard_nomark": "bollard"
+        "bollard_nomark": "bollard",
+        "bollard": "bollard"
+      }
+    },
+    {
+      "name": "stairs-lusiz",
+      "workspace": "stairs-n9kkx",
+      "project": "stairs-lusiz",
+      "version": 1,
+      "class_map": {
+        "stairs": "stairs"
       }
     },
     {
@@ -34,12 +45,96 @@
       }
     },
     {
-      "name": "pothole-vhmow",
-      "workspace": "yeeun-kim-fyvoj",
-      "project": "pothole-vhmow",
-      "version": 18,
+      "name": "potholes-detection-j3w8s",
+      "workspace": "cpcs-432",
+      "project": "potholes-detection-j3w8s",
+      "version": 2,
       "class_map": {
-        "pothole": "pothole"
+        "pothole": "pothole",
+        "potholes": "pothole",
+        "Pothole": "pothole",
+        "Potholes": "pothole"
+      }
+    },
+    {
+      "name": "potholes-xbcxz",
+      "workspace": "fyp-46tke",
+      "project": "potholes-xbcxz",
+      "version": 1,
+      "class_map": {
+        "pothole": "pothole",
+        "potholes": "pothole",
+        "Pothole": "pothole",
+        "Potholes": "pothole"
+      }
+    },
+    {
+      "name": "bench-nyfso",
+      "workspace": "flower-uqajd",
+      "project": "bench-nyfso",
+      "version": 1,
+      "class_map": {
+        "bench": "bench",
+        "Bench": "bench"
+      }
+    },
+    {
+      "name": "bench-detect-3g0kf",
+      "workspace": "blind-1vbdv",
+      "project": "bench-detect-3g0kf",
+      "version": 1,
+      "class_map": {
+        "bench": "bench",
+        "Bench": "bench"
+      }
+    },
+    {
+      "name": "crosswalk-ibrdh",
+      "workspace": "crosswalk-aee0t",
+      "project": "crosswalk-ibrdh",
+      "version": 4,
+      "class_map": {
+        "crosswalk": "crosswalk",
+        "Crosswalk": "crosswalk"
+      }
+    },
+    {
+      "name": "puddle-detection-5y0s4",
+      "workspace": "walksenses-workspace",
+      "project": "puddle-detection-5y0s4",
+      "version": 1,
+      "class_map": {
+        "puddle": "puddle",
+        "Puddle": "puddle"
+      }
+    },
+    {
+      "name": "motorcycle-srwil",
+      "workspace": "uijin",
+      "project": "motorcycle-srwil",
+      "version": 2,
+      "class_map": {
+        "motorcycle": "motorcycle",
+        "Motorcycle": "motorcycle"
+      }
+    },
+    {
+      "name": "coco-yrx1j",
+      "workspace": "sky-zfxvm",
+      "project": "coco-yrx1j",
+      "version": 1,
+      "class_map": {
+        "person": "person",
+        "bicycle": "bicycle",
+        "car": "car",
+        "motorcycle": "motorcycle",
+        "bus": "bus",
+        "truck": "truck",
+        "traffic light": "traffic light",
+        "stop sign": "stop sign",
+        "fire hydrant": "fire hydrant",
+        "dog": "dog",
+        "bench": "bench"
       }
     }
   ],
@@ -53,6 +148,8 @@
     "traffic light": 300,
     "stop sign": 250,
     "fire hydrant": 250,
+    "pole": 1000,
+    "bollard": 1000,
     "dog": 400,
     "bench": 400,
     "stairs": 1500,
@@ -70,6 +167,8 @@
     "traffic light": 200,
     "stop sign": 150,
     "fire hydrant": 150,
+    "pole": 300,
+    "bollard": 300,
     "dog": 200,
     "bench": 200,
     "stairs": 800,

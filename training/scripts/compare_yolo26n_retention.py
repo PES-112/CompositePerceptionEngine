@@ -34,26 +34,26 @@ DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 CPE_CLASS_NAMES = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
-    "traffic light",
-    "stop sign",
-    "fire hydrant",
-    "dog",
-    "bench",
-    "pole",
-    "bollard",
-    "stairs",
-    "crosswalk",
-    "pothole",
-    "puddle",
+    'person',
+    'bicycle',
+    'car',
+    'motorcycle',
+    'bus',
+    'truck',
+    'traffic light',
+    'stop sign',
+    'fire hydrant',
+    'pole',
+    'bollard',
+    'stairs',
+    'crosswalk',
+    'pothole',
+    'puddle',
+    'dog',
+    'bench',
 ]
 CPE_NAME_TO_ID = {name: idx for idx, name in enumerate(CPE_CLASS_NAMES)}
-RETAINED_CLASS_IDS = list(range(11))
+RETAINED_CLASS_IDS = [*range(9), 15, 16]
 
 
 @dataclass(frozen=True)

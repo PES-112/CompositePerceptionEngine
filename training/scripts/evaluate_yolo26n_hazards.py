@@ -29,25 +29,25 @@ DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 CLASS_NAMES = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
-    "traffic light",
-    "stop sign",
-    "fire hydrant",
-    "dog",
-    "bench",
-    "pole",
-    "bollard",
-    "stairs",
-    "crosswalk",
-    "pothole",
-    "puddle",
+    'person',
+    'bicycle',
+    'car',
+    'motorcycle',
+    'bus',
+    'truck',
+    'traffic light',
+    'stop sign',
+    'fire hydrant',
+    'pole',
+    'bollard',
+    'stairs',
+    'crosswalk',
+    'pothole',
+    'puddle',
+    'dog',
+    'bench',
 ]
-NEW_CLASS_IDS = [11, 12, 13, 14, 15, 16]
+NEW_CLASS_IDS = [9, 10, 11, 12, 13, 14]
 
 
 def parse_args() -> argparse.Namespace:

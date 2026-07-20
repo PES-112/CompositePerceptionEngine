@@ -2,6 +2,34 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-20] - AutoBatch Startup Fix
+### Training
+- Updated the GB10 training script to keep cuDNN benchmark disabled during `batch=-1` AutoBatch search so Ultralytics can probe large batch sizes instead of falling back to batch 16.
+
+## [2026-07-20] - v2 Motorcycle Source Fill
+### Training Data
+- Added a dedicated `motorcycle` Roboflow detection source and moved the active clean rebuild target to `data/yolo_finetune_v2_full` after auditing that the retained COCO-style source had zero motorcycle positives.
+
+## [2026-07-20] - v2 Missing-Class Source Fill
+### Training Data
+- Added verified Roboflow detection sources for `crosswalk` and `puddle` so the active 17-class detector is not trained with zero positive examples for those classes.
+- Added `training/scripts/rebalance_yolo_splits.py` to move deterministic train examples into validation/test splits for train-only Roboflow sources before final all-class evaluation.
+
+## [2026-07-20] - v2 Balanced Dataset Rebuild
+### Training Data
+- Fixed Roboflow merge accounting so class image caps are not double-counted while merging multi-source v2 data.
+- Added explicit `pole` and `bollard` caps/minimums and pointed the active YOLO data config at `data/yolo_finetune_v2_balanced` for a clean v2 rebuild.
+
+## [2026-07-20] - Roboflow Source Version Verification
+### Training Data
+- Verified the provided Roboflow Universe source URLs with the Roboflow SDK, updated the v2 manifest to the latest usable versions, and removed the invalid stairs source whose requested version was not found.
+- Marked `tiger-dataset/dog-ukbxr` as unavailable for download because the project currently has no generated dataset versions; dog examples remain sourced through the COCO-style retained dataset until another dog dataset is provided.
+
+## [2026-07-20] - v2 Roboflow Source Manifest Update
+### Training Data
+- Updated the active Roboflow Universe manifest with additional stairs, pothole, dog, bench, and retained COCO-class sources while preserving the existing pole and bollard datasets for retention.
+- Tightened Roboflow label intake to accept only 5-column YOLO detection rows so segmentation polygon labels are not accidentally treated as bounding boxes.
+
 ## [2026-07-20] - Roboflow Class-Balanced Intake Caps
 ### Training Data
 - Added per-class image caps to `training/scripts/download_roboflow_universe.py` so multiple Roboflow Universe URLs can be supplied per class without letting oversized source datasets dominate v2 fine-tuning.

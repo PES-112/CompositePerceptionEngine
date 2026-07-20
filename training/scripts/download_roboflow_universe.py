@@ -25,23 +25,23 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TARGET_CLASSES = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
-    "traffic light",
-    "stop sign",
-    "fire hydrant",
-    "dog",
-    "bench",
-    "pole",
-    "bollard",
-    "stairs",
-    "crosswalk",
-    "pothole",
-    "puddle",
+    'person',
+    'bicycle',
+    'car',
+    'motorcycle',
+    'bus',
+    'truck',
+    'traffic light',
+    'stop sign',
+    'fire hydrant',
+    'pole',
+    'bollard',
+    'stairs',
+    'crosswalk',
+    'pothole',
+    'puddle',
+    'dog',
+    'bench',
 ]
 TARGET_CLASS_TO_ID = {name: idx for idx, name in enumerate(TARGET_CLASSES)}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -55,6 +55,8 @@ DEFAULT_CLASS_IMAGE_LIMITS = {
     "traffic light": 300,
     "stop sign": 250,
     "fire hydrant": 250,
+    "pole": 1000,
+    "bollard": 1000,
     "dog": 400,
     "bench": 400,
     "stairs": 1500,
@@ -241,7 +243,7 @@ def remap_split(
         present_instances: Counter[str] = Counter()
         for raw in label_path.read_text(encoding="utf-8").splitlines():
             parts = raw.strip().split()
-            if len(parts) < 5:
+            if len(parts) != 5:
                 continue
             try:
                 source_id = int(float(parts[0]))
@@ -310,6 +312,7 @@ def main() -> None:
         rf = Roboflow(api_key=api_key)
     total_images: Counter[str] = Counter()
     total_instances: Counter[str] = Counter()
+    failures: list[tuple[str, str]] = []
     limits = class_image_limits(manifest, args.no_class_limits)
     if not args.no_class_limits:
         print("Class image caps:")
@@ -326,11 +329,17 @@ def main() -> None:
         if args.dry_run:
             continue
 
-        project = rf.workspace(item["workspace"]).project(item["project"])  # type: ignore[union-attr]
-        version = project.version(int(item["version"]))
-        downloaded = version.download(model_format=model_format, location=str(download_root / prefix))
-        source_root = find_download_root(Path(downloaded.location))
-        source_names = read_dataset_names(source_root / "data.yaml")
+        try:
+            project = rf.workspace(item["workspace"]).project(item["project"])  # type: ignore[union-attr]
+            version = project.version(int(item["version"]))
+            downloaded = version.download(model_format=model_format, location=str(download_root / prefix))
+            source_root = find_download_root(Path(downloaded.location))
+            source_names = read_dataset_names(source_root / "data.yaml")
+        except Exception as exc:
+            message = str(exc)
+            failures.append((name, message))
+            print(f"  SKIPPED: {message}")
+            continue
 
         for source_split, target_split in (("train", "train"), ("valid", "val"), ("val", "val"), ("test", "test")):
             image_counts, instance_counts = remap_split(
@@ -346,7 +355,6 @@ def main() -> None:
             )
             if image_counts:
                 print(f"  merged {source_split} -> {target_split}: {dict(image_counts)}")
-            total_images.update(image_counts)
             total_instances.update(instance_counts)
 
     if args.dry_run:

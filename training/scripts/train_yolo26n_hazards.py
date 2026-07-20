@@ -40,23 +40,23 @@ DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
 DEFAULT_RESERVED_CPU_CORES = 4
 
 EDGE_HAZARD_CLASSES = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "truck",
-    "traffic light",
-    "stop sign",
-    "fire hydrant",
-    "dog",
-    "bench",
-    "pole",
-    "bollard",
-    "stairs",
-    "crosswalk",
-    "pothole",
-    "puddle",
+    'person',
+    'bicycle',
+    'car',
+    'motorcycle',
+    'bus',
+    'truck',
+    'traffic light',
+    'stop sign',
+    'fire hydrant',
+    'pole',
+    'bollard',
+    'stairs',
+    'crosswalk',
+    'pothole',
+    'puddle',
+    'dog',
+    'bench',
 ]
 
 
@@ -240,7 +240,7 @@ def parse_device(value: str):
         return value
 
 
-def configure_cuda_runtime(device) -> None:
+def configure_cuda_runtime(device, *, autobatch: bool = False) -> None:
     """Enable safe CUDA speed knobs and print the selected GPU plan."""
     try:
         import torch
@@ -252,7 +252,7 @@ def configure_cuda_runtime(device) -> None:
         print("Training runtime: CPU")
         return
 
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = not autobatch
     if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
         torch.backends.cuda.matmul.allow_tf32 = True
     if hasattr(torch.backends.cudnn, "allow_tf32"):
@@ -276,6 +276,7 @@ def configure_cuda_runtime(device) -> None:
         total_gb = props.total_memory / (1024 ** 3)
         reserved_gb = torch.cuda.memory_reserved(idx) / (1024 ** 3)
         print(f"  cuda:{idx}: {props.name}, total={total_gb:.1f}GB, reserved={reserved_gb:.1f}GB")
+    print(f"  cudnn_benchmark={torch.backends.cudnn.benchmark} ({'AutoBatch search' if autobatch else 'static batch speed path'})")
 
 
 def cache_arg(value: str):
@@ -351,7 +352,7 @@ def validate_inputs(weights: Path, data: Path) -> None:
 def print_class_plan(classes: Iterable[str]) -> None:
     print("CPE hazard classes:")
     for idx, name in enumerate(classes):
-        source = "COCO" if idx <= 10 else "custom"
+        source = "COCO" if idx <= 8 or idx in (15, 16) else "custom"
         print(f"  {idx:2d}: {name} ({source})")
     print(
         "\nEdge constraint: this run keeps the YOLO26n architecture and reduces "
@@ -420,7 +421,7 @@ def main() -> None:
     validate_inputs(weights, data)
     print_class_plan(EDGE_HAZARD_CLASSES)
     device = parse_device(str(args.device))
-    configure_cuda_runtime(device)
+    configure_cuda_runtime(device, autobatch=args.batch == -1)
     print_throughput_plan(args, data)
 
     if args.export_only:
