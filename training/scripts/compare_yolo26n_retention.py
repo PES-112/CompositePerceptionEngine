@@ -28,7 +28,7 @@ from ultralytics import YOLO
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CANDIDATE = PROJECT_ROOT / "training" / "runs" / "cpe_yolo26n_hazards_v2" / "weights" / "best.pt"
 FALLBACK_CANDIDATE = PROJECT_ROOT / "training" / "runs" / "cpe_yolo26n_hazards" / "weights" / "best.pt"
-DEFAULT_BASE = PROJECT_ROOT / "yolo26n.pt"
+DEFAULT_BASE = PROJECT_ROOT / "models" / "yolo" / "base_yolo26n" / "yolo26n.pt"
 DEFAULT_DATA = PROJECT_ROOT / "training" / "configs" / "cpe_hazard_classes.yaml"
 DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}

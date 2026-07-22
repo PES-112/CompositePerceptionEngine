@@ -2,6 +2,27 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-22] - Local Artifact Relocation
+### Project Structure
+- Moved the pretrained YOLO26n base checkpoint into `models/yolo/base_yolo26n/yolo26n.pt` and updated training, comparison, perception, notebook, and documentation references.
+- Moved SANPO valid stream metadata into `simulation/datasets/sanpo/valid_streams.json` and updated gap-analysis consumers.
+
+## [2026-07-22] - Documentation Cleanup and YOLO Guide Consolidation
+### Documentation
+- Replaced stale YOLO v1/v2 planning docs with `docs/yolo_training.md` as the current source of truth for dataset roots, checkpoints, training commands, evaluation commands, and version-comparison artifacts.
+- Updated the docs index, architecture, artifact-structure guide, research-paper prompts, training README, and benchmark README to reflect the v3-from-base checkpoint and cumulative evaluation results.
+- Removed obsolete links to documentation files that no longer exist.
+
+## [2026-07-22] - YOLO26n Version Comparison Artifacts
+### Evaluation
+- Ran all-class held-out test evaluation for the v3-from-base checkpoint.
+- Added cumulative v1/v2/v3 comparison artifacts under `evaluation/benchmarks/yolo26n_version_comparison/`, including overall metrics, per-class mAP tables, and retained-class base-YOLO deltas.
+
+## [2026-07-22] - v3 From-Base Training Setup
+### Training
+- Removed interrupted YOLO training run folders while preserving successful v1/v2 checkpoints and evaluation artifacts.
+- Documented the v3 retention-repair path that starts from base `models/yolo/base_yolo26n/yolo26n.pt`, reuses the cleaned v2_full dataset, and recommends extra Roboflow data for `truck`, `bicycle`, `dog`, `stop sign`, and `bus`.
+
 ## [2026-07-20] - AutoBatch Startup Fix
 ### Training
 - Updated the GB10 training script to keep cuDNN benchmark disabled during `batch=-1` AutoBatch search so Ultralytics can probe large batch sizes instead of falling back to batch 16.
@@ -64,7 +85,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 ## [2026-07-20] - YOLO26n v2 Fine-Tuning Plan & Retention Comparison
 ### Training & Evaluation
 - Added `docs/plan_yolo_v2_finetune.md`, a checklist-driven plan for continuing from the v1 `best.pt` checkpoint, repairing weak `stairs`/`pothole` performance, and adding retained-class validation data.
-- Added `training/scripts/compare_yolo26n_retention.py` to compare a fine-tuned CPE checkpoint against base `yolo26n.pt` for retained COCO classes using class-name remapping, while validating the candidate on all active CPE classes.
+- Added `training/scripts/compare_yolo26n_retention.py` to compare a fine-tuned CPE checkpoint against base `models/yolo/base_yolo26n/yolo26n.pt` for retained COCO classes using class-name remapping, while validating the candidate on all active CPE classes.
 - Updated `docs/architecture.md`, `docs/plan_yolo_finetune.md`, and `docs/research_paper_prompts.md` to document the v2 staged fine-tuning and retained-class validation workflow.
 
 ## [2026-07-20] - YOLO26n Hazard Checkpoint Evaluation
@@ -94,7 +115,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 - **Workspace Cleanup**: Cleaned up the workspace by deleting legacy visual output PNGs.
 
 ### Training
-- Added `training/scripts/train_yolo26n_hazards.py`, a lab-GPU training script that fine-tunes `yolo26n.pt` on CPE navigation hazards while preserving the nano architecture, freezing early layers, applying rare-class weighting, and optionally exporting INT8 edge artifacts with an export-only mode for finished checkpoints.
+- Added `training/scripts/train_yolo26n_hazards.py`, a lab-GPU training script that fine-tunes `models/yolo/base_yolo26n/yolo26n.pt` on CPE navigation hazards while preserving the nano architecture, freezing early layers, applying rare-class weighting, and optionally exporting INT8 edge artifacts with an export-only mode for finished checkpoints.
 - Added `training/configs/cpe_hazard_classes.yaml` with a CPE hazard taxonomy covering retained COCO safety classes plus non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, and `puddle`.
 
 ### Documentation

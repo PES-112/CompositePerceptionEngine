@@ -1,0 +1,4 @@
+version,label,checkpoint,map50,map50_95,map75,delta_map50_vs_previous,delta_map50_95_vs_previous,notes
+v1,v1 best.pt,training/runs/cpe_yolo26n_hazards/weights/best.pt,0.6508416191192359,0.43206571503433056,0.4849448876869702,,,Original hazard-only benchmark; retained COCO classes were not evaluated in this compact benchmark.
+v2,v2 full autobatch best.pt,training/runs/cpe_yolo26n_hazards_v2_full_autobatch-2/weights/best.pt,0.598988159013255,0.4238790651607679,0.45532031332453754,-0.05185346010598091,-0.008186649873562657,Continued from v1 best.pt; severe truck retention regression observed.
+v3,v3 from base best.pt,training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt,0.6406948214239582,0.4588264593505192,0.4907504072699215,0.0417066624107032,0.03494739418975129,Restarted from base models/yolo/base_yolo26n/yolo26n.pt using the cleaned v2_full dataset.

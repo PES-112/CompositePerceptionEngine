@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 from ultralytics import YOLO
 
-DEFAULT_MODEL      = "yolo26n.pt"
+DEFAULT_MODEL      = "models/yolo/base_yolo26n/yolo26n.pt"
 DEFAULT_CONF       = 0.30
 DEFAULT_TRACKER    = "bytetrack.yaml"
 

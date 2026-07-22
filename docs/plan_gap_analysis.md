@@ -10,14 +10,14 @@
 
 Run the existing gap analysis notebook across the SANPO dataset to **empirically identify** which physical objects are consistently present at hazard range (0.5–6m) but are NOT detected by the current YOLO26n whitelist.
 
-The outputs directly inform which new classes to prioritise in the YOLO fine-tuning plan (`docs/plan_yolo_finetune.md`).
+The outputs directly inform which new classes to prioritise in the YOLO training guide (`docs/yolo_training.md`).
 
 ---
 
 ## 2. What the Gap Analysis Does
 
 For every sampled frame:
-1. Run YOLO26n with the current 13-class whitelist.
+1. Run YOLO26n with the current CPE detector configuration.
 2. Load the `.float16.gz` SANPO depth map.
 3. Find all depth "blobs" in the **0.5–6.0m alert zone** that have **no overlapping YOLO bounding box**.
 4. Tag each blob with:
@@ -62,7 +62,7 @@ All parameters are in **Cell 1** of `notebooks/sanpo_yolo_gap_analysis.ipynb`.
 | `DEPTH_MAX_M` | `6.0` | Maximum depth. Objects beyond 6m are informational only. |
 | `MIN_BLOB_AREA_PX` | `800` | Minimum blob pixel area to report. Filters out noise/reflections. |
 | `OBSTACLE_GRID_COLS` | `5` | Number of vertical navigation columns to sweep. |
-| `YOLO_MODEL_PATH` | `yolo26n.pt` | Path to YOLO model (relative to repo root). |
+| `YOLO_MODEL_PATH` | `models/yolo/base_yolo26n/yolo26n.pt` | Path to YOLO model (relative to repo root). |
 
 ---
 
@@ -108,7 +108,7 @@ pip install ultralytics opencv-python matplotlib scipy pandas
 
 2. **Configure Cell 1:**
    - For a quick first run, set `MAX_FRAMES_PER_SESSION = 10` and `SESSION_FILTER = None`.
-   - Confirm `YOLO_MODEL_PATH` points to your `yolo26n.pt` (default is correct if running from repo root).
+   - Confirm `YOLO_MODEL_PATH` points to your `models/yolo/base_yolo26n/yolo26n.pt` (default is correct if running from repo root).
 
 3. **Run all cells in order (Cells 1–9).**
    - Cell 7 (the main loop) will print progress per frame and display inline visualizations.
@@ -185,11 +185,11 @@ Once the analysis is complete:
 2. **Visually inspect** the top 20 gap frames (already saved as PNGs in the output folder). Manually note down what objects you can see in those depth gap regions:
    - Poles / bollards?
    - Benches?
-   - Vegetation / overhanging branches?
+   - Vegetation or other unlabeled overhead/sidewalk clutter?
    - Construction barriers?
    - Stairs / kerbs?
 
-3. **Feed this observation back into the YOLO fine-tune class list** (`docs/plan_yolo_finetune.md`). If 70% of gap frames show a pole in that region, `pole` is your highest-priority new class.
+3. **Feed this observation back into the YOLO data plan** (`docs/yolo_training.md`). If 70% of gap frames show a pole in that region, `pole` is your highest-priority new class.
 
 4. **Update CHANGELOG.md** once the analysis run is complete and the gap class list is finalised.
 

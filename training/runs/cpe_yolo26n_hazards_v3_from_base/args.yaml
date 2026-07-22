@@ -1,8 +1,8 @@
 task: detect
 mode: train
-model: /home/student-4/Projects/CompositePerceptionEngine/training/runs/cpe_yolo26n_hazards/weights/best.pt
+model: /home/student-4/Projects/CompositePerceptionEngine/yolo26n.pt
 data: /home/student-4/Projects/CompositePerceptionEngine/training/configs/cpe_hazard_classes.yaml
-epochs: 50
+epochs: 75
 time: null
 patience: 20
 batch: -1
@@ -13,7 +13,7 @@ cache: ram
 device: '0'
 workers: 16
 project: /home/student-4/Projects/CompositePerceptionEngine/training/runs
-name: cpe_yolo26n_hazards_v2_full
+name: cpe_yolo26n_hazards_v3_from_base
 exist_ok: false
 pretrained: true
 cls_remap: true
@@ -109,4 +109,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: /home/student-4/Projects/CompositePerceptionEngine/training/runs/cpe_yolo26n_hazards_v2_full
+save_dir: /home/student-4/Projects/CompositePerceptionEngine/training/runs/cpe_yolo26n_hazards_v3_from_base

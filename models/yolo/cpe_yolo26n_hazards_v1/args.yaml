@@ -1,6 +1,6 @@
 task: detect
 mode: train
-model: /home/student-4/Projects/CompositePerceptionEngine/yolo26n.pt
+model: /home/student-4/Projects/CompositePerceptionEngine/models/yolo/base_yolo26n/yolo26n.pt
 data: /home/student-4/Projects/CompositePerceptionEngine/training/configs/cpe_hazard_classes.yaml
 epochs: 100
 time: null

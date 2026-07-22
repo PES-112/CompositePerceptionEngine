@@ -35,7 +35,7 @@ from ultralytics import YOLO
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA = PROJECT_ROOT / "training" / "configs" / "cpe_hazard_classes.yaml"
-DEFAULT_WEIGHTS = PROJECT_ROOT / "yolo26n.pt"
+DEFAULT_WEIGHTS = PROJECT_ROOT / "models" / "yolo" / "base_yolo26n" / "yolo26n.pt"
 DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
 DEFAULT_RESERVED_CPU_CORES = 4
 

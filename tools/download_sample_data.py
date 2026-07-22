@@ -57,8 +57,8 @@ def check_yolo26():
     print("=== Checking YOLO26n ===")
     try:
         from ultralytics import YOLO
-        model = YOLO("yolo26n.pt")
-        print(f"✅  yolo26n.pt — task={model.task}, {len(model.names)} COCO classes\n")
+        model = YOLO("models/yolo/base_yolo26n/yolo26n.pt")
+        print(f"✅  models/yolo/base_yolo26n/yolo26n.pt — task={model.task}, {len(model.names)} COCO classes\n")
     except ModuleNotFoundError:
         print("⚠️  ultralytics not found in this env.")
         print("    Make sure you activate the venv first:")

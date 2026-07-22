@@ -8,39 +8,44 @@ Canonical config:
 training/configs/cpe_hazard_classes.yaml
 ```
 
-Current v1 checkpoint:
+Current workflow guide:
 
 ```text
-training/runs/cpe_yolo26n_hazards/weights/best.pt
-models/yolo/cpe_yolo26n_hazards_v1/best.pt
+docs/yolo_training.md
 ```
 
-The `models/yolo/...` copy is a local model registry entry. Binary weights are ignored by Git.
-
-## V2 Fine-Tuning
-
-Follow:
+Preferred checkpoint:
 
 ```text
-docs/plan_yolo_v2_finetune.md
+training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt
 ```
 
-Start v2 from v1 `best.pt` after adding better stairs/pothole data and retained-class validation data:
+Training runs should be launched by the user in the terminal when progress visibility matters:
 
 ```bash
-.venv/bin/python training/scripts/train_yolo26n_hazards.py   --weights training/runs/cpe_yolo26n_hazards/weights/best.pt   --device 0   --batch -1   --epochs 50   --cache disk   --name cpe_yolo26n_hazards_v2   --export-formats
+.venv/bin/python training/scripts/train_yolo26n_hazards.py \
+  --weights models/yolo/base_yolo26n/yolo26n.pt \
+  --device 0 \
+  --epochs 75 \
+  --name cpe_yolo26n_hazards_v3_from_base
 ```
 
-## Evaluation
-
-All-class candidate validation:
+All-class validation:
 
 ```bash
-.venv/bin/python training/scripts/evaluate_yolo26n_hazards.py   --weights training/runs/cpe_yolo26n_hazards_v2/weights/best.pt   --split test   --device 0
+.venv/bin/python training/scripts/evaluate_yolo26n_hazards.py \
+  --weights training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
+  --split test \
+  --device 0 \
+  --skip-previews
 ```
 
 Retained COCO-class comparison against base YOLO:
 
 ```bash
-.venv/bin/python training/scripts/compare_yolo26n_retention.py   --candidate training/runs/cpe_yolo26n_hazards_v2/weights/best.pt   --base yolo26n.pt   --split test   --device 0
+.venv/bin/python training/scripts/compare_yolo26n_retention.py \
+  --candidate training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
+  --base models/yolo/base_yolo26n/yolo26n.pt \
+  --split test \
+  --device 0
 ```

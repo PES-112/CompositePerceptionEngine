@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 # Central Configuration
-YOLO_MODEL_PATH = str(REPO_ROOT / "yolo26n.pt")
+YOLO_MODEL_PATH = str(REPO_ROOT / "models" / "yolo" / "base_yolo26n" / "yolo26n.pt")
 CONF_THRESH = 0.30
 IOU_THRESH = 0.50
 IMG_SIZE = (1280, 720)
@@ -267,7 +267,7 @@ def main():
     loader = SANPOLoader(camera="head", view="left")
 
     # Load stream definitions
-    with open(REPO_ROOT / "valid_streams.json") as f:
+    with open(REPO_ROOT / "simulation" / "datasets" / "sanpo" / "valid_streams.json") as f:
         valid_streams = json.load(f)
 
     streams_to_process = valid_streams[:MAX_STREAMS]
