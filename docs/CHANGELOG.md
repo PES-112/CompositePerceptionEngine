@@ -2,6 +2,52 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-22] - Documentation Ownership and Hardware Targets
+### Documentation
+- Added `docs/hardware_targets.md` as the source of truth for observed GB10 training-host specs, the planned Jetson Orin Nano 8GB target, runtime budgets, and measured-versus-simulated evidence.
+- Moved `Roadmap.md` to `docs/roadmap.md` and normalized the progress checklist path as `docs/progress.md`.
+- Renamed the SANPO documents to `docs/sanpo_dataset.md` and `docs/sanpo_gap_analysis.md` so their names match their responsibilities.
+- Merged artifact naming and cleanup rules into `docs/README.md`, then removed the overlapping `docs/artifact_structure.md`.
+- Updated the main README project tree and documentation index for the consolidated structure.
+- Removed the stale Snapdragon-specific hardware target from the architecture and corrected the paper prompt so simulated Jetson results are not described as physical-device measurements.
+
+
+## [2026-07-22] - Reflex Layer Bridge and Progress Checklist
+### Runtime Pipeline
+- Added `src/reflex_layer/reflex.py` to convert reflex-route `ThreatEvent`s into `ReflexResult`s and invoke Physics Verification without waiting for cognitive SLM output.
+- Updated `src/reflex_layer/__init__.py` exports for the new Reflex Layer bridge.
+
+### Progress Tracking
+- Added `docs/progress.md` as a living project checklist covering detector status, dataset intake, ThreatEvent routing, Reflex Layer status, SLM/TTS gaps, and immediate next steps.
+
+### Tests
+- Added `tests/test_reflex_layer.py` for TTC override behavior, non-reflex suppression, and high-K physics fallback behavior.
+
+### Documentation
+- Updated README structure, architecture notes, roadmap, research prompts, and changelog to reflect the Reflex Layer bridge and current project progress.
+
+## [2026-07-22] - ThreatEvent Routing Contract
+### Runtime Pipeline
+- Added `src/threat_prioritizer/events.py` with `PerceivedObject`, `ThreatEvent`, `ThreatFrame`, TTC calculation, kinetic-score routing, Physics Verification registry output, and ReflexResult conversion.
+- Added `tools/build_threat_events.py` to convert Stage 1 perception CSV files into non-ignore `ThreatEvent` JSONL plus route/class summaries.
+
+### Tests
+- Added `tests/test_threat_prioritizer.py` and `tests/__init__.py` with standard-library unit tests for TTC, reflex routing, cognitive near-static hazard routing, ignore routing, and CSV-to-JSONL conversion.
+
+### Documentation
+- Updated architecture, roadmap, README structure, and research prompts to document the formal perception-to-physics event contract.
+
+## [2026-07-22] - Roadmap Technology Audit and Edge Export Step
+### Planning
+- Updated `docs/roadmap.md` with the current detector status, SANPO 10-session latency result, and revised model recommendations: keep YOLO26n v3, prefer Qwen3-1.7B non-thinking mode for SLM-1, use template-first critical narration with optional Phi-4-mini, and keep IndicTrans2 distilled/phrase-table translation for the prototype.
+
+### Tooling
+- Added `training/scripts/export_yolo26n_edge.py` and `models/yolo/cpe_yolo26n_hazards_v3_from_base/` to export the preferred v3 checkpoint to ONNX, TensorRT engine, OpenVINO, or TorchScript with modern Ultralytics `quantize` arguments and a model-registry export manifest.
+- Updated the training script export path to use `--export-quantize` instead of deprecated INT8 export aliases.
+
+### Documentation
+- Updated README, YOLO training docs, training workflow docs, architecture notes, and research-paper prompts to point at the detector export/runtime comparison as the next step.
+
 ## [2026-07-22] - README Structure Maintenance Rule
 ### Documentation
 - Added a `.agents/AGENTS.md` rule requiring the main `README.md` Project Structure section to be reviewed and updated whenever new files, folders, scripts, datasets, model registry entries, benchmark artifacts, or major docs are added.
@@ -20,7 +66,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 
 ## [2026-07-22] - SANPO Valid-Stream Edge Smoke Test
 ### Evaluation
-- Documented the public SANPO GCS bucket layout, valid-stream local convention, label metadata, and bounded download strategy in `docs/sanpo_bucket_structure.md`.
+- Documented the public SANPO GCS bucket layout, valid-stream local convention, label metadata, and bounded download strategy in `docs/sanpo_dataset.md`.
 - Added `tools/download_sanpo_valid_streams.py` to download selected paired SANPO-Real RGB/depth frames from `valid_streams.json` without copying whole multi-GB sessions.
 - Downloaded valid stream `0xCqEk5hjEvrygxu26MZkieSv45D_gaJ` and saved v3 full RGB+depth edge benchmarks under `evaluation/benchmarks/sanpo_edge_realtime/`.
 - Fixed SANPO depth handling for native `960 x 960` `.float16.gz` maps by inferring shape and scaling RGB-space boxes into depth-map coordinates.
@@ -106,7 +152,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 ## [2026-07-20] - Repository Artifact Cleanup & Model Registry
 ### Repository Hygiene
 - Removed generated Ultralytics plot/preview artifacts from tracked training runs while preserving compact metrics and checkpoint metadata.
-- Added `docs/artifact_structure.md`, `training/README.md`, `evaluation/benchmarks/README.md`, and `models/yolo/README.md` to clarify artifact locations, naming conventions, and cleanup rules.
+- Added artifact conventions, `training/README.md`, `evaluation/benchmarks/README.md`, and `models/yolo/README.md`; the conventions now live in `docs/README.md`.
 - Added a local model registry entry under `models/yolo/cpe_yolo26n_hazards_v1/` and compact v1 benchmark summaries under `evaluation/benchmarks/yolo26n_hazards_v1/`.
 - Updated `.gitignore` to keep datasets, secrets, binary weights, training plots, and local Roboflow manifests out of version control.
 
@@ -163,7 +209,7 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 ## [2026-07-10] — Implementation Plans for YOLO Fine-Tuning & Gap Analysis
 ### Documentation
 - **`docs/plan_yolo_finetune.md`**: Detailed implementation plan for fine-tuning YOLO26n. Includes class curation rationale (dropping non-navigation COCO classes while adding `pole`, `stairs`, `crosswalk`, and surface hazards), SANPO panoptic-to-YOLO label conversion pipeline, dataset split strategy, training script outline, and benchmark targets.
-- **`docs/plan_gap_analysis.md`**: Step-by-step implementation plan for running the gap analysis notebook across SANPO. Documents all config parameters, output folder management (frame sampling to prevent bloat), visualization legend, CSV column definitions, and post-run analysis queries.
+- **`docs/sanpo_gap_analysis.md`**: Step-by-step guide for running the gap analysis notebook across SANPO. Documents all config parameters, output folder management (frame sampling to prevent bloat), visualization legend, CSV column definitions, and post-run analysis queries.
 
 ## [2026-07-10] — SANPO Analysis & YOLO Class Curation
 ### Research & Tooling

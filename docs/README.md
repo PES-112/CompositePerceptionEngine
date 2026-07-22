@@ -1,21 +1,24 @@
 # CPE Documentation Index
 
-Current project documentation for the Composite Perception Engine (CPE).
+Each document has one primary responsibility. Update the owning document instead of creating a version-specific plan for information that already has a home.
 
-## Read First
+## Documentation Map
 
-| File | Purpose |
+| File | Owns |
 |---|---|
-| [`architecture.md`](./architecture.md) | Canonical system architecture, data flow, perception stack, physics verification, SLM strategy, and edge constraints. |
-| [`yolo_training.md`](./yolo_training.md) | Current YOLO26n dataset, checkpoint, training, evaluation, and version-comparison guide. |
-| [`artifact_structure.md`](./artifact_structure.md) | Naming conventions and cleanup rules for datasets, runs, benchmarks, and local model binaries. |
-| [`research_paper_prompts.md`](./research_paper_prompts.md) | Paper-writing prompts aligned with the current CPE methodology and benchmark story. |
-| [`plan_gap_analysis.md`](./plan_gap_analysis.md) | SANPO gap-analysis workflow for identifying perception blind spots and hard examples. |
-| [`CHANGELOG.md`](./CHANGELOG.md) | Chronological project changes. |
+| [`progress.md`](./progress.md) | Current completion checklist, active focus, and immediate next steps. |
+| [`architecture.md`](./architecture.md) | Runtime components, contracts, data flow, routing, and safety behavior. |
+| [`hardware_targets.md`](./hardware_targets.md) | Observed GB10 host specs, planned edge target, latency budgets, and measured-versus-simulated status. |
+| [`roadmap.md`](./roadmap.md) | Technology choices, implementation phases, and future work. |
+| [`yolo_training.md`](./yolo_training.md) | YOLO datasets, checkpoints, training/evaluation commands, metrics, and cleanup policy. |
+| [`sanpo_dataset.md`](./sanpo_dataset.md) | SANPO bucket layout, valid-stream intake, local data convention, and edge benchmark evidence. |
+| [`sanpo_gap_analysis.md`](./sanpo_gap_analysis.md) | Operational depth-versus-YOLO blind-spot and hard-example workflow. |
+| [`research_paper_prompts.md`](./research_paper_prompts.md) | Paper-drafting prompts aligned with implemented methodology and evidence. |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Chronological record of repository changes. |
 
-## Current YOLO Status
+## Current Detector
 
-Preferred detector checkpoint:
+Preferred checkpoint:
 
 ```text
 training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt
@@ -27,10 +30,29 @@ Current cumulative evaluation report:
 evaluation/benchmarks/yolo26n_version_comparison/version_improvement_report.md
 ```
 
-Summary: v3 starts from base `models/yolo/base_yolo26n/yolo26n.pt`, uses the cleaned 17-class dataset, repairs most v2 retained-class degradation, and is the preferred checkpoint for downstream simulation.
+YOLO26n v3 starts from `models/yolo/base_yolo26n/yolo26n.pt`, uses the cleaned 17-class dataset, repairs most v2 retained-class degradation, and is the preferred detector for downstream simulation.
 
-## Documentation Hygiene
+## Artifact and Naming Conventions
 
-- Keep this index pointed only at files that actually exist.
-- Keep current workflow instructions in `yolo_training.md`; do not create new version-specific YOLO plan docs unless a future experiment needs a separate design proposal.
-- Store compact benchmark summaries under `evaluation/benchmarks/` and avoid committing bulky generated images or binary checkpoints.
+| Path | Purpose |
+|---|---|
+| `training/scripts/` | Reusable download, training, evaluation, comparison, and export scripts. |
+| `training/configs/` | Canonical class taxonomy and dataset-source manifests. |
+| `training/runs/<run_id>/` | Local Ultralytics outputs and checkpoints. |
+| `evaluation/benchmarks/<benchmark_id>/` | Compact CSV, JSON, and Markdown results worth retaining. |
+| `models/yolo/<model_id>/README.md` | Human-readable model registry entry. |
+| `simulation/datasets/sanpo/valid_streams.json` | Curated SANPO streams for CPE evaluation. |
+| `data/` | Local raw and merged datasets; do not commit. |
+| `.env` | Local secrets such as `ROBOFLOW_API_KEY`; do not commit. |
+
+Use names that identify the model, task, and version, such as `cpe_yolo26n_hazards_v3_from_base`. Avoid ambiguous names such as `test`, `new`, `final`, or `latest`.
+
+After a successful training run, retain `weights/best.pt`, `args.yaml`, and `results.csv` locally; copy compact reports into `evaluation/benchmarks/`; remove bulky previews only after confirming they are not needed for analysis or a paper figure.
+
+## Maintenance Rules
+
+- Keep this index pointed only at files that exist.
+- Put current detector workflow changes in `yolo_training.md`.
+- Put benchmark data in `evaluation/benchmarks/`, then summarize only the durable conclusion in the relevant guide.
+- Label analytical edge estimates as simulated until the same workload is measured on physical target hardware.
+- Update the main `README.md` project tree whenever files, folders, models, datasets, or benchmark artifacts are added or moved.

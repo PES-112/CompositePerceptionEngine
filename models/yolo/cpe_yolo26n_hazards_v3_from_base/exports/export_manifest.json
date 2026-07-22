@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-07-22T09:10:47.704005+00:00",
+  "weights": "/home/student-4/Projects/CompositePerceptionEngine/training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+  "data": "/home/student-4/Projects/CompositePerceptionEngine/training/configs/cpe_hazard_classes.yaml",
+  "exports": [
+    {
+      "format": "onnx",
+      "kwargs": {
+        "format": "onnx",
+        "imgsz": 640,
+        "batch": 1,
+        "device": 0,
+        "dynamic": false,
+        "simplify": true,
+        "quantize": 16
+      },
+      "status": "dry_run"
+    }
+  ]
+}

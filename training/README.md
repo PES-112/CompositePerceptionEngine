@@ -49,3 +49,14 @@ Retained COCO-class comparison against base YOLO:
   --split test \
   --device 0
 ```
+
+
+Edge export:
+
+```bash
+.venv/bin/python training/scripts/export_yolo26n_edge.py \
+  --weights training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
+  --formats onnx \
+  --quantize 16 \
+  --device 0
+```

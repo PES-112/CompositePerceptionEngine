@@ -59,7 +59,7 @@ cd /home/student-4/Projects/CompositePerceptionEngine
   --name cpe_yolo26n_hazards_v3_from_base
 ```
 
-The script defaults are tuned for the GB10 server:
+The script defaults are tuned for the GB10 server documented in [`hardware_targets.md`](./hardware_targets.md):
 
 - `cache=ram`
 - `batch=-1` AutoBatch
@@ -68,6 +68,36 @@ The script defaults are tuned for the GB10 server:
 - no automatic export during training
 
 If a new training run is needed, prefer starting from base `models/yolo/base_yolo26n/yolo26n.pt` unless there is a narrow reason to continue from a CPE checkpoint.
+
+## Edge Export Command
+
+Export is intentionally separate from training so a completed checkpoint can be converted and benchmarked without rerunning epochs. Start with ONNX FP16 on the lab machine, then build TensorRT engines on the actual NVIDIA edge target.
+
+```bash
+.venv/bin/python training/scripts/export_yolo26n_edge.py \
+  --weights training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
+  --formats onnx \
+  --quantize 16 \
+  --device 0
+```
+
+For TensorRT INT8 calibration on target hardware:
+
+```bash
+.venv/bin/python training/scripts/export_yolo26n_edge.py \
+  --weights training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
+  --formats engine \
+  --quantize 8 \
+  --device 0 \
+  --calibration-fraction 0.25
+```
+
+The script copies successful exports and writes `export_manifest.json` under:
+
+```text
+models/yolo/cpe_yolo26n_hazards_v3_from_base/exports/
+```
+
 
 ## Evaluation Commands
 

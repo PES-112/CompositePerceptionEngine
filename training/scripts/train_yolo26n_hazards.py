@@ -207,9 +207,10 @@ def parse_args() -> argparse.Namespace:
         help="Skip training and export the checkpoint passed with --weights.",
     )
     parser.add_argument(
-        "--no-export-int8",
-        action="store_true",
-        help="Disable INT8 export calibration.",
+        "--export-quantize",
+        choices=["none", "16", "8"],
+        default="8",
+        help="Export precision. Uses modern Ultralytics quantize values; default keeps old INT8 behavior.",
     )
     parser.add_argument(
         "--calibration-fraction",
@@ -391,10 +392,12 @@ def export_model(best_pt: Path, data: Path, args: argparse.Namespace) -> None:
             "batch": 1,
             "device": device,
         }
-        if not args.no_export_int8:
+        export_quantize = None if args.export_quantize == "none" else int(args.export_quantize)
+        if export_quantize is not None:
+            kwargs["quantize"] = export_quantize
+        if export_quantize == 8:
             kwargs.update(
                 {
-                    "int8": True,
                     "data": str(data),
                     "fraction": args.calibration_fraction,
                 }

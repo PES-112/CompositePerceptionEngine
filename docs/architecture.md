@@ -1,4 +1,4 @@
-# Architecture Validation: Composite Perception Engine (CPE)
+# Composite Perception Engine Architecture
 
 > [!NOTE]
 > Corrected to match the diagram provided. Physics Verification is **downstream of SLM-1** — it judges SLM-1's semantic output against the Reflex Layer's raw kinetic score, then selects events to narrate.
@@ -40,7 +40,7 @@
   │  Ignore   │     ▼                          ▼
   │ Objects   │ ┌──────────────┐   ┌─────────────────────────┐
   └───────────┘ │ Reflex Layer │   │     Cognitive Layer      │
-                │ Deterministic│   │   SLM-1 (Qwen/Phi-3)    │
+                │ Deterministic│   │ SLM-1 (Qwen3/Qwen2.5) │
                 │ Physics      │   │   Semantic Evaluation    │
                 │ TTC < 1.0s   │   │   of Scene Context       │
                 └──────┬───────┘   └────────────┬────────────┘
@@ -70,7 +70,7 @@
                          ▼               ▼
               ┌──────────────────┐  ┌───────────────┐
               │ Indic Language   │  │  Audio Output │
-              │ Translation      │  │  (FastSpeech2)│
+              │ Translation      │  │ Cached/local │
               └──────────┬───────┘  └───────┬───────┘
                          └──────────────────┘
                                   ▲
@@ -113,7 +113,7 @@ YOLO26 Nano + ByteTrack + Depth Map overlay. Outputs per object:
 **Edge Optimization (YOLO Fine-Tuning):**
 The YOLO26n model is fine-tuned on a domain-specific hazard dataset (potholes, bollards, stairs, crosswalks, poles, puddles, dogs, and benches) rather than standard COCO classes. This provides critical semantic labels for navigation hazards at the edge.
 
-The fine-tuning entry point is `training/scripts/train_yolo26n_hazards.py`, backed by `training/configs/cpe_hazard_classes.yaml` and documented in `docs/yolo_training.md`. It keeps the YOLO26n nano backbone as the student model, reduces the detector head from COCO's broad 80-class taxonomy to 17 CPE navigation classes, freezes early layers by default, and supports deferred INT8 export for edge deployment. This retains navigation-relevant COCO classes such as `dog` and `bench`, and adds non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, and `puddle` without moving to a larger model family.
+The fine-tuning entry point is `training/scripts/train_yolo26n_hazards.py`, backed by `training/configs/cpe_hazard_classes.yaml` and documented in `docs/yolo_training.md`. It keeps the YOLO26n nano backbone as the student model, reduces the detector head from COCO's broad 80-class taxonomy to 17 CPE navigation classes, freezes early layers by default, and supports deferred edge export via `training/scripts/export_yolo26n_edge.py` using modern Ultralytics `quantize=16` or `quantize=8` arguments. This retains navigation-relevant COCO classes such as `dog` and `bench`, and adds non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, and `puddle` without moving to a larger model family.
 
 The current preferred detector is the v3-from-base checkpoint. v2 continued from the prior CPE checkpoint and improved several custom hazards but caused retained-class degradation, especially `truck`; v3 restarted from base `models/yolo/base_yolo26n/yolo26n.pt`, reused the cleaned 17-class dataset, and repaired most retention issues while improving mAP50-95. Evaluation now includes all-class held-out mAP plus retained COCO-class comparison against base YOLO using class-name remapping to avoid COCO-ID/CPE-ID mismatches.
 
@@ -134,15 +134,23 @@ To identify blind spots in the YOLO detection stack and prioritize fine-tuning e
 
 ### 2.3 Threat Prioritizer
 
-Routes objects based on raw Kinetic Score:
+Routes objects based on the runtime `ThreatEvent` contract in `src/threat_prioritizer/events.py`. Stage 1 perception rows already contain YOLO class, track ID, confidence, bounding box, depth-derived distance, closing velocity, and bearing. The threat prioritizer enriches each row with TTC and kinetic score, then emits one route per object.
 
 ```
-K = (W_mass · Class_severity) × V²_closing / max(d, ε)
+Tracked perception row
+  → PerceivedObject(distance, velocity, bearing, K, TTC)
+  → ThreatEvent(route=ignore|cognitive|reflex, priority, reason)
 
-K < LOW_THRESHOLD  → Ignore (static/far objects)
-K > HIGH_THRESHOLD → Reflex Layer (hard real-time, < 50ms)
-else               → Cognitive Layer (soft real-time, ~500ms)
+K = Class_severity × V²_closing / max(d, ε)
+TTC = d / V_closing, when V_closing > 0
+
+TTC <= 1.0s or K >= HIGH_THRESHOLD → Reflex Layer (<50ms)
+K >= LOW_THRESHOLD                  → Cognitive Layer (~500ms)
+near static hazard                  → Cognitive Layer
+else                                → Ignore
 ```
+
+Offline SANPO/perception CSVs can be converted into this event stream with `tools/build_threat_events.py`, which writes non-ignore `ThreatEvent` JSONL plus a route/class summary.
 
 > [!IMPORTANT]
 > Both tracks can fire simultaneously for different objects. A speeding car goes Reflex; a jaywalker goes Cognitive. Physics Verification merges both.
@@ -151,10 +159,14 @@ else               → Cognitive Layer (soft real-time, ~500ms)
 
 ### 2.4 Reflex Layer (< 50ms, Deterministic)
 
-- Computes TTC precisely for high-K objects
-- `IF TTC < 1.0s` → fires **OVERRIDE SIGNAL** to Physics Verification
-- Bypasses SLM-1 entirely — hard real-time guarantee
+The Reflex Layer bridge is implemented in `src/reflex_layer/reflex.py`. It consumes `ThreatFrame` objects, selects only `ThreatEvent(route="reflex")`, converts them to `ReflexResult`, and calls `PhysicsVerification` without waiting for SLM-1.
+
+- Computes TTC precisely for high-K or fast-closing objects
+- `IF TTC <= 1.0s` → fires **OVERRIDE SIGNAL** to Physics Verification
+- `IF K >= HIGH_THRESHOLD` but TTC is above override threshold → uses physics fallback as a reflex-path warning candidate
+- Bypasses SLM-1 entirely for hard real-time behavior
 - No neural network in this path
+- Covered by `tests/test_reflex_layer.py` for override, non-reflex suppression, and physics fallback behavior
 
 ---
 
@@ -261,15 +273,18 @@ Physics layer is the teacher. No human annotation needed.
 
 ---
 
-## 6. Mobile Edge Hardware (Snapdragon 8 Gen 3)
+## 6. Hardware and Deployment Constraints
 
-| Resource | Limit | Notes |
+The canonical training-host specifications, edge-target status, simulation assumptions, and latency budgets are maintained in [`hardware_targets.md`](./hardware_targets.md). The repository currently has measurements from the NVIDIA GB10 training host and an analytical Jetson Orin Nano 8GB proxy; it does not yet have measurements from physical edge hardware.
+
+The architecture therefore treats runtime formats as target-dependent:
+
+| Component | Current development runtime | Intended edge runtime |
 |---|---|---|
-| **SLM budget** | ≤ 2.6 GB (SLM-1 + SLM-2) | After YOLO + TTS |
-| **NPU** | Hexagon (45 TOPS) | INT4/INT8 LLM inference |
-| **Reflex latency** | < 50ms | Pure deterministic, no SLM |
-| **Cognitive latency** | ~500ms | SLM-1 + Physics Verification |
-| **Deployment format** | GGUF Q4_K_M (llama.cpp + QNN) | Targets Hexagon NPU |
+| YOLO26n v3 | PyTorch CUDA on GB10 | TensorRT or ONNX FP16/INT8 |
+| Reflex and Physics Verification | Python reference implementation | Native or optimized local runtime |
+| Cognitive SLM-1 | Not integrated | Quantized local runtime after profiling |
+| Critical audio | Not integrated | Deterministic templates and cached clips |
 
 ---
 
@@ -277,12 +292,12 @@ Physics layer is the teacher. No human annotation needed.
 
 | Role | Model | Params | INT4 Size | Why |
 |---|---|---|---|---|
-| **SLM-1** (Cognitive) | **Qwen2.5-1.5B-Instruct** | 1.5B | ~900MB | Best reasoning/size ratio; strong JSON output |
-| **SLM-2** (Narrator) | **Phi-3-Mini-4K-Instruct** | 3.8B | ~2.2GB | Best fluency; ONNX Mobile + QNN EP supported |
-| **SLM-1 fallback** | Gemma-3-1B-IT | 1.0B | ~600MB | MediaPipe native Android integration |
-| **Indic Translation** | IndicTrans2 | ~200M | ~200MB | 22 Indian languages, edge-designed |
+| **SLM-1** (Cognitive) | **Qwen3-1.7B non-thinking mode** | 1.7B | INT4 target | Newer default; strict JSON output without thinking-mode latency |
+| **SLM-1 fallback** | Qwen2.5-1.5B-Instruct | 1.5B | INT4 target | Use if Qwen3 runtime or quantization is blocked |
+| **Narration** | Template-first critical warnings; Phi-4-mini optional | 0-4B | runtime-dependent | Deterministic for safety-critical alerts; richer SLM narration only off the reflex path |
+| **Indic Translation** | IndicTrans2 distilled + phrase table | ~200M | ~200MB | Phrase table for critical alerts; model translation for non-critical narration |
 
-**Total:** ~3.5GB. Swap SLM-2 to 2-bit quant (~1.1GB) if memory-constrained.
+**Memory note:** keep only the detector and reflex/audio critical path resident by default; load SLM narration and translation only if the target edge profile has measured headroom.
 
 ---
 
@@ -321,7 +336,7 @@ To bridge the gap between rich semantic understanding and edge-device constraint
 Massive VLM models (e.g., Grounding DINO, GPT-4V, YOLOv10x) process thousands of street-view images offline. These slow, heavy models generate perfect pseudo-labels, bounding boxes, and rich natural-language descriptions of the scene (e.g., "Deep pothole immediately ahead at foot level, requiring a full stop").
 
 ### 2. Edge Fine-Tuning (The Student)
-The edge-deployed **SLM-1 (e.g., Qwen2.5-1.5B)** is fine-tuned on this generated dataset. It learns to map the extremely lightweight, edge-generated "Fact Sheet" (YOLO class + Depth + Kinetic Score) to the rich semantic understanding demonstrated by the Teacher model.
+The edge-deployed **SLM-1 (primary: Qwen3-1.7B non-thinking mode; fallback: Qwen2.5-1.5B)** is fine-tuned on this generated dataset. It learns to map the extremely lightweight, edge-generated "Fact Sheet" (YOLO class + Depth + Kinetic Score) to the rich semantic understanding demonstrated by the Teacher model.
 
 This allows the edge system to mimic the reasoning capabilities of a 100B+ parameter model while executing in ~500ms on a mobile NPU.
 

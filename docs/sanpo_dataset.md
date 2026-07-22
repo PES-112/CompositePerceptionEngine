@@ -1,4 +1,4 @@
-# SANPO GCS Bucket Structure and Edge Test Intake
+# SANPO Dataset, Intake, and Edge Evaluation
 
 This note documents the SANPO public Google Cloud Storage layout used by CPE for real-time edge testing with `valid_streams.json`.
 
@@ -188,20 +188,9 @@ Interpretation: replay mode is useful for dataset-pipeline throughput, but live 
 
 ## Edge Device Simulation Profile
 
-`tools/benchmark_edge_realtime.py` now supports `--edge-profile` for pass/fail reporting against a target edge profile. The default native profile reports measured GB10 latency. The current default edge simulation target is:
+`tools/benchmark_edge_realtime.py` supports `--edge-profile` for pass/fail reporting. The default native profile reports measured GB10 latency; `jetson_orin_nano_8gb` is an analytical proxy that scales measured compute latency and adds sensor/memory overhead.
 
-```text
-jetson_orin_nano_8gb
-```
-
-This profile is intentionally conservative and analytical rather than pretending the GB10 is physically the edge device:
-
-- target device: Jetson Orin Nano 8GB
-- measured-compute slowdown: `4.0x`
-- per-processed-frame sensor/memory overhead: `3.0 ms`
-- reflex budget: `50 ms p95`
-- cognitive budget: `500 ms`
-- recommended deployment runtime: ONNX/TensorRT FP16 or INT8
+The canonical profile parameters, hardware status, and physical-device validation requirements are in [`hardware_targets.md`](./hardware_targets.md). Results in this document remain dataset- and benchmark-specific.
 
 Command used for the first SANPO edge simulation:
 
