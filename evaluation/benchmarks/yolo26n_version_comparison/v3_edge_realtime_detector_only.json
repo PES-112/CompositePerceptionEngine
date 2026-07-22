@@ -1,0 +1,30 @@
+{
+  "weights": "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+  "rgb_dir": "data/yolo_finetune_v2_full/images/test",
+  "depth_dir": null,
+  "device": "0",
+  "cuda_available": true,
+  "gpu_name": "NVIDIA GB10",
+  "source_fps": 30.0,
+  "frame_step": 3,
+  "processed_frames": 200,
+  "real_time_budget_ms_per_processed_frame": 100.0,
+  "processed_fps": 129.22115607095276,
+  "source_equivalent_fps": 387.6634682128583,
+  "reflex_budget_pass": true,
+  "real_time_pass": true,
+  "track_latency": {
+    "mean_ms": 6.798686478286982,
+    "median_ms": 6.8065025843679905,
+    "p95_ms": 8.668971015140414,
+    "p99_ms": 8.970173075795174,
+    "max_ms": 9.558721911162138
+  },
+  "total_latency": {
+    "mean_ms": 7.738670898834243,
+    "median_ms": 7.780509069561958,
+    "p95_ms": 9.650225983932614,
+    "p99_ms": 10.052115889266133,
+    "max_ms": 10.691113071516156
+  }
+}

@@ -33,9 +33,55 @@ DEPTH_SCALES = {
     "uasol": 0.256,   # uint16 PNG — raw × 0.256 = metres
 }
 
-# Known SANPO depth resolution (synthetic + real)
-SANPO_DEPTH_H = 1242
-SANPO_DEPTH_W = 2208
+# Common SANPO depth resolutions observed in the public bucket.
+# RGB frames are usually 2208x1242, while CRE-stereo depth can be 960x960.
+SANPO_DEPTH_SHAPES = (
+    (1242, 2208),
+    (960, 960),
+)
+
+
+def _infer_sanpo_shape(raw: np.ndarray) -> tuple[int, int]:
+    for h, w in SANPO_DEPTH_SHAPES:
+        n = h * w
+        if raw.size >= n and raw.size - n <= 4:
+            return h, w
+    side = int(round(raw.size ** 0.5))
+    if side * side <= raw.size and raw.size - side * side <= 4:
+        return side, side
+    raise ValueError(f"Cannot infer SANPO depth shape from {raw.size} float16 values")
+
+
+def scale_box_to_depth(
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    frame_w: int,
+    frame_h: int,
+    depth_shape: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    depth_h, depth_w = depth_shape[:2]
+    sx = depth_w / max(frame_w, 1)
+    sy = depth_h / max(frame_h, 1)
+    dx1 = max(0, min(depth_w, int(round(x1 * sx))))
+    dx2 = max(0, min(depth_w, int(round(x2 * sx))))
+    dy1 = max(0, min(depth_h, int(round(y1 * sy))))
+    dy2 = max(0, min(depth_h, int(round(y2 * sy))))
+    return dx1, dy1, dx2, dy2
+
+
+def scale_point_to_depth(
+    x: float,
+    y: float,
+    frame_w: int,
+    frame_h: int,
+    depth_shape: tuple[int, int],
+) -> tuple[int, int]:
+    depth_h, depth_w = depth_shape[:2]
+    dx = max(0, min(depth_w - 1, int(round(x * depth_w / max(frame_w, 1)))))
+    dy = max(0, min(depth_h - 1, int(round(y * depth_h / max(frame_h, 1)))))
+    return dx, dy
 
 
 def load_depth_map(depth_path: Path, source: str = "sanpo") -> np.ndarray | None:
@@ -56,11 +102,11 @@ def load_depth_map(depth_path: Path, source: str = "sanpo") -> np.ndarray | None
 
     if suffix == ".float16.gz":
         # SANPO: gzip-compressed raw float16 binary, row-major (H, W).
-        # Files contain 2 extra padding float16 values at the end — truncate to exact size.
+        # Some public files include a couple of padding float16 values.
         with gzip.open(depth_path, "rb") as f:
             raw = np.frombuffer(f.read(), dtype=np.float16)
-        n = SANPO_DEPTH_H * SANPO_DEPTH_W
-        depth = raw[:n].reshape(SANPO_DEPTH_H, SANPO_DEPTH_W).astype(np.float32)
+        h, w = _infer_sanpo_shape(raw)
+        depth = raw[: h * w].reshape(h, w).astype(np.float32)
         return depth   # already in metres
 
     elif suffix == ".png":
@@ -80,6 +126,7 @@ def median_depth_in_box(
     x1: int, y1: int, x2: int, y2: int,
     center_frac: float = 0.2,
     exclude_boxes: list | None = None,
+    frame_shape: tuple[int, int] | None = None,
 ) -> float | None:
     """
     Sample depth from the **central patch** of a bounding box.
@@ -100,6 +147,14 @@ def median_depth_in_box(
         Median depth in metres, or None if no valid pixels found.
     """
     h, w = depth_map.shape[:2]
+    if frame_shape is not None:
+        frame_h, frame_w = frame_shape[:2]
+        x1, y1, x2, y2 = scale_box_to_depth(x1, y1, x2, y2, frame_w, frame_h, depth_map.shape)
+        if exclude_boxes:
+            exclude_boxes = [
+                scale_box_to_depth(ex1, ey1, ex2, ey2, frame_w, frame_h, depth_map.shape)
+                for ex1, ey1, ex2, ey2 in exclude_boxes
+            ]
 
     cx = (x1 + x2) // 2
     cy = (y1 + y2) // 2

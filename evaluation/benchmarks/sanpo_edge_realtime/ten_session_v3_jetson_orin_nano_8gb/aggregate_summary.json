@@ -1,0 +1,132 @@
+{
+  "benchmark": "v3 SANPO 10-session Jetson Orin Nano 8GB simulation",
+  "session_count": 10,
+  "weights": "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+  "edge_profile": "jetson_orin_nano_8gb",
+  "source_fps": 15,
+  "frame_step": 3,
+  "frames_cap_per_session": 90,
+  "processed_frames_total": 300,
+  "avg_native_mean_ms": 6.443375942762941,
+  "avg_native_p95_ms": 7.826780178584158,
+  "worst_native_p95_ms": 9.73948696628213,
+  "avg_simulated_mean_ms": 28.773503771051764,
+  "avg_simulated_p95_ms": 34.307120714336634,
+  "worst_simulated_p95_ms": 41.95794786512852,
+  "avg_simulated_processed_fps": 35.11715853545413,
+  "avg_simulated_source_equivalent_fps": 105.3514756063624,
+  "all_simulated_reflex_budget_pass": true,
+  "all_simulated_real_time_pass": true,
+  "sessions": [
+    {
+      "session_id": "6iA1MuZri4BlEyQrfn2Vi-rYSac89Lth",
+      "processed_frames": 30,
+      "native_mean_ms": 5.960666101115446,
+      "native_p95_ms": 7.9281560610979795,
+      "simulated_mean_ms": 26.842664404461782,
+      "simulated_p95_ms": 34.71262424439192,
+      "simulated_processed_fps": 37.25412592923451,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "1kpnVCiFPJYF9bju4JjDjTXB9M5BcAPY",
+      "processed_frames": 30,
+      "native_mean_ms": 6.000485364347696,
+      "native_p95_ms": 7.797579979524016,
+      "simulated_mean_ms": 27.001941457390785,
+      "simulated_p95_ms": 34.190319918096066,
+      "simulated_processed_fps": 37.03437404965882,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "11tnj2tdX_ElmqXEv6kwSXI34_ZWXv-N",
+      "processed_frames": 30,
+      "native_mean_ms": 7.034515760218103,
+      "native_p95_ms": 8.799182018265128,
+      "simulated_mean_ms": 31.138063040872414,
+      "simulated_p95_ms": 38.19672807306051,
+      "simulated_processed_fps": 32.11503550132136,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "0auMnLmZDf_ZGM3VqzxmYPlwhtls73RF",
+      "processed_frames": 30,
+      "native_mean_ms": 6.739768153056502,
+      "native_p95_ms": 8.820397080853581,
+      "simulated_mean_ms": 29.95907261222601,
+      "simulated_p95_ms": 38.281588323414326,
+      "simulated_processed_fps": 33.378870332318286,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "12KBw74zlZrX7OftxToP9-jbVlQNC2MO",
+      "processed_frames": 30,
+      "native_mean_ms": 6.243349751457572,
+      "native_p95_ms": 7.2502028197050095,
+      "simulated_mean_ms": 27.973399005830288,
+      "simulated_p95_ms": 32.00081127882004,
+      "simulated_processed_fps": 35.74824781899323,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "8b33d2zwTeRBzoBKpvS65Fi_ArTXC6Vp",
+      "processed_frames": 30,
+      "native_mean_ms": 7.921405183151364,
+      "native_p95_ms": 9.73948696628213,
+      "simulated_mean_ms": 34.68562073260546,
+      "simulated_p95_ms": 41.95794786512852,
+      "simulated_processed_fps": 28.830390775159803,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "653eSeXetkK4IkXWLUH0DQz0pJ4D57LG",
+      "processed_frames": 30,
+      "native_mean_ms": 5.642834266958137,
+      "native_p95_ms": 6.283785915002227,
+      "simulated_mean_ms": 25.57133706783255,
+      "simulated_p95_ms": 28.135143660008907,
+      "simulated_processed_fps": 39.10628518748633,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "1uta1HvNU3-ba-cqLtGifCvQO3ZC5bEK",
+      "processed_frames": 30,
+      "native_mean_ms": 5.961300409398973,
+      "native_p95_ms": 6.940250983461738,
+      "simulated_mean_ms": 26.845201637595892,
+      "simulated_p95_ms": 30.76100393384695,
+      "simulated_processed_fps": 37.250604912556526,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "AUTqqeGB74PPSAJ6waiz6prT8DEVf-A7",
+      "processed_frames": 30,
+      "native_mean_ms": 7.386821027224262,
+      "native_p95_ms": 8.656013989821076,
+      "simulated_mean_ms": 32.54728410889705,
+      "simulated_p95_ms": 37.624055959284306,
+      "simulated_processed_fps": 30.72452978424219,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    },
+    {
+      "session_id": "AAEOWHxELzR3-s-clycIDujO3gMUcBKH",
+      "processed_frames": 30,
+      "native_mean_ms": 5.542613410701354,
+      "native_p95_ms": 6.052745971828699,
+      "simulated_mean_ms": 25.170453642805416,
+      "simulated_p95_ms": 27.210983887314796,
+      "simulated_processed_fps": 39.72912106357028,
+      "simulated_reflex_budget_pass": true,
+      "simulated_real_time_pass": true
+    }
+  ]
+}

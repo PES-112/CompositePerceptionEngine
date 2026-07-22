@@ -2,6 +2,34 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-07-22] - README Structure Maintenance Rule
+### Documentation
+- Added a `.agents/AGENTS.md` rule requiring the main `README.md` Project Structure section to be reviewed and updated whenever new files, folders, scripts, datasets, model registry entries, benchmark artifacts, or major docs are added.
+- Updated the main `README.md` project map to include current docs, SANPO valid-stream metadata, YOLO training scripts, edge benchmark tools, model registry folders, and benchmark artifact locations.
+
+## [2026-07-22] - SANPO 10-Session Edge Latency Benchmark
+### Evaluation
+- Ran v3 over 10 bounded SANPO-Real valid streams with the `jetson_orin_nano_8gb` simulation profile, processing 300 RGB+depth frames total.
+- Saved individual metrics and aggregate reports under `evaluation/benchmarks/sanpo_edge_realtime/ten_session_v3_jetson_orin_nano_8gb/`.
+- Average simulated p95 latency was `34.31 ms`; worst-session simulated p95 latency was `41.96 ms`, with all sessions passing the `<50 ms` detector/reflex budget.
+
+## [2026-07-22] - Edge Device Simulation Profile
+### Evaluation
+- Added edge-profile support to `tools/benchmark_edge_realtime.py`, including a conservative `jetson_orin_nano_8gb` simulation profile with `4.0x` latency scaling and `3.0 ms` per-frame sensor/memory overhead.
+- Ran the SANPO valid-stream smoke benchmark under the Jetson Orin Nano 8GB profile; simulated p95 total latency was `36.96 ms`, passing the `<50 ms` detector/reflex budget.
+
+## [2026-07-22] - SANPO Valid-Stream Edge Smoke Test
+### Evaluation
+- Documented the public SANPO GCS bucket layout, valid-stream local convention, label metadata, and bounded download strategy in `docs/sanpo_bucket_structure.md`.
+- Added `tools/download_sanpo_valid_streams.py` to download selected paired SANPO-Real RGB/depth frames from `valid_streams.json` without copying whole multi-GB sessions.
+- Downloaded valid stream `0xCqEk5hjEvrygxu26MZkieSv45D_gaJ` and saved v3 full RGB+depth edge benchmarks under `evaluation/benchmarks/sanpo_edge_realtime/`.
+- Fixed SANPO depth handling for native `960 x 960` `.float16.gz` maps by inferring shape and scaling RGB-space boxes into depth-map coordinates.
+
+## [2026-07-22] - Edge Real-Time Benchmark Utility
+### Evaluation
+- Added `tools/benchmark_edge_realtime.py` to measure YOLO26n + ByteTrack streaming latency, optional depth loading, depth post-processing, effective FPS, and real-time/reflex budget pass-fail status.
+- Saved the v3 detector-only GB10 benchmark under `evaluation/benchmarks/yolo26n_version_comparison/` with p95 total latency of `9.65 ms` per processed frame at `frame_step=3`.
+
 ## [2026-07-22] - Local Artifact Relocation
 ### Project Structure
 - Moved the pretrained YOLO26n base checkpoint into `models/yolo/base_yolo26n/yolo26n.pt` and updated training, comparison, perception, notebook, and documentation references.

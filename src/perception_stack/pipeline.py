@@ -20,7 +20,7 @@ import numpy as np
 from tqdm import tqdm
 
 from src.perception_stack.yolo_tracker  import YoloTracker
-from src.perception_stack.depth_loader  import load_depth_map, median_depth_in_box
+from src.perception_stack.depth_loader  import load_depth_map, median_depth_in_box, scale_box_to_depth, scale_point_to_depth
 from src.perception_stack.physics       import compute_bearing, compute_velocity
 
 VELOCITY_WINDOW    = 5     # number of frames in rolling velocity buffer
@@ -49,16 +49,15 @@ def detect_unlabeled_obstacles(
     dh, dw = depth_map.shape[:2]
     y1_scan = int(frame_h * 0.4)
     y2_scan = frame_h
-    dy1 = min(y1_scan, dh)
-    dy2 = min(y2_scan, dh)
+    _, dy1, _, dy2 = scale_box_to_depth(0, y1_scan, frame_w, y2_scan, frame_w, frame_h, depth_map.shape)
 
-    # Build mask of pixels already claimed by YOLO boxes
+    # Build mask of pixels already claimed by YOLO boxes. Detections are in RGB
+    # coordinates, while SANPO depth maps may be lower-resolution native arrays.
     yolo_mask = np.zeros((dh, dw), dtype=bool)
     for d in yolo_detections:
-        ex1 = max(0, min(d["x1"], dw))
-        ey1 = max(0, min(d["y1"], dh))
-        ex2 = max(0, min(d["x2"], dw))
-        ey2 = max(0, min(d["y2"], dh))
+        ex1, ey1, ex2, ey2 = scale_box_to_depth(
+            d["x1"], d["y1"], d["x2"], d["y2"], frame_w, frame_h, depth_map.shape
+        )
         yolo_mask[ey1:ey2, ex1:ex2] = True
 
     obstacles = []
@@ -67,9 +66,8 @@ def detect_unlabeled_obstacles(
     for col in range(OBSTACLE_GRID_COLS):
         x1 = col * col_w
         x2 = x1 + col_w
-        dx1 = min(x1, dw)
-        dx2 = min(x2, dw)
-        if dx1 >= dx2:
+        dx1, _, dx2, _ = scale_box_to_depth(x1, 0, x2, frame_h, frame_w, frame_h, depth_map.shape)
+        if dx1 >= dx2 or dy1 >= dy2:
             continue
 
         roi_depth = depth_map[dy1:dy2, dx1:dx2]
@@ -101,9 +99,15 @@ def _rough_depth(det: dict, depth_map: np.ndarray | None) -> float:
     if det.get("class_name") == "unlabeled_obstacle":
         return det.get("min_depth", 99.0)
     if depth_map is not None:
-        h_dm, w_dm = depth_map.shape[:2]
-        cx = min(int(det["cx"]), w_dm - 1)
-        cy = min(int((det["y1"] + det["y2"]) / 2), h_dm - 1)
+        frame_w = int(det.get("_frame_w", depth_map.shape[1]))
+        frame_h = int(det.get("_frame_h", depth_map.shape[0]))
+        cx, cy = scale_point_to_depth(
+            det["cx"],
+            (det["y1"] + det["y2"]) / 2,
+            frame_w,
+            frame_h,
+            depth_map.shape,
+        )
         v  = depth_map[cy, cx]
         return float(v) if v > 0 else 99.0
     return 99.0
@@ -196,6 +200,7 @@ def run_perception_stream(
                         depth_map,
                         det["x1"], det["y1"], det["x2"], det["y2"],
                         exclude_boxes=occluders,
+                        frame_shape=frame.shape[:2],
                     )
 
             # ── Velocity ──

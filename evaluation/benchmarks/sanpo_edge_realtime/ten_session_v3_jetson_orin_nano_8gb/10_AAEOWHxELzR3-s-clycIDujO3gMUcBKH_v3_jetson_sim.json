@@ -1,0 +1,77 @@
+{
+  "weights": "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+  "rgb_dir": "/home/student-4/Projects/CompositePerceptionEngine/data/sanpo/valid_streams/AAEOWHxELzR3-s-clycIDujO3gMUcBKH/camera_head/left/video_frames",
+  "depth_dir": "/home/student-4/Projects/CompositePerceptionEngine/data/sanpo/valid_streams/AAEOWHxELzR3-s-clycIDujO3gMUcBKH/camera_head/left/depth_maps",
+  "device": "0",
+  "cuda_available": true,
+  "gpu_name": "NVIDIA GB10",
+  "source_fps": 15.0,
+  "frame_step": 3,
+  "processed_frames": 30,
+  "preload": true,
+  "edge_profile": "jetson_orin_nano_8gb",
+  "edge_profile_config": {
+    "description": "Conservative Jetson Orin Nano 8GB proxy. Applies a slowdown to GB10 measured compute and adds small sensor/memory overhead.",
+    "target_device": "Jetson Orin Nano 8GB",
+    "reflex_budget_ms": 50.0,
+    "cognitive_budget_ms": 500.0,
+    "latency_scale": 4.0,
+    "sensor_overhead_ms": 3.0,
+    "recommended_runtime": "onnx_or_tensorrt_fp16_int8"
+  },
+  "latency_scale": 4.0,
+  "sensor_overhead_ms": 3.0,
+  "simulate_wait": false,
+  "real_time_budget_ms_per_processed_frame": 200.0,
+  "reflex_budget_ms": 50.0,
+  "processed_fps": 180.4203046290868,
+  "source_equivalent_fps": 541.2609138872604,
+  "simulated_processed_fps": 39.72912106357028,
+  "simulated_source_equivalent_fps": 119.18736319071084,
+  "reflex_budget_pass": true,
+  "real_time_pass": true,
+  "simulated_reflex_budget_pass": true,
+  "simulated_real_time_pass": true,
+  "read_latency": {
+    "mean_ms": 0.0002762768417596817,
+    "median_ms": 0.00027206260710954666,
+    "p95_ms": 0.000400003045797348,
+    "p99_ms": 0.00043190084397792816,
+    "max_ms": 0.00043190084397792816
+  },
+  "depth_latency": {
+    "mean_ms": 0.0,
+    "median_ms": 0.0,
+    "p95_ms": 0.0,
+    "p99_ms": 0.0,
+    "max_ms": 0.0
+  },
+  "track_latency": {
+    "mean_ms": 5.011259027135869,
+    "median_ms": 4.998783464543521,
+    "p95_ms": 5.536105018109083,
+    "p99_ms": 6.296521984040737,
+    "max_ms": 6.296521984040737
+  },
+  "row_build_latency": {
+    "mean_ms": 0.5310781067237258,
+    "median_ms": 0.5187609931454062,
+    "p95_ms": 0.6038891151547432,
+    "p99_ms": 0.6297451909631491,
+    "max_ms": 0.6297451909631491
+  },
+  "total_latency": {
+    "mean_ms": 5.542613410701354,
+    "median_ms": 5.549800582230091,
+    "p95_ms": 6.052745971828699,
+    "p99_ms": 6.824282929301262,
+    "max_ms": 6.824282929301262
+  },
+  "simulated_total_latency": {
+    "mean_ms": 25.170453642805416,
+    "median_ms": 25.199202328920364,
+    "p95_ms": 27.210983887314796,
+    "p99_ms": 30.297131717205048,
+    "max_ms": 30.297131717205048
+  }
+}

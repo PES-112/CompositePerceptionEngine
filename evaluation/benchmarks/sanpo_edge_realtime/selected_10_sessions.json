@@ -1,0 +1,86 @@
+{
+  "scanned_valid_streams": 80,
+  "selection_policy": "10 smallest by planned RGB+depth bytes for up to 90 frames",
+  "sessions": [
+    {
+      "session_id": "6iA1MuZri4BlEyQrfn2Vi-rYSac89Lth",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 511,
+      "frames_bench": 90,
+      "planned_mb": 201.9
+    },
+    {
+      "session_id": "1kpnVCiFPJYF9bju4JjDjTXB9M5BcAPY",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 489,
+      "frames_bench": 90,
+      "planned_mb": 234.64
+    },
+    {
+      "session_id": "11tnj2tdX_ElmqXEv6kwSXI34_ZWXv-N",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 402,
+      "frames_bench": 90,
+      "planned_mb": 244.14
+    },
+    {
+      "session_id": "0auMnLmZDf_ZGM3VqzxmYPlwhtls73RF",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 590,
+      "frames_bench": 90,
+      "planned_mb": 256.7
+    },
+    {
+      "session_id": "12KBw74zlZrX7OftxToP9-jbVlQNC2MO",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 209,
+      "frames_bench": 90,
+      "planned_mb": 266.65
+    },
+    {
+      "session_id": "8b33d2zwTeRBzoBKpvS65Fi_ArTXC6Vp",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 482,
+      "frames_bench": 90,
+      "planned_mb": 267.15
+    },
+    {
+      "session_id": "653eSeXetkK4IkXWLUH0DQz0pJ4D57LG",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 292,
+      "frames_bench": 90,
+      "planned_mb": 277.49
+    },
+    {
+      "session_id": "1uta1HvNU3-ba-cqLtGifCvQO3ZC5bEK",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 614,
+      "frames_bench": 90,
+      "planned_mb": 280.67
+    },
+    {
+      "session_id": "AUTqqeGB74PPSAJ6waiz6prT8DEVf-A7",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 789,
+      "frames_bench": 90,
+      "planned_mb": 287.1
+    },
+    {
+      "session_id": "AAEOWHxELzR3-s-clycIDujO3gMUcBKH",
+      "camera": "head",
+      "view": "left",
+      "frames_total": 444,
+      "frames_bench": 90,
+      "planned_mb": 287.45
+    }
+  ]
+}

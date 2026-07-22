@@ -93,6 +93,29 @@ Retained COCO-class comparison against base YOLO26n:
   --name compare_yolo26n_v3_from_base_retention_test
 ```
 
+
+## Edge-Style Real-Time Benchmark
+
+Use this when testing whether v3 is ready for an edge-style real-time loop. It measures streaming frame processing, YOLO26n + ByteTrack latency, optional depth loading, depth post-processing, and `frame_step` behavior.
+
+Detector-only benchmark on held-out test images:
+
+```bash
+.venv/bin/python tools/benchmark_edge_realtime.py \
+  --rgb-dir data/yolo_finetune_v2_full/images/test \
+  --weights training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
+  --device 0 \
+  --fps 30 \
+  --frame-step 3 \
+  --max-frames 200 \
+  --out evaluation/benchmarks/yolo26n_version_comparison/v3_edge_realtime_detector_only.json \
+  --csv evaluation/benchmarks/yolo26n_version_comparison/v3_edge_realtime_detector_only.csv
+```
+
+Latest detector-only GB10 result: p95 total latency `9.65 ms` per processed frame, with the 30 FPS / `frame_step=3` real-time budget equal to `100 ms` per processed frame. This passes both the real-time streaming budget and the `<50 ms` reflex-path latency budget for the detector/tracker portion.
+
+For a full architecture test, run the same command on prepared SANPO frame folders and include `--depth-dir` so depth loading, obstacle sweep, distance extraction, velocity, and bearing are timed too.
+
 ## Latest Metrics
 
 Cumulative version comparison:

@@ -1,0 +1,52 @@
+{
+  "weights": "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+  "rgb_dir": "data/sanpo/valid_streams/0xCqEk5hjEvrygxu26MZkieSv45D_gaJ/camera_head/left/video_frames",
+  "depth_dir": "data/sanpo/valid_streams/0xCqEk5hjEvrygxu26MZkieSv45D_gaJ/camera_head/left/depth_maps",
+  "device": "0",
+  "cuda_available": true,
+  "gpu_name": "NVIDIA GB10",
+  "source_fps": 15.0,
+  "frame_step": 3,
+  "processed_frames": 28,
+  "preload": true,
+  "real_time_budget_ms_per_processed_frame": 200.0,
+  "processed_fps": 145.98335117487392,
+  "source_equivalent_fps": 437.95005352462175,
+  "reflex_budget_pass": true,
+  "real_time_pass": true,
+  "read_latency": {
+    "mean_ms": 0.00031659146770834923,
+    "median_ms": 0.00030407682061195374,
+    "p95_ms": 0.0005280598998069763,
+    "p99_ms": 0.0005280598998069763,
+    "max_ms": 0.0005280598998069763
+  },
+  "depth_latency": {
+    "mean_ms": 0.0,
+    "median_ms": 0.0,
+    "p95_ms": 0.0,
+    "p99_ms": 0.0,
+    "max_ms": 0.0
+  },
+  "track_latency": {
+    "mean_ms": 6.1177293370877,
+    "median_ms": 5.989828496240079,
+    "p95_ms": 8.156043011695147,
+    "p99_ms": 8.609930984675884,
+    "max_ms": 8.609930984675884
+  },
+  "row_build_latency": {
+    "mean_ms": 0.7320502772927284,
+    "median_ms": 0.7310870569199324,
+    "p95_ms": 0.8816479239612818,
+    "p99_ms": 0.9240151848644018,
+    "max_ms": 0.9240151848644018
+  },
+  "total_latency": {
+    "mean_ms": 6.8500962058481365,
+    "median_ms": 6.687196553684771,
+    "p95_ms": 9.037915151566267,
+    "p99_ms": 9.345066035166383,
+    "max_ms": 9.345066035166383
+  }
+}

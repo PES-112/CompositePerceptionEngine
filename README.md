@@ -21,48 +21,59 @@ System Heartbeat → Audio Output (independent, ambient)
 
 ## Project Structure
 
-```
-code/
+```text
+CompositePerceptionEngine/
+├── .agents/                         # Agent instructions for required docs/changelog upkeep
+├── docs/                            # Architecture, YOLO training, SANPO bucket, benchmark, and paper notes
+│   ├── architecture.md              # Canonical CPE architecture and latency budgets
+│   ├── sanpo_bucket_structure.md    # SANPO GCS layout, valid-stream intake, and edge benchmark notes
+│   ├── yolo_training.md             # Current YOLO26n v3 dataset/checkpoint/evaluation guide
+│   └── CHANGELOG.md                 # Date-stamped project changes
 ├── src/
-│   ├── shared/                    # Types, constants, NarratorEvent schema
-│   ├── sensor_fusion/             # Fuses camera, depth dataset, gyro
-│   ├── perception_stack/          # YOLO26 Nano + ByteTrack + depth overlay
-│   ├── threat_prioritizer/        # Routes objects: Ignore / Reflex / Cognitive
-│   ├── reflex_layer/              # Deterministic TTC physics (<50ms)
-│   ├── cognitive_layer/           # SLM-1 semantic evaluation (Qwen2.5-1.5B)
-│   ├── physics_verification/      # The Judge: SLM-1 vs kinetic arbiter + RL reward
-│   ├── narrator_slm/              # SLM-2 natural language generation (Phi-3-Mini)
-│   ├── indic_translation/         # Optional: IndicTrans2, 22 Indian languages
-│   ├── system_heartbeat/          # Ambient state updates, bypasses verification
-│   └── audio_output/             # FastSpeech2 INT8 + 3D Binaural Pan
-│
+│   ├── shared/                      # Shared schemas and data contracts
+│   ├── sensor_fusion/               # Camera/depth/gyro fusion components
+│   ├── perception_stack/            # YOLO26n + ByteTrack + depth post-processing
+│   ├── threat_prioritizer/          # Routes objects into Ignore / Reflex / Cognitive paths
+│   ├── reflex_layer/                # Deterministic TTC physics path (<50ms target)
+│   ├── cognitive_layer/             # SLM-1 semantic evaluation
+│   ├── physics_verification/        # Judge layer for SLM-vs-physics arbitration
+│   ├── narrator_slm/                # SLM-2 warning generation
+│   ├── indic_translation/           # Optional Indic translation path
+│   ├── system_heartbeat/            # Ambient status updates
+│   └── audio_output/                # TTS / audio output path
 ├── simulation/
-│   ├── envs/                      # Custom Gym environments
-│   ├── scenarios/                 # Scripted urban traffic scenarios
-│   └── datasets/                  # Loaders: Sanpo (depth GT), UASOL, HeadsUp
-│
+│   ├── envs/                        # Simulation environments
+│   ├── scenarios/                   # Scripted scenarios
+│   └── datasets/
+│       └── sanpo/valid_streams.json # Curated SANPO stream IDs for the CPE use case
 ├── training/
-│   ├── rl_agent/                  # PPO trainer for SLM-1 (LoRA)
-│   ├── rewards/                   # Reward fn consuming Physics Verification logs
-│   └── configs/                   # YAML hyperparameters
-│
+│   ├── configs/                     # YOLO/Roboflow/dataset configs
+│   ├── scripts/                     # YOLO download, training, evaluation, comparison scripts
+│   ├── rl_agent/                    # PPO/LoRA training entry points for SLM-1
+│   ├── rewards/                     # Reward functions from physics verification logs
+│   └── runs/                        # Local Ultralytics outputs and checkpoints (not source-controlled)
 ├── models/
-│   ├── yolo/                      # YOLO26 Nano weights (PTQAT INT8)
-│   ├── slm1/                      # Qwen2.5-1.5B + LoRA adapters (INT4 GGUF)
-│   ├── slm2/                      # Phi-3-Mini-4K (INT4 GGUF)
-│   ├── indic/                     # IndicTrans2 weights
-│   └── tts/                       # FastSpeech2 INT8
-│
+│   ├── yolo/
+│   │   └── base_yolo26n/            # Local base YOLO26n checkpoint registry entry
+│   ├── slm1/                        # Qwen/Phi-style SLM-1 artifacts
+│   ├── slm2/                        # Narrator SLM artifacts
+│   ├── indic/                       # IndicTrans2 artifacts
+│   └── tts/                         # TTS artifacts
+├── tools/
+│   ├── benchmark_edge_realtime.py   # RGB/depth real-time benchmark with edge profiles
+│   ├── download_sanpo_valid_streams.py # Bounded downloader for valid SANPO sessions
+│   ├── gap_analysis_experiments.py  # SANPO depth-vs-YOLO perception gap analysis
+│   ├── run_perception.py            # Stage 1 perception runner
+│   └── visualize_stage1.py          # Perception CSV visualization helper
 ├── evaluation/
-│   ├── benchmarks/                # Latency, reward, narration quality
+│   ├── benchmarks/
+│   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
+│   │   └── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
 │   └── logs/
-│
-├── tests/
-│   ├── unit/
-│   └── integration/
-│
-├── notebooks/                     # EDA, prototyping
-└── scripts/                       # Setup, model download, export to GGUF
+├── notebooks/                       # EDA and SANPO/YOLO prototyping notebooks
+├── tests/                           # Unit/integration tests
+├── data/                            # Local datasets/downloads (gitignored)
+└── README.md
 ```
 
 ## SLM Stack

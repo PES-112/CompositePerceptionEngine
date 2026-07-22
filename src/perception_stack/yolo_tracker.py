@@ -20,6 +20,8 @@ from pathlib import Path
 import numpy as np
 from ultralytics import YOLO
 
+from src.perception_stack.depth_loader import scale_point_to_depth
+
 DEFAULT_MODEL      = "models/yolo/base_yolo26n/yolo26n.pt"
 DEFAULT_CONF       = 0.30
 DEFAULT_TRACKER    = "bytetrack.yaml"
@@ -79,7 +81,7 @@ def is_valid_detection(det: dict, frame_w: int, frame_h: int) -> bool:
 
 # ── Depth-guided 3-pass post-processing ───────────────────────────────────────
 
-def depth_rescore(detections: list[dict], depth_map: np.ndarray | None) -> list[dict]:
+def depth_rescore(detections: list[dict], depth_map: np.ndarray | None, frame_shape: tuple[int, int] | None = None) -> list[dict]:
     """
     Post-process YOLO detections using the depth map.  Three passes:
 
@@ -256,6 +258,8 @@ class YoloTracker:
                 "confidence": round(float(conf), 3),
                 "x1": x1, "y1": y1, "x2": x2, "y2": y2,
                 "cx": (x1 + x2) / 2,
+                "_frame_w": w,
+                "_frame_h": h,
             }
             # Class whitelist filter
             if class_name not in ALLOWED_CLASSES:
@@ -266,6 +270,6 @@ class YoloTracker:
             detections.append(det)
 
         # ── Depth-guided post-processing ──────────────────────────
-        detections = depth_rescore(detections, depth_map)
+        detections = depth_rescore(detections, depth_map, frame.shape[:2])
 
         return detections

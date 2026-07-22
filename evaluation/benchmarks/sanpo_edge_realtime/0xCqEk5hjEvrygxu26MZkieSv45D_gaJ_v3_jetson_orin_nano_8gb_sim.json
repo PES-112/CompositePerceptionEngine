@@ -1,0 +1,77 @@
+{
+  "weights": "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+  "rgb_dir": "data/sanpo/valid_streams/0xCqEk5hjEvrygxu26MZkieSv45D_gaJ/camera_head/left/video_frames",
+  "depth_dir": "data/sanpo/valid_streams/0xCqEk5hjEvrygxu26MZkieSv45D_gaJ/camera_head/left/depth_maps",
+  "device": "0",
+  "cuda_available": true,
+  "gpu_name": "NVIDIA GB10",
+  "source_fps": 15.0,
+  "frame_step": 3,
+  "processed_frames": 28,
+  "preload": true,
+  "edge_profile": "jetson_orin_nano_8gb",
+  "edge_profile_config": {
+    "description": "Conservative Jetson Orin Nano 8GB proxy. Applies a slowdown to GB10 measured compute and adds small sensor/memory overhead.",
+    "target_device": "Jetson Orin Nano 8GB",
+    "reflex_budget_ms": 50.0,
+    "cognitive_budget_ms": 500.0,
+    "latency_scale": 4.0,
+    "sensor_overhead_ms": 3.0,
+    "recommended_runtime": "onnx_or_tensorrt_fp16_int8"
+  },
+  "latency_scale": 4.0,
+  "sensor_overhead_ms": 3.0,
+  "simulate_wait": false,
+  "real_time_budget_ms_per_processed_frame": 200.0,
+  "reflex_budget_ms": 50.0,
+  "processed_fps": 139.7718748124845,
+  "source_equivalent_fps": 419.3156244374535,
+  "simulated_processed_fps": 31.62749318912392,
+  "simulated_source_equivalent_fps": 94.88247956737176,
+  "reflex_budget_pass": true,
+  "real_time_pass": true,
+  "simulated_reflex_budget_pass": true,
+  "simulated_real_time_pass": true,
+  "read_latency": {
+    "mean_ms": 0.00035371132461088043,
+    "median_ms": 0.00035995617508888245,
+    "p95_ms": 0.00046403147280216217,
+    "p99_ms": 0.0005438923835754395,
+    "max_ms": 0.0005438923835754395
+  },
+  "depth_latency": {
+    "mean_ms": 0.0,
+    "median_ms": 0.0,
+    "p95_ms": 0.0,
+    "p99_ms": 0.0,
+    "max_ms": 0.0
+  },
+  "track_latency": {
+    "mean_ms": 6.416771161769118,
+    "median_ms": 6.409903988242149,
+    "p95_ms": 7.778355153277516,
+    "p99_ms": 7.837667129933834,
+    "max_ms": 7.837667129933834
+  },
+  "row_build_latency": {
+    "mean_ms": 0.7373903063125908,
+    "median_ms": 0.7172495825216174,
+    "p95_ms": 0.8757940959185362,
+    "p99_ms": 0.9312019683420658,
+    "max_ms": 0.9312019683420658
+  },
+  "total_latency": {
+    "mean_ms": 7.154515179406319,
+    "median_ms": 7.141697453334928,
+    "p95_ms": 8.49008490331471,
+    "p99_ms": 8.551045088097453,
+    "max_ms": 8.551045088097453
+  },
+  "simulated_total_latency": {
+    "mean_ms": 31.618060717625276,
+    "median_ms": 31.56678981333971,
+    "p95_ms": 36.96033961325884,
+    "p99_ms": 37.20418035238981,
+    "max_ms": 37.20418035238981
+  }
+}
