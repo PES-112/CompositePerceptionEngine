@@ -2,6 +2,32 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-08-05] - Kinetic Score Evaluation Framework & FactSheet Redesign
+
+### Evaluation
+- Added `evaluation/kinetic_score_comparison.py` — benchmark harness for six kinetic score formula candidates (K0–K5). Produces per-formula distribution statistics (mean, P50, P95, P99, IQR), Pearson/Spearman TTC correlation, routing sensitivity (reflex/cognitive/ignore %), monotonicity check, and a ranked Markdown report. Generates Matplotlib plots when available.
+- Added `evaluation/threat_score_eval.py` — routing F1/Precision/Recall evaluator. Uses K₊₂ (same track at T+lookahead) as ground truth to score each formula's routing decisions. Primary safety metric is Reflex Recall (missed reflex = safety failure).
+- Added `evaluation/benchmarks/kinetic_score_eval/` — dedicated benchmark output folder following the established benchmark folder convention. Contains README with reproduction steps and decision criteria.
+- Registered `kinetic_score_eval/` in `evaluation/benchmarks/README.md` index.
+
+### Physics — Additive Formula Candidates (non-breaking)
+- Extended `src/perception_stack/physics.py` with five alternative kinetic score functions: `kinetic_score_k1_ttc`, `kinetic_score_k2_linear`, `kinetic_score_k3_quad_distance`, `kinetic_score_k4_hybrid`, `kinetic_score_k5_sigmoid`. All are evaluation-only; the production `kinetic_score()` (K0) is unchanged.
+- Added `kinetic_score_all()` dispatcher returning all six formula scores for one object — used by the benchmark harness.
+
+### Shared Data Contract — FactSheet Redesign
+- Rewrote `src/shared/fact_sheet.py` with a lean, phone-derivable `DetectedObject` schema:
+  - **Removed:** `intent_label` (HEADSUP training-data only; not available at phone inference), `hallucination_filtered` (internal pipeline flag).
+  - **Renamed:** `threat_score` → `kinetic_score` (explicit about what it is), `object_id` → `track_id` (aligns with `events.py`), `is_scene_stable` → `scene_stable`.
+  - **Added:** `bearing` (human-readable direction string from `bearing_label()`), `route` (Threat Prioritizer lane: reflex/cognitive/ignore).
+  - Added `to_slm_user_message()` method — returns the FactSheet as a structured JSON dict for the SLM-1 SFT training record user slot (structured JSON, not flat string).
+
+### Documentation
+- Updated `README.md` project structure with new evaluation scripts and `kinetic_score_eval/` benchmark folder.
+
+### Repository Cleanup
+- Deleted empty placeholder directories from `src/`, `simulation/`, and `training/` to declutter the workspace and reflect the current state of implementation.
+- Updated the `README.md` project structure tree to match the pruned directory state.
+
 ## [2026-07-22] - Documentation Ownership and Hardware Targets
 ### Documentation
 - Added `docs/hardware_targets.md` as the source of truth for observed GB10 training-host specs, the planned Jetson Orin Nano 8GB target, runtime budgets, and measured-versus-simulated evidence.

@@ -18,15 +18,16 @@ Use the following prompts with an LLM (like Gemini) to systematically draft the 
 > 3. Embedded CNN-based obstacle detectors (standard YOLO on mobile) which identify objects but fail to prioritize physical threats (like a fast-moving bicycle vs a parked car) or provide natural language context.
 > Emphasize how our hybrid approach (deterministic physics + knowledge-distilled SLM) bridges the gap between semantic richness and edge-critical latency."
 
-## 3. Methodology: Perception Stack & N-Frame Skip
+### 3. Methodology: Perception Stack & N-Frame Skip
 **Prompt:**
 > "Write the Methodology subsection detailing our 'Hybrid Perception Stack'. Explain how we process RGB and depth data on the edge. Include the following technical details:
 > - We fine-tune YOLO26n specifically for street hazards (potholes, bollards, stairs, crosswalks, poles, puddles, dogs, and benches) rather than using standard COCO classes, as COCO is insufficient for navigation.
 > - The training workflow keeps the nano architecture fixed, freezes early backbone layers during transfer learning, replaces the broad COCO head with a compact 17-class CPE hazard taxonomy, and exports ONNX/TensorRT FP16 or INT8 edge artifacts with modern quantization flags to avoid increasing runtime latency.
 > - We evaluated multiple YOLO26n fine-tuning variants and selected a v3-from-base protocol: start from pretrained `models/yolo/base_yolo26n/yolo26n.pt`, train the compact 17-class CPE head with GB10 high-throughput settings (RAM dataset cache, AutoBatch, CPU-saturated data loading, and deferred validation), then validate all classes and compare retained COCO-class precision/recall against base YOLO26n with explicit class-name remapping. This repaired the v2 retained-class regression while preserving custom hazard improvements.
 > - We implement an N-frame detection skip (e.g., every 3rd frame). Between detection frames, we rely on depth-guided tracking and interpolation, reducing compute load by ~67% while maintaining high safety margins.
-> - We use the depth map to extract precise distance (d) at the bounding box centroid to calculate a 'Kinetic Score' based on velocity and distance.
-- We supplement egocentric SANPO pseudo-labels with carefully remapped Roboflow Universe datasets for rare hazard classes, enforcing a fixed 17-class taxonomy and session/source-level validation splits to prevent leakage.
+> - We use the depth map to extract precise distance (d) at the bounding box centroid. Object bearing is computed directly from the YOLO bounding box centroid pixel coordinate: `bearing_deg = ((cx_px − frame_width/2) / (frame_width/2)) × (hfov_deg/2)`, requiring no additional hardware beyond the phone camera.
+> - We compute a 'Kinetic Score' K = f(class_severity, velocity, distance) and evaluate six candidate formulas (K0: sev×v²/max(d,ε); K1: TTC-primary; K2: linear velocity; K3: quadratic distance decay; K4: hybrid momentum+TTC; K5: sigmoid-normalised) using a benchmark harness that measures Pearson/Spearman TTC correlation, routing lane precision/recall/F1 against K₊₂ ground truth, monotonicity, and range stability. The winning formula is selected prior to SLM-1 training.
+> - We supplement egocentric SANPO pseudo-labels with carefully remapped Roboflow Universe datasets for rare hazard classes, enforcing a fixed 17-class taxonomy and session/source-level validation splits to prevent leakage.
 > - We implement an empirical 'YOLO Gap Analysis' pipeline that cross-references depth map structures with YOLO detections using morphological component labeling. The pipeline runs without class whitelist constraints to evaluate general perception failures, compares multi-range depth configurations (from immediate hazards to far-range path planning), compiles comparison metrics, and logs hard examples in structured JSON files for downstream annotation workflows."
 
 ## 4. Methodology: Knowledge Distillation & SLM
@@ -35,7 +36,8 @@ Use the following prompts with an LLM (like Gemini) to systematically draft the 
 > - Because running large Vision-Language Models on edge devices is impossible, we use a Teacher-Student distillation approach.
 > - Offline, we use a massive Teacher model (e.g., Grounding DINO / GPT-4V) on street-view datasets to generate high-quality pseudo-labels and rich semantic descriptions of hazards (e.g., 'pothole at foot level').
 > - We use this generated dataset to fine-tune a Small Language Model (SLM), with Qwen3-1.7B non-thinking mode as the primary cognitive candidate and Qwen2.5-1.5B as fallback.
-> - In real-time inference, the SLM takes a lightweight 'Fact Sheet' (containing the YOLO class, depth, and kinetic score) and outputs a context-aware natural language alert, mimicking the reasoning of the heavy Teacher model."
+> - At runtime, the SLM receives a structured 'Symbolic Fact Sheet' — a JSON object containing only fields derivable from a phone camera: track ID, object class, bearing (computed from pixel centroid), distance, closing velocity, TTC, kinetic score, and the routing decision. Intent labels (from HEADSUP dataset) appear only in the SFT training data to help the SLM learn to infer intent from scene context, not as runtime inputs.
+> - The SLM-1 response is also structured JSON: primary_threat_id, reason (one sentence), scene_state, confidence, and future_confirmed (K₊₂ ground-truth validation flag). This structured output enables deterministic reward computation in the Physics Verification RL loop."
 
 ## 5. Methodology: Physics Verification (The Judge)
 **Prompt:**
@@ -48,3 +50,4 @@ Use the following prompts with an LLM (like Gemini) to systematically draft the 
 ## 6. Results, Discussion & Conclusion
 **Prompt:**
 > "Using only the supplied measured results, write the Results, Discussion, and Conclusion sections. Distinguish native NVIDIA GB10 measurements from the analytical Jetson Orin Nano 8GB proxy (4.0x compute-latency scaling plus 3.0 ms overhead). Report the 10-session SANPO result as simulated evidence: average p95 34.31 ms, worst-session p95 41.96 ms, with all simulated sessions below the 50 ms reflex budget. Do not claim physical edge-device FPS, high-kinetic recall, stale-SLM filtering, or power efficiency until those experiments have actually been run. Discuss the expected trade-offs between semantic richness, compute latency, and future battery-powered deployment."
+

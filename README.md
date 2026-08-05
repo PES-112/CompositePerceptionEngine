@@ -37,27 +37,16 @@ CompositePerceptionEngine/
 │   └── CHANGELOG.md                 # Date-stamped project changes
 ├── src/
 │   ├── shared/                      # Shared schemas and data contracts
-│   ├── sensor_fusion/               # Camera/depth/gyro fusion components
 │   ├── perception_stack/            # YOLO26n + ByteTrack + depth post-processing
 │   ├── threat_prioritizer/          # ThreatEvent contract and Ignore / Reflex / Cognitive routing
 │   ├── reflex_layer/                # Deterministic reflex bridge from ThreatEvent to Physics Verification
-│   ├── cognitive_layer/             # SLM-1 semantic evaluation
-│   ├── physics_verification/        # Judge layer for SLM-vs-physics arbitration
-│   ├── narrator_slm/                # SLM-2 warning generation
-│   ├── indic_translation/           # Optional Indic translation path
-│   ├── system_heartbeat/            # Ambient status updates
-│   └── audio_output/                # TTS / audio output path
+│   └── physics_verification/        # Judge layer for SLM-vs-physics arbitration
 ├── simulation/
-│   ├── envs/                        # Simulation environments
-│   ├── scenarios/                   # Scripted scenarios
 │   └── datasets/
 │       └── sanpo/valid_streams.json # Curated SANPO stream IDs for the CPE use case
 ├── training/
-│   ├── configs/                     # YOLO/Roboflow/dataset configs
 │   ├── scripts/                     # YOLO download, training, export, evaluation, comparison scripts
-│   ├── rl_agent/                    # PPO/LoRA training entry points for SLM-1
-│   ├── rewards/                     # Reward functions from physics verification logs
-│   └── runs/                        # Local Ultralytics outputs and checkpoints (not source-controlled)
+│   └── rl_agent/                    # PPO/LoRA training entry points for SLM-1
 ├── models/
 │   ├── yolo/
 │   │   ├── base_yolo26n/            # Local base YOLO26n checkpoint registry entry
@@ -74,9 +63,12 @@ CompositePerceptionEngine/
 │   ├── run_perception.py            # Stage 1 perception runner
 │   └── visualize_stage1.py          # Perception CSV visualization helper
 ├── evaluation/
+│   ├── kinetic_score_comparison.py  # K0–K5 formula benchmark: distributions, TTC correlation, routing sensitivity
+│   ├── threat_score_eval.py         # Routing F1/Precision/Recall evaluator using K₊₂ ground truth
 │   ├── benchmarks/
 │   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
-│   │   └── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
+│   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
+│   │   └── kinetic_score_eval/      # K0–K5 formula comparison + threat routing F1 reports + plots
 │   └── logs/
 ├── notebooks/                       # EDA and SANPO/YOLO prototyping notebooks
 ├── tests/                           # Unit/integration tests for threat routing and reflex bridge checks

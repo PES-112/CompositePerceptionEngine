@@ -77,7 +77,7 @@ def kinetic_score(distance_m: float, velocity_ms: float, class_name: str) -> flo
     """
     Compute the kinetic threat score for one tracked object.
 
-    Formula:  K = class_severity × (velocity_ms²) / max(distance_m, ε)
+    Formula (K0):  K = class_severity × (velocity_ms²) / max(distance_m, ε)
     Higher K → higher threat level.
 
     Args:
@@ -87,6 +87,125 @@ def kinetic_score(distance_m: float, velocity_ms: float, class_name: str) -> flo
     """
     severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
     return severity * (velocity_ms ** 2) / max(distance_m, EPSILON)
+
+
+# ── Kinetic Score Candidate Formulas (K1–K5) ──────────────────────────────────
+# These are evaluated-only alternatives to the production K0 formula.
+# Run evaluation/kinetic_score_comparison.py to benchmark all candidates.
+# DO NOT replace kinetic_score() (K0) until the benchmark validates a winner.
+
+import math as _math
+
+
+def kinetic_score_k1_ttc(
+    distance_m: float, velocity_ms: float, class_name: str
+) -> float:
+    """
+    K1 — TTC-primary: sev × clamp(1/TTC, 0, 10).
+
+    Directly models the time budget available to react.
+    Objects with TTC > 10 s are clamped to 0; stationary objects return 0.
+    Advantage: linearly proportional to urgency, no quadratic explosion.
+    """
+    if velocity_ms <= 0:
+        return 0.0
+    ttc = distance_m / velocity_ms
+    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
+    return severity * min(1.0 / ttc, 10.0)
+
+
+def kinetic_score_k2_linear(
+    distance_m: float, velocity_ms: float, class_name: str
+) -> float:
+    """
+    K2 — Linear velocity: sev × v / max(d, ε).
+
+    Same shape as K0 but linear in velocity instead of quadratic.
+    Less explosive at high speeds; slower objects penalised more fairly.
+    """
+    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
+    return severity * velocity_ms / max(distance_m, EPSILON)
+
+
+def kinetic_score_k3_quad_distance(
+    distance_m: float, velocity_ms: float, class_name: str
+) -> float:
+    """
+    K3 — Quadratic distance decay: sev × v² / (d² + ε).
+
+    Decays much faster with distance than K0.  Creates a wider 'safe' zone
+    at moderate distances and concentrates high scores in the close range.
+    """
+    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
+    return severity * (velocity_ms ** 2) / (distance_m ** 2 + EPSILON)
+
+
+def kinetic_score_k4_hybrid(
+    distance_m: float, velocity_ms: float, class_name: str
+) -> float:
+    """
+    K4 — Hybrid: 0.5 × K0 + 0.5 × (sev × clamp(10/TTC, 0, 10)).
+
+    Blends the momentum signal (K0) with a time-budget signal (K1 variant).
+    Balances between energy-based danger and reaction-time urgency.
+    Recommended candidate for pedestrian navigation.
+    """
+    momentum = kinetic_score(distance_m, velocity_ms, class_name)  # K0
+    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
+    if velocity_ms <= 0:
+        ttc_term = 0.0
+    else:
+        ttc = distance_m / velocity_ms
+        ttc_term = severity * min(10.0 / ttc, 10.0)
+    return 0.5 * momentum + 0.5 * ttc_term
+
+
+def kinetic_score_k5_sigmoid(
+    distance_m: float,
+    velocity_ms: float,
+    class_name: str,
+    *,
+    beta: float = 2.0,
+) -> float:
+    """
+    K5 — Sigmoid-normalised: sev × sigmoid(v/max(d,ε) − β).
+
+    Output is bounded to [0, severity] — no unbounded explosion.
+    β is a calibration offset (default 2.0); tune via the benchmark.
+    Best for scenarios where a hard ceiling on K is desirable.
+    """
+    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
+    x = velocity_ms / max(distance_m, EPSILON) - beta
+    return severity / (1.0 + _math.exp(-x))
+
+
+# ── Formula dispatcher ────────────────────────────────────────────────────────
+
+_KINETIC_FORMULAS: dict = {
+    "K0": kinetic_score,
+    "K1": kinetic_score_k1_ttc,
+    "K2": kinetic_score_k2_linear,
+    "K3": kinetic_score_k3_quad_distance,
+    "K4": kinetic_score_k4_hybrid,
+    "K5": kinetic_score_k5_sigmoid,
+}
+
+
+def kinetic_score_all(
+    distance_m: float, velocity_ms: float, class_name: str
+) -> dict[str, float]:
+    """
+    Compute all candidate kinetic scores for one object.
+
+    Returns a dict mapping formula name → score, e.g.:
+        {"K0": 8.4, "K1": 3.2, "K2": 1.1, "K3": 12.0, "K4": 5.8, "K5": 0.9}
+
+    Used by evaluation/kinetic_score_comparison.py and notebooks.
+    """
+    return {
+        name: fn(distance_m, velocity_ms, class_name)
+        for name, fn in _KINETIC_FORMULAS.items()
+    }
 
 
 def bearing_label(deg: float) -> str:

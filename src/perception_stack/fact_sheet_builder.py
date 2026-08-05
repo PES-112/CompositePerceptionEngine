@@ -20,14 +20,15 @@ from src.perception_stack.physics import (
     kinetic_score, bearing_label,
     CLASS_SEVERITY, DEFAULT_SEVERITY,
 )
+from src.shared.fact_sheet import FactSheet, DetectedObject
 
 # ── SLM-1 System Prompt ───────────────────────────────────────────────────────
 SYSTEM_PROMPT = (
     "You are a pedestrian navigation AI for visually impaired users. "
-    "Given a Fact Sheet describing nearby objects with their distance, "
-    "velocity, and bearing, identify the single highest-priority threat "
-    "and explain your reasoning in one sentence. "
-    "Respond ONLY with valid JSON."
+    "Given a structured JSON Fact Sheet describing nearby objects, "
+    "identify the single highest-priority threat and explain your "
+    "reasoning in one sentence. Respond ONLY with valid JSON matching "
+    "the schema: {primary_threat_id, reason, scene_state, confidence, future_confirmed}."
 )
 
 
@@ -52,24 +53,8 @@ def load_perception_csv(csv_path: Path) -> dict:
     return frames
 
 
-# ── Fact Sheet Rendering ──────────────────────────────────────────────────────
-
-def _render_fact_sheet(objects: list) -> str:
-    """Convert a list of scored object dicts into a human-readable Fact Sheet string."""
-    if not objects:
-        return "No objects detected."
-    parts = []
-    for i, obj in enumerate(objects, 1):
-        dist = f"{obj['distance_m']:.1f}m" if obj["distance_m"] is not None else "unknown dist"
-        vel  = f"v={obj['velocity_ms']:.1f}m/s"
-        brng = bearing_label(obj["bearing_deg"])
-        k    = obj.get("kinetic_score", 0.0)
-        parts.append(f"Object_{i:02d}: {obj['class']}, {dist}, {vel}, {brng} [K={k:.3f}]")
-    return " | ".join(parts)
-
-
 def _find_top_threat(objects: list) -> dict | None:
-    """Return the object dict with the highest kinetic score, or None."""
+    """Return the raw dict with the highest kinetic score, or None."""
     scored = [o for o in objects if o.get("kinetic_score", 0.0) > 0]
     return max(scored, key=lambda o: o["kinetic_score"]) if scored else None
 
@@ -80,8 +65,8 @@ def _reasoning(obj: dict, future_match: bool) -> str:
     future = " Confirmed as highest threat 2 seconds later." if future_match else ""
     return (
         f"{obj['class'].capitalize()} {dist} {brng} approaching at "
-        f"{obj['velocity_ms']:.1f} m/s is the highest kinetic threat "
-        f"(K={obj['kinetic_score']:.3f}).{future}"
+        f"{obj['velocity_ms']:.1f} m/s is the highest kinetic risk on direct path."
+        f"{future}"
     )
 
 
@@ -146,23 +131,50 @@ def build_fact_sheets(
                 str(present_threat["track_id"]) == str(future_threat_id)
             )
 
+            # ── Assemble Structured Fact Sheet ──
+            detected_objs = []
+            for obj in objects:
+                ttc = obj["distance_m"] / obj["velocity_ms"] if (obj["distance_m"] is not None and obj["velocity_ms"] > 0) else None
+                k = obj["kinetic_score"]
+                if k >= 5.0 or (ttc is not None and ttc <= 1.0):
+                    route = "reflex"
+                elif k >= 0.5:
+                    route = "cognitive"
+                else:
+                    route = "ignore"
+
+                detected_objs.append(DetectedObject(
+                    track_id=str(obj["track_id"]),
+                    object_class=obj["class"],
+                    bearing=bearing_label(obj["bearing_deg"]),
+                    bearing_deg=obj["bearing_deg"],
+                    distance_m=obj["distance_m"],
+                    velocity_ms=obj["velocity_ms"],
+                    ttc_s=ttc,
+                    kinetic_score=k,
+                    route=route
+                ))
+            
+            # FactSheet automatically sorts by kinetic_score desc in typical usage, but we pre-sorted objects
+            fact_sheet = FactSheet(
+                frame_id=frame_idx,
+                timestamp_ms=frame_idx * (1000.0 / fps),
+                scene_stable=True,
+                objects=detected_objs
+            )
+
             # ── Assemble JSONL record ──
-            obj_index    = objects.index(present_threat) + 1
-            fact_sheet   = _render_fact_sheet(objects)
-            assistant    = json.dumps({
-                "primary_threat":   f"Object_{obj_index:02d}",
-                "track_id":         int(present_threat["track_id"]),
-                "class":            present_threat["class"],
-                "distance_m":       present_threat["distance_m"],
-                "velocity_ms":      round(present_threat["velocity_ms"], 3),
-                "kinetic_score":    round(present_threat["kinetic_score"], 4),
-                "future_confirmed": future_match,
+            assistant = json.dumps({
+                "primary_threat_id": str(present_threat["track_id"]),
                 "reason":           _reasoning(present_threat, future_match),
+                "scene_state":      "hazard_approaching" if present_threat["velocity_ms"] > 0 else "hazard_static",
+                "confidence":       0.95,
+                "future_confirmed": future_match,
             })
 
             f.write(json.dumps({
                 "system":    SYSTEM_PROMPT,
-                "user":      f"[SCENARIO FACT SHEET] {fact_sheet}",
+                "user":      json.dumps(fact_sheet.to_slm_user_message()),
                 "assistant": assistant,
             }) + "\n")
             written += 1

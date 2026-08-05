@@ -10,3 +10,4 @@ Current benchmark entries:
 |---|---|
 | `yolo26n_hazards_v1/` | Held-out test metrics for the first CPE YOLO26n hazard checkpoint. |
 | `yolo26n_version_comparison/` | Cumulative v1/v2/v3 comparison, including all-class mAP and retained-class base-YOLO deltas. |
+| `kinetic_score_eval/` | Formula comparison for K0–K5 kinetic score candidates: distribution, TTC correlation, routing sensitivity, monotonicity, and routing F1 scores using K₊₂ ground truth. |

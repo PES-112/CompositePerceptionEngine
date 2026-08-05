@@ -141,7 +141,7 @@ Tracked perception row
   → PerceivedObject(distance, velocity, bearing, K, TTC)
   → ThreatEvent(route=ignore|cognitive|reflex, priority, reason)
 
-K = Class_severity × V²_closing / max(d, ε)
+K = Class_severity × f(v, d)   ← formula under evaluation (K0–K5)
 TTC = d / V_closing, when V_closing > 0
 
 TTC <= 1.0s or K >= HIGH_THRESHOLD → Reflex Layer (<50ms)
@@ -151,6 +151,9 @@ else                                → Ignore
 ```
 
 Offline SANPO/perception CSVs can be converted into this event stream with `tools/build_threat_events.py`, which writes non-ignore `ThreatEvent` JSONL plus a route/class summary.
+
+> [!NOTE]
+> Six candidate kinetic score formulas (K0–K5) are currently under evaluation via `evaluation/kinetic_score_comparison.py` and `evaluation/threat_score_eval.py`. K0 (current: `sev × v² / max(d,ε)`) remains production until the benchmark validates a winner. K4 (hybrid momentum + TTC) is the leading candidate. Results land in `evaluation/benchmarks/kinetic_score_eval/`.
 
 > [!IMPORTANT]
 > Both tracks can fire simultaneously for different objects. A speeding car goes Reflex; a jaywalker goes Cognitive. Physics Verification merges both.
@@ -172,20 +175,49 @@ The Reflex Layer bridge is implemented in `src/reflex_layer/reflex.py`. It consu
 
 ### 2.5 Cognitive Layer — SLM-1
 
-**Inputs:** YOLO detections + 2-sec trajectory history + depth data + intent labels
+**Inputs:** Symbolic Fact Sheet (structured JSON) from the Threat Prioritizer
+
+The Fact Sheet is the sole runtime input to SLM-1. All fields are derivable from a phone camera at inference time:
+
+```json
+{
+  "frame_id": 142,
+  "scene_stable": true,
+  "objects": [
+    {
+      "track_id":      "t_07",
+      "object_class":  "car",
+      "bearing":       "ahead",
+      "bearing_deg":   2.1,
+      "distance_m":    8.5,
+      "velocity_ms":   4.2,
+      "ttc_s":         2.02,
+      "kinetic_score": 8.74,
+      "route":         "cognitive"
+    }
+  ]
+}
+```
+
+**Excluded from runtime FactSheet (training-data only):**
+- `intent_label` — from HEADSUP dataset; not available from phone camera at inference. Used only to enrich SFT training examples so the SLM learns to infer intent from scene context.
+- `hallucination_filtered` — internal pipeline flag; not a semantic input.
+
+**Bearing derivation:** `bearing_deg = ((cx_px - frame_width/2) / (frame_width/2)) × (hfov_deg/2)`. No extra hardware needed — computed from YOLO bbox centroid pixel alone. Phone HFoV default: 70°.
 
 **Task:** Produce a semantic evaluation of the scene:
 
 ```json
 {
-  "primary_threat": "track_007",
-  "reason": "Motorcycle accelerating from left at 8m/s",
-  "secondary": "track_012",
-  "scene_state": "crossing_intersection"
+  "primary_threat_id": "t_07",
+  "reason": "Car 8.5m ahead closing at 4.2m/s — highest kinetic risk on direct path.",
+  "scene_state": "vehicle_approaching",
+  "confidence": 0.92,
+  "future_confirmed": true
 }
 ```
 
-SLM-1 reasons about **intent, trajectory, and context** — not just kinetic score. This is what makes it complementary to the physics layer.
+SLM-1 reasons about **trajectory, proximity urgency, and semantic context** — not just kinetic score. This is what makes it complementary to the physics layer.
 
 ---
 
