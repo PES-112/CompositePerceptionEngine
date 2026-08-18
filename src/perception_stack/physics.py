@@ -51,26 +51,52 @@ def compute_bearing(cx_px: float, frame_width: int, hfov_deg: float = 70.0) -> f
     return normalised * (hfov_deg / 2)
 
 
-def compute_velocity(depth_history: list[tuple[int, float]], fps: float) -> float:
+def compute_velocity(
+    depth_history: list[tuple[int, float]],
+    fps: float,
+    *,
+    use_least_squares: bool = True,
+) -> float:
     """
     Estimate closing velocity (m/s) from a rolling window of (frame_idx, distance_m) pairs.
 
     Positive return value means the object is APPROACHING (depth decreasing).
     Returns 0.0 if fewer than 2 history samples exist or the object is moving away.
 
+    Velocity is a *differentiated* depth estimate, so depth noise is amplified before
+    the kinetic score ever sees it — and kinetic_score() then squares it. Taking the
+    least-squares slope across the whole window uses every sample instead of just the
+    two endpoints, which cuts that variance without adding state or tuning knobs.
+
     Args:
-        depth_history:  List of (frame_idx, distance_m) in chronological order.
-        fps:            Video framerate — used to convert frame delta to seconds.
+        depth_history:      List of (frame_idx, distance_m) in chronological order.
+        fps:                Video framerate — converts frame delta to seconds.
+        use_least_squares:  False reverts to the endpoint difference (d0 - d1) / dt.
     """
     if len(depth_history) < 2:
         return 0.0
-    (f0, d0) = depth_history[0]
-    (f1, d1) = depth_history[-1]
-    dt = (f1 - f0) / fps
-    if dt <= 0:
+
+    if not use_least_squares or len(depth_history) == 2:
+        (f0, d0) = depth_history[0]
+        (f1, d1) = depth_history[-1]
+        dt = (f1 - f0) / fps
+        if dt <= 0:
+            return 0.0
+        raw_v = (d0 - d1) / dt   # positive = object closing in
+        return max(0.0, raw_v)   # clamp: don't report negative (retreating) velocities
+
+    # ponytail: least-squares slope, not a Kalman filter. Upgrade to a constant-velocity
+    # Kalman (architecture.md §10.1) if residual jitter still causes false reflex overrides.
+    times     = [f / fps for f, _ in depth_history]
+    distances = [d for _, d in depth_history]
+    n = len(times)
+    mean_t = sum(times) / n
+    mean_d = sum(distances) / n
+    denom = sum((t - mean_t) ** 2 for t in times)
+    if denom <= 0:
         return 0.0
-    raw_v = (d0 - d1) / dt   # positive = object closing in
-    return max(0.0, raw_v)   # clamp: don't report negative (retreating) velocities
+    slope = sum((t - mean_t) * (d - mean_d) for t, d in zip(times, distances)) / denom
+    return max(0.0, -slope)   # depth shrinking → positive closing velocity
 
 
 def kinetic_score(distance_m: float, velocity_ms: float, class_name: str) -> float:
@@ -87,125 +113,6 @@ def kinetic_score(distance_m: float, velocity_ms: float, class_name: str) -> flo
     """
     severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
     return severity * (velocity_ms ** 2) / max(distance_m, EPSILON)
-
-
-# ── Kinetic Score Candidate Formulas (K1–K5) ──────────────────────────────────
-# These are evaluated-only alternatives to the production K0 formula.
-# Run evaluation/kinetic_score_comparison.py to benchmark all candidates.
-# DO NOT replace kinetic_score() (K0) until the benchmark validates a winner.
-
-import math as _math
-
-
-def kinetic_score_k1_ttc(
-    distance_m: float, velocity_ms: float, class_name: str
-) -> float:
-    """
-    K1 — TTC-primary: sev × clamp(1/TTC, 0, 10).
-
-    Directly models the time budget available to react.
-    Objects with TTC > 10 s are clamped to 0; stationary objects return 0.
-    Advantage: linearly proportional to urgency, no quadratic explosion.
-    """
-    if velocity_ms <= 0:
-        return 0.0
-    ttc = distance_m / velocity_ms
-    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
-    return severity * min(1.0 / ttc, 10.0)
-
-
-def kinetic_score_k2_linear(
-    distance_m: float, velocity_ms: float, class_name: str
-) -> float:
-    """
-    K2 — Linear velocity: sev × v / max(d, ε).
-
-    Same shape as K0 but linear in velocity instead of quadratic.
-    Less explosive at high speeds; slower objects penalised more fairly.
-    """
-    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
-    return severity * velocity_ms / max(distance_m, EPSILON)
-
-
-def kinetic_score_k3_quad_distance(
-    distance_m: float, velocity_ms: float, class_name: str
-) -> float:
-    """
-    K3 — Quadratic distance decay: sev × v² / (d² + ε).
-
-    Decays much faster with distance than K0.  Creates a wider 'safe' zone
-    at moderate distances and concentrates high scores in the close range.
-    """
-    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
-    return severity * (velocity_ms ** 2) / (distance_m ** 2 + EPSILON)
-
-
-def kinetic_score_k4_hybrid(
-    distance_m: float, velocity_ms: float, class_name: str
-) -> float:
-    """
-    K4 — Hybrid: 0.5 × K0 + 0.5 × (sev × clamp(10/TTC, 0, 10)).
-
-    Blends the momentum signal (K0) with a time-budget signal (K1 variant).
-    Balances between energy-based danger and reaction-time urgency.
-    Recommended candidate for pedestrian navigation.
-    """
-    momentum = kinetic_score(distance_m, velocity_ms, class_name)  # K0
-    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
-    if velocity_ms <= 0:
-        ttc_term = 0.0
-    else:
-        ttc = distance_m / velocity_ms
-        ttc_term = severity * min(10.0 / ttc, 10.0)
-    return 0.5 * momentum + 0.5 * ttc_term
-
-
-def kinetic_score_k5_sigmoid(
-    distance_m: float,
-    velocity_ms: float,
-    class_name: str,
-    *,
-    beta: float = 2.0,
-) -> float:
-    """
-    K5 — Sigmoid-normalised: sev × sigmoid(v/max(d,ε) − β).
-
-    Output is bounded to [0, severity] — no unbounded explosion.
-    β is a calibration offset (default 2.0); tune via the benchmark.
-    Best for scenarios where a hard ceiling on K is desirable.
-    """
-    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
-    x = velocity_ms / max(distance_m, EPSILON) - beta
-    return severity / (1.0 + _math.exp(-x))
-
-
-# ── Formula dispatcher ────────────────────────────────────────────────────────
-
-_KINETIC_FORMULAS: dict = {
-    "K0": kinetic_score,
-    "K1": kinetic_score_k1_ttc,
-    "K2": kinetic_score_k2_linear,
-    "K3": kinetic_score_k3_quad_distance,
-    "K4": kinetic_score_k4_hybrid,
-    "K5": kinetic_score_k5_sigmoid,
-}
-
-
-def kinetic_score_all(
-    distance_m: float, velocity_ms: float, class_name: str
-) -> dict[str, float]:
-    """
-    Compute all candidate kinetic scores for one object.
-
-    Returns a dict mapping formula name → score, e.g.:
-        {"K0": 8.4, "K1": 3.2, "K2": 1.1, "K3": 12.0, "K4": 5.8, "K5": 0.9}
-
-    Used by evaluation/kinetic_score_comparison.py and notebooks.
-    """
-    return {
-        name: fn(distance_m, velocity_ms, class_name)
-        for name, fn in _KINETIC_FORMULAS.items()
-    }
 
 
 def bearing_label(deg: float) -> str:
@@ -270,3 +177,51 @@ def batch_kinetic_score(
     if not isinstance(severity_weights, torch.Tensor):
         severity_weights = torch.tensor(severity_weights, dtype=torch.float32)
     return severity_weights * (velocities ** 2) / torch.clamp(distances, min=EPSILON)
+
+
+# ── Self-check ───────────────────────────────────────────────────────────────
+
+def _demo() -> None:
+    """Runnable self-check: python src/perception_stack/physics.py"""
+    fps = 30.0
+
+    # Clean constant approach: 5.0 m closing at 1 m/s over 10 frames.
+    clean = [(i, 5.0 - 1.0 * i / fps) for i in range(10)]
+    assert abs(compute_velocity(clean, fps) - 1.0) < 1e-6
+    assert abs(compute_velocity(clean, fps, use_least_squares=False) - 1.0) < 1e-6
+
+    # Retreating objects clamp to zero, not negative.
+    assert compute_velocity([(i, 2.0 + 0.1 * i) for i in range(10)], fps) == 0.0
+
+    # Too few samples.
+    assert compute_velocity([], fps) == 0.0
+    assert compute_velocity([(0, 5.0)], fps) == 0.0
+
+    # The point of least squares: with one corrupted depth sample, using the whole
+    # window must beat differencing the two endpoints.
+    noisy = list(clean)
+    noisy[-1] = (noisy[-1][0], noisy[-1][1] - 0.5)      # spike on the final sample
+    ls_err       = abs(compute_velocity(noisy, fps) - 1.0)
+    endpoint_err = abs(compute_velocity(noisy, fps, use_least_squares=False) - 1.0)
+    assert ls_err < endpoint_err, (ls_err, endpoint_err)
+
+    # K0 monotonicity: closer and faster both raise the score.
+    assert kinetic_score(2.0, 3.0, "car") > kinetic_score(8.0, 3.0, "car")
+    assert kinetic_score(5.0, 6.0, "car") > kinetic_score(5.0, 2.0, "car")
+    assert kinetic_score(5.0, 3.0, "bus") > kinetic_score(5.0, 3.0, "person")
+
+    # Static objects score zero — see docs/kinetic_score_opinion.md §7.
+    assert kinetic_score(1.0, 0.0, "stairs") == 0.0
+
+    # EPSILON guards division at zero distance.
+    assert kinetic_score(0.0, 1.0, "person") == 1.0 / EPSILON
+
+    assert compute_bearing(0, 640) == -35.0
+    assert compute_bearing(320, 640) == 0.0
+    assert bearing_label(-40) == "far-left" and bearing_label(0) == "ahead"
+
+    print("physics.py self-check OK")
+
+
+if __name__ == "__main__":
+    _demo()

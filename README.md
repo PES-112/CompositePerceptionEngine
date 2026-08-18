@@ -34,6 +34,7 @@ CompositePerceptionEngine/
 │   ├── sanpo_gap_analysis.md        # Depth-versus-YOLO blind-spot workflow
 │   ├── yolo_training.md             # Current YOLO26n v3 dataset/checkpoint/evaluation guide
 │   ├── research_paper_prompts.md    # Paper prompts aligned with implemented evidence
+│   ├── decisions.md                 # Open design decisions pending team discussion
 │   └── CHANGELOG.md                 # Date-stamped project changes
 ├── src/
 │   ├── shared/                      # Shared schemas and data contracts
@@ -60,11 +61,10 @@ CompositePerceptionEngine/
 │   ├── build_threat_events.py       # Stage 1 perception CSV → ThreatEvent JSONL bridge
 │   ├── download_sanpo_valid_streams.py # Bounded downloader for valid SANPO sessions
 │   ├── gap_analysis_experiments.py  # SANPO depth-vs-YOLO perception gap analysis
+│   ├── manual_score_inspector.py    # Generates interactive HTML for manual K-score verification
 │   ├── run_perception.py            # Stage 1 perception runner
 │   └── visualize_stage1.py          # Perception CSV visualization helper
 ├── evaluation/
-│   ├── kinetic_score_comparison.py  # K0–K5 formula benchmark: distributions, TTC correlation, routing sensitivity
-│   ├── threat_score_eval.py         # Routing F1/Precision/Recall evaluator using K₊₂ ground truth
 │   ├── benchmarks/
 │   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
 │   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons

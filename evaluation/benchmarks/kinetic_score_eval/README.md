@@ -1,45 +1,51 @@
 # Kinetic Score Evaluation Benchmark
 
-This folder holds results from running the kinetic score formula comparison
-and threat score routing evaluation scripts over SANPO perception CSVs.
+Results from evaluating the production kinetic score **K0** (`sev × v² / max(d, ε)`).
 
-## Contents
+> The former K0–K5 comparison harness (`evaluation/kinetic_score_comparison.py`,
+> `evaluation/threat_score_eval.py`) has been **deleted**. It was circular — it graded each formula
+> against a "ground truth" computed by re-running that same formula on a future frame — and its
+> discriminating metric was saturated, passing five of six candidates. K1–K5 were dummies and are
+> gone from `src/perception_stack/physics.py`.
+>
+> See **`docs/kinetic_score_opinion.md`** for the replacement strategy.
 
-| File / Folder | Description |
+## What replaces it
+
+K0 is defended by **ablation of its own terms**, not by a contest against strawmen:
+
+| Variant | Claim under test |
 |---|---|
-| `kinetic_score_report.md` | Ranked comparison of K0–K5 formulas: distribution stats, TTC correlation, routing sensitivity, monotonicity. |
-| `kinetic_score_results.json` | Machine-readable results (same data as the report). |
-| `threat_score_report.md` | Per-route (reflex/cognitive/ignore) Precision, Recall, F1 for each formula using K₊₂ ground truth. |
-| `threat_score_results.json` | Machine-readable routing evaluation results. |
-| `plots/` | Matplotlib figures: K-score box plots, K vs 1/TTC scatter, routing sensitivity bar chart. |
+| `sev · v²/d` | K0 as-is (baseline) |
+| `sev · v/d` | is the `v²` exponent doing work? |
+| `v²/d` | is class severity doing work? |
+| `sev/d` | is velocity doing work? |
+| `-(d − D_haz)/v` | is K beaten by plain time-to-hazard? |
 
-## How to Reproduce
+## Metrics requiring no ground truth
 
-```powershell
-# Step 1 — K-score distribution + TTC correlation
-python evaluation/kinetic_score_comparison.py `
-    --csv   data/processed/merged_perception.csv `
-    --fps   30 `
-    --low-k  0.5 `
-    --high-k 5.0 `
-    --out-dir evaluation/benchmarks/kinetic_score_eval
+Run these first — they may settle the question before any labelling.
 
-# Step 2 — Routing F1 / Precision / Recall
-python evaluation/threat_score_eval.py `
-    --csv         data/processed/merged_perception.csv `
-    --fps         30 `
-    --lookahead-s 2.0 `
-    --low-k        0.5 `
-    --high-k       5.0 `
-    --out-dir evaluation/benchmarks/kinetic_score_eval
-```
+1. **Flicker rate** — how often `argmax K` changes identity between consecutive frames.
+2. **Rank stability** — Kendall τ between rankings on clean vs. depth-perturbed input.
+3. **Temporal smoothness** — mean `|K(t) − K(t−1)| / mean K` per track.
+4. **Tie rate** — frames where the top two objects fall within 5%.
+5. **Complementarity with SLM-1** — disagreement rate between `argmax K` and SLM-1's pick.
+6. **Future self-consistency** — does `argmax K` at T match `argmax K` at T+H?
 
-## Decision Criteria
+## Automatic ground truth (eliminates, never selects)
 
-1. **Highest Reflex Recall** — a missed reflex = safety failure.
-2. **Spearman ρ > 0.7** with 1/TTC — score aligns with urgency.
-3. **Monotone** — K strictly increases as d↓ and v↑.
-4. **Range stability** — P99/P50 < 20 (no runaway unbounded scores).
+An object is a **true encounter** at frame T if, within horizon H, its *measured* `distance_m` drops
+below `D_haz` while `|bearing_deg| < θ`. Uses only `distance_m` and `bearing_deg` — never velocity,
+severity, or any K. Report as a sensitivity grid over `(H, D_haz, θ)`, not a single setting.
 
-The winning formula replaces `kinetic_score()` in
-`src/perception_stack/physics.py` after manual review of these results.
+## The one question needing a human
+
+Whether K0's `v²` and its class severity weights are *right* is a value judgment, settled only by a
+**blinded referee on disagreement frames** (§3 of the opinion doc). Budget ~100–300 frames.
+
+## Prerequisites (blocking)
+
+Stage-1 perception CSVs do not exist yet. Generate them with `tools/run_perception.py` over the ten
+sessions in `../sanpo_edge_realtime/selected_10_sessions.json`, on the machine holding SANPO.
+Bootstrap at the **session** level — frames within a session are autocorrelated.

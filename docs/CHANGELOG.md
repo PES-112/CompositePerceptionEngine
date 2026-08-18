@@ -2,7 +2,32 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
-## [2026-08-05] - Kinetic Score Evaluation Framework & FactSheet Redesign
+## [2026-08-18] - Kinetic Score Decision: Keep K0, Remove Dummies
+
+### Documentation
+- Added `docs/kinetic_score_opinion.md` — recommendation for choosing and defending the kinetic score. Concludes: **keep K0**, whose `v²` term is the only element encoding *consequence* rather than *arrival time* (which the reflex TTC gate at `events.py:217` already covers). Documents how to evaluate with **no ground truth**: six label-free metrics (flicker rate, rank stability under depth perturbation, temporal smoothness, tie rate, complementarity with SLM-1, future self-consistency), automatic "encounter" labels derived from measured future distance, and forced-choice pairwise comparison with a blinded referee restricted to the ~5% of frames where formulas disagree. Rejects multi-VLM polling as primary evidence (polling measures agreement not accuracy; VLM errors are correlated; a still frame carries neither metric depth nor closing velocity) and reframes the VLM as a blinded *referee* calibrated against a human gold set with Cohen's κ reported.
+
+### Changed
+- `src/perception_stack/physics.py` — `compute_velocity()` now takes the **least-squares slope** across the whole depth window instead of differencing only the two endpoints, using every sample to cut variance without adding state or tuning knobs. Reverts to endpoint differencing via `use_least_squares=False`. Motivation: velocity is a differentiated depth estimate and `kinetic_score()` squares it, so at 10% depth error K0's score error is +741% versus +190% for a linear-velocity variant. Partially addresses `architecture.md` §10.1, which prescribes a Kalman filter that was never implemented.
+- `docs/architecture.md` — **withdrew the unevidenced claim** that "K4 (hybrid momentum + TTC) is the leading candidate." No benchmark was ever run; `evaluation/benchmarks/kinetic_score_eval/` contained only a README.
+
+### Removed
+- Deleted `kinetic_score_k1_ttc`, `kinetic_score_k2_linear`, `kinetic_score_k3_quad_distance`, `kinetic_score_k4_hybrid`, `kinetic_score_k5_sigmoid`, `_KINETIC_FORMULAS` and `kinetic_score_all` from `src/perception_stack/physics.py`. K1–K5 were dummies, and measurement showed they were not even independent ones: within a class K1/K2/K5 are *exactly* rank-identical to 1/TTC (Spearman ρ = 1.0000, identical rank vectors over 500 points) and K3 is ρ = 0.9998 — five labels for two behaviours. Cross-class pairwise rank agreement was ≥ 0.945 for every pair except K5. Nothing outside `physics.py` referenced them.
+- Deleted `evaluation/kinetic_score_comparison.py` and `evaluation/threat_score_eval.py` — circular by construction (ground truth computed by re-running the formula being scored) with a saturated discriminating metric that passed five of six candidates at its own ρ > 0.7 gate. K0 is now defended by ablation of its own terms; see the rewritten `evaluation/benchmarks/kinetic_score_eval/README.md`.
+
+### Testing
+- Added an `assert`-based `_demo()` self-check to `src/perception_stack/physics.py` (`python src/perception_stack/physics.py`) pinning velocity estimation on clean input, the retreating-object clamp, short-history guards, K0 monotonicity in distance/velocity/severity, the `EPSILON` guard, and — the point of the change — that least-squares beats endpoint differencing when one depth sample is corrupted.
+
+## [2026-08-13] - Kinetic Score Ground Truth Decision Record
+
+### Documentation
+- Added `docs/decisions.md` — open design-decision log. First entry: "Ground Truth Strategy for Kinetic Score Formula Selection," documenting a circularity problem in `evaluation/threat_score_eval.py` (ground truth is computed by re-running the same formula being scored) and a scale-comparability bug across K0–K5 (K5 is bounded to `[0, severity]` and can never cross `high_k=5.0`, unlike unbounded K0/K3). Records three candidate ground-truth tiers (automatic kinematic "encounter" labels, blinded human judgment, calibrated VLM-as-annotator) and their tradeoffs, pending a team decision. Also flags that `docs/architecture.md`'s claim of "K4 leading candidate" currently has no benchmark evidence behind it (`evaluation/benchmarks/kinetic_score_eval/` contains only a README).
+
+## [2026-08-05] - Manual Kinetic Score Inspector
+
+### Evaluation
+- Added `tools/manual_score_inspector.py` — generates a self-contained interactive HTML file for manual frame-by-frame verification of kinetic scores. For each sampled SANPO frame it renders the RGB image with colour-coded bounding boxes (reflex=red, cognitive=orange, ignore=green), a table of all K0–K5 scores per object with routing badges, and the objective ground-truth column (actual depth at T+lookahead). The user can ✅ approve, ❌ flag, or ⏭ skip each frame; judgements persist in `localStorage` and can be exported as a JSON audit file.
+
 
 ### Evaluation
 - Added `evaluation/kinetic_score_comparison.py` — benchmark harness for six kinetic score formula candidates (K0–K5). Produces per-formula distribution statistics (mean, P50, P95, P99, IQR), Pearson/Spearman TTC correlation, routing sensitivity (reflex/cognitive/ignore %), monotonicity check, and a ranked Markdown report. Generates Matplotlib plots when available.

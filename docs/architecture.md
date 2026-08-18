@@ -153,7 +153,14 @@ else                                → Ignore
 Offline SANPO/perception CSVs can be converted into this event stream with `tools/build_threat_events.py`, which writes non-ignore `ThreatEvent` JSONL plus a route/class summary.
 
 > [!NOTE]
-> Six candidate kinetic score formulas (K0–K5) are currently under evaluation via `evaluation/kinetic_score_comparison.py` and `evaluation/threat_score_eval.py`. K0 (current: `sev × v² / max(d,ε)`) remains production until the benchmark validates a winner. K4 (hybrid momentum + TTC) is the leading candidate. Results land in `evaluation/benchmarks/kinetic_score_eval/`.
+> K0 (`sev × v² / max(d,ε)`) is the production kinetic score and the only research-derived
+> formula. The former K1–K5 candidates were dummies and have been removed: measurement showed
+> K1/K2/K5 are *exactly* rank-identical to 1/TTC within a class (ρ = 1.0000) and K3 is ρ = 0.9998,
+> so they were five labels for two behaviours. The earlier claim that "K4 is the leading candidate"
+> had no benchmark behind it and has been withdrawn. K0 is to be defended by **ablation** of its own
+> terms and by **complementarity with SLM-1**, not by a contest against strawmen — see
+> `docs/kinetic_score_opinion.md` for the evaluation strategy and
+> `docs/decisions.md` for the open ground-truth decision.
 
 > [!IMPORTANT]
 > Both tracks can fire simultaneously for different objects. A speeding car goes Reflex; a jaywalker goes Cognitive. Physics Verification merges both.
