@@ -2,6 +2,39 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-08-19b] - Local VLM Referees, Mass Exponent Raised, Ablation Run Guide
+
+### Changed
+- `src/perception_stack/physics.py` - `SEVERITY_LAMBDA` raised from 0.25 to **0.5** (severity proportional to sqrt(mass)). 0.25 compressed a 171x mass range to 3.6x, which under-weighted the destructive-mass bias the score exists to express; 0.5 gives car 4.6x a person, bus 13x, bus 2.8x a car, without lambda=1's 171x runaway. The self-check now bounds the pure mass-law spread on *both* sides (5x < spread < 60x) rather than only capping it, so a future edit cannot silently flatten mass away either. Note the original compression argument was overstated: with v^2 in the score, kinematics dominate severity in most reorderings, so lambda mostly breaks ties between objects of similar motion.
+- `evaluation/vlm_referee.py` - referees are now **local models**, not hosted APIs. The three vendor-specific client functions collapse into one `ask_local()` that speaks the OpenAI-compatible `/chat/completions` shape over stdlib urllib, which vLLM, Ollama, llama.cpp `llama-server`, LM Studio and SGLang all serve. No API keys, no client SDK dependency, no frame leaving the machine. Defaults are three different pretraining lineages (Qwen2.5-VL-7B, InternVL3-8B, Gemma-3-12B) on ports 8001-8003; `--endpoint NAME=URL` and `--model NAME=ID` retarget them, so a single-GPU box can run the three referees sequentially against one port. `temperature=0` so a re-run reproduces the ballot.
+- `evaluation/kinetic_ablation.py` - added `lambda = 0.25` and `lambda = 1.0` ablation arms. `_score_k()` swaps `physics.SEVERITY_LAMBDA` and restores it rather than duplicating the severity law, so the arms cannot drift from production.
+- `tools/stream_sanpo_perception.py` - frame downloads now run through a thread pool (`--download-workers`, default 8). One HTTPS GET per frame makes the fetch latency-bound, not bandwidth-bound; failures are re-raised so a half-downloaded session fails loudly instead of producing a short CSV.
+- `requirements.txt` - dropped the commented-out hosted-VLM SDKs; the referee needs no client library.
+
+### Added
+- `docs/ablation_guide.md` - the run guide: what each ablation arm asks, environment setup and self-checks, the Stage-1 streaming run (sampling, disk, resume, the stride/fps trap), the label-free metrics pass, serving three local VLMs (including the one-GPU sequential path), the blinded judging run, the human calibration subset with kappa interpretation thresholds, and how to write up each of the three possible per-arm outcomes.
+
+### Testing
+- `evaluation/vlm_referee.py --self-check` now stands up a throwaway `http.server`, calls `ask_local()` against it, and asserts the request path, model, `temperature`, base64 image part and text part - the payload shape is the one thing that silently breaks when a serving stack is swapped.
+
+## [2026-08-19] - Mass-Derived Severity, 30% SANPO Ablation Pipeline, Multi-VLM Referee
+
+### Changed
+- `src/perception_stack/physics.py` - class severity is now **derived from real-world mass** instead of hand-tuned: `severity(c) = behaviour(c) x (mass(c) / 70 kg) ** lambda`, lambda = 0.25, exposed as `class_severity()` with `CLASS_SEVERITY` materialised from it. lambda = 0.25 compresses the 171x class mass range to ~5x severity spread; raw mass (lambda=1) gives ~600x and lets a distant bus outrank an imminent pedestrian. Fitting the previous hand-tuned table against log mass recovers lambda ~ 0.18 (R^2 = 0.50), so the mass law restates beliefs already encoded there without the arbitrariness. A sparse `BEHAVIOUR_MULTIPLIER` covers hazards mass cannot express (motorcycle/dog erratic motion, bollard/pole trip height, traffic light/stop sign mounted above head height), and four massless trip hazards (stairs, pothole, puddle, crosswalk) keep explicit weights in `STATIC_HAZARD_SEVERITY` outside the mass law rather than being fudged into it.
+- `src/perception_stack/physics.py` - `kinetic_score()` gained keyword-only `gamma`, `size_exponent` and `bbox_area_px` parameters. The defaults (`gamma=2.0`, `size_exponent=0.0`) reproduce shipped K0 exactly; the ablation drives the same production function rather than maintaining a second implementation that can drift. The size term uses apparent size `A_px / d` normalised by `SIZE_REFERENCE_PX_PER_M` and is **off by default**: bounding-box area is ~99% predictable from class + metric depth by projective geometry, so it is redundant for labelled objects and is carried as an ablation arm, not a production term.
+
+- `tools/visualize_stage1.py` - dropped its private six-class severity table and now calls the production `kinetic_score()`. A visualiser that ranks objects differently from the pipeline it visualises is worse than no visualiser.
+
+### Added
+- `tools/stream_sanpo_perception.py` - runs Stage 1 over a seeded 30% sample of the 462 SANPO valid streams **streamed directly from the public GCS bucket**, with no local copy of SANPO. One session's frames are pulled to scratch, converted to a per-session CSV, then deleted, so peak disk stays at one session regardless of run length. Resumable (finished sessions are skipped; CSVs are written to `.partial` and renamed only on success) and failure-isolated, for unattended `nohup` runs on a shared SSH box. Writes `<session>.frames.json` mapping each CSV `frame_idx` back to its GCS object so the referee can re-fetch a handful of images later. Frames are strided at download time and `fps` is scaled by the stride - without which every closing velocity would come out `stride`x too fast.
+- `evaluation/kinetic_ablation.py` - ablates K0's terms (gamma=1, no severity, no velocity, apparent-size arm, plain time-to-hazard) and scores each variant on the label-free metrics of `kinetic_score_opinion.md` §5 plus the automatic encounter label of §6. All CIs are a percentile bootstrap resampling **whole sessions**, since frames within a session are autocorrelated. Exports the frames where variants pick different top objects as `disagreements.json` (blind) and `disagreements_key.json` (which formula picked what - never shown to a referee).
+- `evaluation/vlm_referee.py` - blinded forced-choice referee over those disagreement frames, using three VLMs from three vendors (Claude / Gemini / GPT) because agreement between models sharing training data is a shared prior, not truth. Referees see the annotated RGB frame and a neutral object list in randomised order - no scores, no formula names. Reports per-variant win rates, pairwise Cohen's kappa between referees, and kappa against a human-labelled calibration subset (`--human-template`), which the report marks as MISSING until it exists. Ballots are written per case so an interrupted API run resumes.
+- `requirements.txt` - `scipy` (Kendall tau for rank stability) and the optional referee SDKs.
+
+### Testing
+- Extended the `physics.py` self-check with the mass law (person = 1.0 by construction, monotone in mass, lambda compresses the mass range below 6x, the behaviour multiplier is load-bearing, unknown classes fall back) and with the new exponents (defaults reproduce K0; the size term stays inert unless `size_exponent` is set).
+- Added `--self-check` self-tests to `evaluation/kinetic_ablation.py` (encounter labels exclude a stationary bus and include a closing pedestrian; every velocity-aware variant ranks the closing pedestrian first; the no-velocity arm ranks the parked bus first - the failure it exists to expose; degenerate bootstrap) and `evaluation/vlm_referee.py` (vote parsing rejects hallucinated and unparseable ids rather than guessing, kappa bounds, baseline/variant/neither tallying).
+
 ## [2026-08-18] - Kinetic Score Decision: Keep K0, Remove Dummies
 
 ### Documentation

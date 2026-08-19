@@ -141,7 +141,7 @@ Tracked perception row
   → PerceivedObject(distance, velocity, bearing, K, TTC)
   → ThreatEvent(route=ignore|cognitive|reflex, priority, reason)
 
-K = Class_severity × f(v, d)   ← formula under evaluation (K0–K5)
+K = Class_severity × v^γ / max(d,ε)   ← K0; γ and severity under ablation
 TTC = d / V_closing, when V_closing > 0
 
 TTC <= 1.0s or K >= HIGH_THRESHOLD → Reflex Layer (<50ms)
@@ -161,6 +161,17 @@ Offline SANPO/perception CSVs can be converted into this event stream with `tool
 > terms and by **complementarity with SLM-1**, not by a contest against strawmen — see
 > `docs/kinetic_score_opinion.md` for the evaluation strategy and
 > `docs/decisions.md` for the open ground-truth decision.
+>
+> **Class severity is derived, not hand-tuned (2026-08-19).** `severity(c) = behaviour(c) ×
+> (mass(c)/70 kg)^λ` with `λ = 0.5`, because collision consequence scales with delivered energy.
+> λ = 0.5 (severity ∝ √mass) keeps a real destructive bias — car 4.6× a person, bus 13×, bus 2.8× a
+> car — without λ = 1's 171× runaway, which lets a distant bus outrank an imminent pedestrian.
+> λ = 0.25 / 0.5 / 1.0 are all ablation arms; 0.5 is the default, not a finding. A sparse behaviour multiplier covers hazards mass cannot see (erratic motion,
+> trip height, head-height mounting), and four massless trip hazards (stairs, pothole, puddle,
+> crosswalk) keep explicit weights outside the mass law. Bounding-box size enters `kinetic_score()`
+> as an optional `size_exponent` term on apparent size `A_px/d`, **disabled by default**: box area
+> is ~99% predictable from class + depth by projective geometry, so it is redundant for labelled
+> objects and is carried as an ablation arm rather than a production term.
 
 > [!IMPORTANT]
 > Both tracks can fire simultaneously for different objects. A speeding car goes Reflex; a jaywalker goes Cognitive. Physics Verification merges both.

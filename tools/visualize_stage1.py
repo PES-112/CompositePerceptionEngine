@@ -24,11 +24,20 @@ Output: data/processed/stage1_preview.mp4
 
 import argparse
 import csv
+import importlib.util
 from collections import defaultdict
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+# Load physics.py directly rather than through the package, which pulls in YOLO.
+_spec = importlib.util.spec_from_file_location(
+    "cpe_physics", Path(__file__).resolve().parents[1] / "src/perception_stack/physics.py"
+)
+_physics = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_physics)
+kinetic_score = _physics.kinetic_score
 
 # ── Colour palette per class (BGR) ───────────────────────────────────────────
 CLASS_COLORS = {
@@ -165,15 +174,14 @@ def main():
 
     frames_data = load_csv(csv_path)
 
-    # ── Pre-compute kinetic score inline (csv doesn't have it yet) ──
-    CLASS_SEVERITY = {"car": 2.0, "bus": 2.5, "truck": 2.5,
-                      "motorcycle": 1.8, "bicycle": 1.2, "person": 1.0}
+    # ── Pre-compute kinetic score (the CSV doesn't carry it) ──
+    # Uses the production score, not a local copy — a visualiser that ranks
+    # objects differently from the pipeline is worse than no visualiser.
     for rows in frames_data.values():
         for r in rows:
             d = r["distance_m"];  v = r["velocity_ms"]
             if d and d > 0 and v > 0:
-                sev = CLASS_SEVERITY.get(r["class"], 1.0)
-                r["kinetic"] = sev * v**2 / max(d, 0.5)
+                r["kinetic"] = kinetic_score(d, v, r["class"])
         rows.sort(key=lambda x: x["kinetic"], reverse=True)
 
     # ── Read first frame for dimensions ──
