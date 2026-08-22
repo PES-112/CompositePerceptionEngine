@@ -11,29 +11,100 @@ Functions:
 """
 
 # ── Class severity weights ─────────────────────────────────────────────────────
-# Higher = more dangerous when combined with velocity/distance in kinetic score.
-CLASS_SEVERITY: dict[str, float] = {
-    "person":              1.0,
-    "bicycle":             1.2,
-    "car":                 2.0,
-    "motorcycle":          1.8,
-    "bus":                 2.5,
-    "truck":               2.5,
-    "traffic light":       0.4,
-    "stop sign":           0.4,
-    "fire hydrant":        1.0,
-    "dog":                 1.4,
-    "bench":               0.9,
-    "pole":                1.3,
-    "bollard":             1.4,
-    "stairs":              2.0,
-    "crosswalk":           0.5,
-    "pothole":             1.8,
-    "puddle":              1.1,
-    "unlabeled_obstacle":  1.2,
+# Severity is a *constant per class*, derived from the object's real-world mass
+# rather than hand-tuned. Collision consequence scales with delivered energy, so
+# mass is the physical quantity severity is a proxy for.
+#
+#     severity(c) = behaviour(c) × (mass(c) / mass(person)) ** SEVERITY_LAMBDA
+#
+# LAMBDA is the compression knob. λ=1 is literal kinetic energy (bus 171× a
+# person) which lets a far-off bus outrank a pedestrian about to be hit; λ=0
+# throws mass away entirely. λ=0.5 — severity ∝ √mass — keeps a real destructive
+# bias (car 4.6× a person, bus 13×, bus 2.8× a car) without the runaway, and is
+# the geometric midpoint of those two extremes. Note the compression argument is
+# weaker than it looks: with v² in the score, kinematics dominate severity in
+# most reorderings, so λ mostly breaks ties between objects of similar motion.
+# Fitting the project's old hand-tuned table to log-mass recovers λ ≈ 0.18
+# (R²=0.50) — evidence the hand table was *under*-weighting mass, not that 0.18
+# is right. λ is swept by the ablation (0.25 / 0.5 / 1.0); this is the default,
+# not a finding.
+CLASS_MASS_KG: dict[str, float] = {
+    "person":              70.0,
+    "bicycle":             15.0,
+    "car":               1500.0,
+    "motorcycle":         200.0,
+    "bus":              12000.0,
+    "truck":             8000.0,
+    "traffic light":       50.0,
+    "stop sign":           15.0,
+    "fire hydrant":        80.0,
+    "dog":                 25.0,
+    "bench":               50.0,
+    "pole":               100.0,
+    "bollard":             60.0,
+    "unlabeled_obstacle":  50.0,
 }
+REFERENCE_MASS_KG = 70.0    # person — severity 1.0 by definition
+SEVERITY_LAMBDA   = 0.5
+
+# Mass is not the whole hazard. These few classes carry a *secondary* hazard the
+# mass law cannot see: erratic motion, unpredictability, or being mounted out of
+# the walking path. Sparse by design — every entry here is a claim that needs
+# defending, so keep the list short.
+BEHAVIOUR_MULTIPLIER: dict[str, float] = {
+    "motorcycle":    1.3,   # erratic, fast, quiet
+    "dog":           1.5,   # unpredictable trajectory
+    "bicycle":       1.2,   # silent and fast for its mass
+    "bollard":       1.4,   # low, hard, trip-height
+    "pole":          1.2,   # narrow, easily missed
+    "traffic light": 0.4,   # mounted above head height — rarely a collision body
+    "stop sign":     0.4,   # same
+}
+
+# Trip hazards with no meaningful mass. Energy transfer is not the mechanism —
+# the pedestrian supplies the energy — so these keep hand-set values and are
+# excluded from the mass law rather than fudged into it.
+STATIC_HAZARD_SEVERITY: dict[str, float] = {
+    "stairs":    2.0,
+    "pothole":   1.8,
+    "puddle":    1.1,
+    "crosswalk": 0.5,
+}
+
 DEFAULT_SEVERITY = 1.0
 EPSILON = 0.5   # metres — prevents division by zero for very close objects
+
+# Relative-size term (off by default — see kinetic_score). Apparent size
+# A_px / d is the user-facing "how big does it loom" quantity; SIZE_REFERENCE
+# normalises it so the term is ~1 for a person at conversational distance.
+# ponytail: single global reference constant, not a per-camera intrinsic. Swap
+# for A_px · d² / f² if you ever need true physical cross-section in m².
+SIZE_REFERENCE_PX_PER_M = 12000.0
+SIZE_EXPONENT = 0.0   # 0 disables the term entirely; the ablation sweeps it
+
+
+def class_severity(class_name: str) -> float:
+    """
+    Constant severity weight for a class, from real-world mass.
+
+    Static trip hazards use their explicit table; unknown classes fall back to
+    DEFAULT_SEVERITY (= person).
+    """
+    if class_name in STATIC_HAZARD_SEVERITY:
+        return STATIC_HAZARD_SEVERITY[class_name]
+    mass = CLASS_MASS_KG.get(class_name)
+    if mass is None:
+        return DEFAULT_SEVERITY
+    ratio = (mass / REFERENCE_MASS_KG) ** SEVERITY_LAMBDA
+    return BEHAVIOUR_MULTIPLIER.get(class_name, 1.0) * ratio
+
+
+# Materialised once so callers (and the CSV/fact-sheet layers) can read weights
+# without recomputing. Regenerate if you change LAMBDA at runtime.
+CLASS_SEVERITY: dict[str, float] = {
+    name: round(class_severity(name), 3)
+    for name in list(CLASS_MASS_KG) + list(STATIC_HAZARD_SEVERITY)
+}
 
 
 def compute_bearing(cx_px: float, frame_width: int, hfov_deg: float = 70.0) -> float:
@@ -99,20 +170,44 @@ def compute_velocity(
     return max(0.0, -slope)   # depth shrinking → positive closing velocity
 
 
-def kinetic_score(distance_m: float, velocity_ms: float, class_name: str) -> float:
+def kinetic_score(
+    distance_m: float,
+    velocity_ms: float,
+    class_name: str,
+    *,
+    bbox_area_px: float | None = None,
+    gamma: float = 2.0,
+    size_exponent: float = SIZE_EXPONENT,
+) -> float:
     """
     Compute the kinetic threat score for one tracked object.
 
-    Formula (K0):  K = class_severity × (velocity_ms²) / max(distance_m, ε)
-    Higher K → higher threat level.
+    Formula (K0):  K = class_severity × v^γ / max(d, ε) × relative_size^μ
+
+    With the defaults (γ=2, μ=0) this is exactly the shipped K0,
+    `sev × v² / max(d, ε)`. The exponents are parameters so the ablation in
+    `evaluation/kinetic_ablation.py` can knock out one term at a time without a
+    second copy of the score drifting out of sync with production.
 
     Args:
-        distance_m:  Metric depth of the object in metres.
-        velocity_ms: Closing velocity in m/s (positive = approaching ego).
-        class_name:  COCO class name string (e.g. 'car', 'person').
+        distance_m:    Metric depth of the object in metres.
+        velocity_ms:   Closing velocity in m/s (positive = approaching ego).
+        class_name:    COCO class name string (e.g. 'car', 'person').
+        bbox_area_px:  Bounding-box area in pixels. Only needed when
+                       size_exponent != 0.
+        gamma:         Velocity exponent. 2.0 = K0.
+        size_exponent: Weight on apparent size (A_px / d). 0.0 = term disabled.
+                       This term is ~99% predictable from class + depth for
+                       labelled objects — projective geometry already fixes the
+                       area — so it earns its place mainly on unlabelled
+                       obstacles. Let the ablation decide, not the intuition.
     """
-    severity = CLASS_SEVERITY.get(class_name, DEFAULT_SEVERITY)
-    return severity * (velocity_ms ** 2) / max(distance_m, EPSILON)
+    d = max(distance_m, EPSILON)
+    score = class_severity(class_name) * (velocity_ms ** gamma) / d
+    if size_exponent and bbox_area_px:
+        relative_size = (bbox_area_px / d) / SIZE_REFERENCE_PX_PER_M
+        score *= relative_size ** size_exponent
+    return score
 
 
 def bearing_label(deg: float) -> str:
@@ -209,6 +304,33 @@ def _demo() -> None:
     assert kinetic_score(2.0, 3.0, "car") > kinetic_score(8.0, 3.0, "car")
     assert kinetic_score(5.0, 6.0, "car") > kinetic_score(5.0, 2.0, "car")
     assert kinetic_score(5.0, 3.0, "bus") > kinetic_score(5.0, 3.0, "person")
+
+    # Mass-derived severity: heavier class ⇒ higher severity, and the person
+    # reference is exactly 1.0 by construction.
+    assert class_severity("person") == 1.0
+    assert class_severity("bus") > class_severity("car") > class_severity("bicycle")
+    assert class_severity("unknown-thing") == DEFAULT_SEVERITY
+    assert class_severity("pothole") == STATIC_HAZARD_SEVERITY["pothole"]
+    # λ must compress the 171× mass range, not pass it through, and must not
+    # flatten it away either — the whole point is a destructive-mass bias.
+    # Measured on the pure mass law; behaviour multipliers deliberately widen
+    # the final table (a mounted stop sign is meant to sit far below a bus).
+    pure = [(m / REFERENCE_MASS_KG) ** SEVERITY_LAMBDA for m in CLASS_MASS_KG.values()]
+    assert max(CLASS_MASS_KG.values()) / min(CLASS_MASS_KG.values()) > 100
+    assert 5.0 < max(pure) / min(pure) < 60.0, max(pure) / min(pure)
+    # The behaviour multiplier is a real term, not decoration.
+    assert class_severity("motorcycle") > (200.0 / 70.0) ** SEVERITY_LAMBDA
+
+    # Exponent parameters default to production K0.
+    assert kinetic_score(4.0, 2.0, "car", gamma=2.0) == kinetic_score(4.0, 2.0, "car")
+    assert kinetic_score(4.0, 2.0, "car", gamma=1.0) < kinetic_score(4.0, 2.0, "car")
+
+    # Size term: off by default even when an area is supplied; on, a bigger box
+    # at the same distance scores higher.
+    assert kinetic_score(4.0, 2.0, "car", bbox_area_px=90_000) == kinetic_score(4.0, 2.0, "car")
+    big   = kinetic_score(4.0, 2.0, "car", bbox_area_px=90_000, size_exponent=0.5)
+    small = kinetic_score(4.0, 2.0, "car", bbox_area_px=10_000, size_exponent=0.5)
+    assert big > small
 
     # Static objects score zero — see docs/kinetic_score_opinion.md §7.
     assert kinetic_score(1.0, 0.0, "stairs") == 0.0

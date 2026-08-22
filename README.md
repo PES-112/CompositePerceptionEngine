@@ -63,12 +63,15 @@ CompositePerceptionEngine/
 │   ├── gap_analysis_experiments.py  # SANPO depth-vs-YOLO perception gap analysis
 │   ├── manual_score_inspector.py    # Generates interactive HTML for manual K-score verification
 │   ├── run_perception.py            # Stage 1 perception runner
+│   ├── stream_sanpo_perception.py   # Stage 1 over a 30% GCS-streamed SANPO sample (no local dataset)
 │   └── visualize_stage1.py          # Perception CSV visualization helper
 ├── evaluation/
+│   ├── kinetic_ablation.py          # K0 term ablation + label-free metrics + disagreement export
+│   ├── vlm_referee.py               # Blinded 3-VLM referee (local servers) over disagreement frames
 │   ├── benchmarks/
 │   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
 │   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
-│   │   └── kinetic_score_eval/      # K0–K5 formula comparison + threat routing F1 reports + plots
+│   │   └── kinetic_score_eval/      # K0 ablation runs: label-free metrics, referee ballots, reports
 │   └── logs/
 ├── notebooks/                       # EDA and SANPO/YOLO prototyping notebooks
 ├── tests/                           # Unit/integration tests for threat routing and reflex bridge checks

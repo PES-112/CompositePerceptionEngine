@@ -20,6 +20,8 @@ K0 is defended by **ablation of its own terms**, not by a contest against strawm
 | `sev · v/d` | is the `v²` exponent doing work? |
 | `v²/d` | is class severity doing work? |
 | `sev/d` | is velocity doing work? |
+| `sev · v²·(A/d)^½ / d` | does apparent bounding-box size add anything? |
+| `λ = 0.25` / `λ = 1.0` | is the mass exponent too weak or too strong? |
 | `-(d − D_haz)/v` | is K beaten by plain time-to-hazard? |
 
 ## Metrics requiring no ground truth
@@ -44,8 +46,42 @@ severity, or any K. Report as a sensitivity grid over `(H, D_haz, θ)`, not a si
 Whether K0's `v²` and its class severity weights are *right* is a value judgment, settled only by a
 **blinded referee on disagreement frames** (§3 of the opinion doc). Budget ~100–300 frames.
 
-## Prerequisites (blocking)
+Step-by-step commands, model serving, and how to read the output: **`docs/ablation_guide.md`**.
 
-Stage-1 perception CSVs do not exist yet. Generate them with `tools/run_perception.py` over the ten
-sessions in `../sanpo_edge_realtime/selected_10_sessions.json`, on the machine holding SANPO.
-Bootstrap at the **session** level — frames within a session are autocorrelated.
+## How to run it
+
+Stage 1 no longer needs a local copy of SANPO — frames stream from the public GCS bucket, one
+session at a time, and are deleted after that session's CSV is written.
+
+```bash
+# 1. Stage 1 over a seeded 30% sample of the 462 valid streams (long; run under nohup)
+nohup python tools/stream_sanpo_perception.py \
+    --out-dir data/processed/ablation_30pct > logs/stage1.log 2>&1 &
+
+# 2. Ablation + label-free metrics + disagreement export (no API keys, no labels)
+python evaluation/kinetic_ablation.py \
+    --csv-dir data/processed/ablation_30pct \
+    --out-dir evaluation/benchmarks/kinetic_score_eval/run_<date>
+
+# 3. Blinded referee on the disagreement frames only
+python evaluation/vlm_referee.py \
+    --run-dir evaluation/benchmarks/kinetic_score_eval/run_<date> \
+    --frames-dir data/processed/ablation_30pct \
+    --referee qwen2.5-vl --referee internvl3 --referee gemma3
+```
+
+Smoke-test step 1 with `--max-sessions 2 --max-frames 30` before committing to the full run, and
+step 3 with `--limit 5` before spending an API budget.
+
+**Step 2 may settle the question on its own.** Run it and read the report before paying for step 3.
+
+Bootstrap is at the **session** level throughout — frames within a session are autocorrelated, so
+frame-level CIs would be far too narrow.
+
+## The human calibration set is not optional
+
+`evaluation/vlm_referee.py --human-template` writes a blank ballot. Label 100–150 of the same cases
+by hand, save as `human_labels.json`, and the report will carry Cohen's κ between each VLM and the
+human. Until that file exists the report prints `MISSING` where κ should be — and VLM win rates
+without it are not evidence, because three models from three vendors agreeing may still be three
+draws from one shared prior.
