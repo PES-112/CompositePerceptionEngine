@@ -37,8 +37,8 @@ training/runs/**/*.jpg
 training/runs/**/*.jpeg
 training/runs/**/*.cache
 
-# Local Roboflow/source manifests and secrets
-training/configs/roboflow_universe_sources.json
+# Secrets only — the Roboflow source manifest itself is small and crucial for
+# reproducing the dataset (e.g. after losing local-only data), so it IS tracked.
 .env*
 !.env.example
 
