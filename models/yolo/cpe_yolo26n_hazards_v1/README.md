@@ -7,4 +7,4 @@ Local model registry entry for the first fine-tuned CPE hazard detector.
 - Dataset config: `training/configs/cpe_hazard_classes.yaml`
 - Test metrics: `evaluation/benchmarks/yolo26n_hazards_v1/`
 
-This folder is intentionally ignored for binary weights. Keep the README and compact metadata under version control; store `best.pt` locally or in artifact storage.
+`best.pt` is tracked in Git alongside the README and compact metadata.

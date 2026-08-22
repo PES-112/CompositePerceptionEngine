@@ -14,4 +14,4 @@ Export artifacts are written under:
 models/yolo/cpe_yolo26n_hazards_v3_from_base/exports/
 ```
 
-Do not commit binary model artifacts such as `.pt`, `.onnx`, `.engine`, `.xml`, `.bin`, or `.torchscript` files. Keep only compact manifests and notes in Git.
+Commit binary model artifacts such as `.pt`, `.onnx`, `.engine`, `.xml`, `.bin`, or `.torchscript` files when they are crucial to the CPE end product, along with the manifests and notes.
