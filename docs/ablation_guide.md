@@ -194,3 +194,6 @@ CIs, and the encounter-metric result. Then one of three conclusions, stated plai
 The λ arms are the likeliest to tie: with `v²` in the score, kinematics dominate severity in most
 reorderings. A tie there is a real finding — it means the mass exponent is a low-sensitivity knob and
 the paper should not oversell it.
+
+For the top-3-per-scene VLM validation (a different question from this ablation — no competing formula
+involved, just K0 checked against independent VLM judgment) see `docs/verification_guide.md`.

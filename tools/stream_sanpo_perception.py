@@ -22,6 +22,13 @@ Usage
 
 Output: one CSV per session, named `<session_id>.csv`, in --out-dir. That is the
 input to `evaluation/kinetic_ablation.py`, which bootstraps at the session level.
+
+Detection defaults to the finetuned CPE hazard checkpoint
+(training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt — the "preferred
+detector" per models/yolo/cpe_yolo26n_hazards_v3_from_base/README.md, not v1's
+training/runs/cpe_yolo26n_hazards/weights/best.pt), not the base YOLO model —
+override with --model if that file isn't where you expect, or you want a
+different checkpoint.
 """
 
 from __future__ import annotations
@@ -48,6 +55,16 @@ from tools.download_sanpo_valid_streams import (
     stem_map,
 )
 
+# Finetuned CPE hazard checkpoint — see models/yolo/cpe_yolo26n_hazards_v3_from_base/README.md,
+# which calls this the preferred detector export (v1, at
+# training/runs/cpe_yolo26n_hazards/weights/best.pt, is documented in
+# docs/yolo_training.md as superseded by a retained-class regression).
+# run_perception_stream/YoloTracker do NOT default to this on their own (their
+# own built-in default is the base COCO checkpoint) — this script passes
+# model_path explicitly on every call, defaulting --model below to the
+# finetuned checkpoint so a user doesn't have to type it in themselves.
+DEFAULT_MODEL = PROJECT_ROOT / "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt"
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Stream a SANPO sample from GCS through Stage 1.")
@@ -69,6 +86,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--download-workers", type=int, default=8,
                    help="Parallel frame downloads. Raise on a fast link, lower if GCS throttles.")
     p.add_argument("--depth-kind", default="depth_maps", choices=["depth_maps", "zed_depth_maps"])
+    p.add_argument("--model", type=Path, default=DEFAULT_MODEL,
+                   help="YOLO checkpoint for detection (default: the finetuned CPE hazard "
+                        "checkpoint, not YoloTracker's base-model default).")
     p.add_argument("--keep-frames", action="store_true", help="Do not delete scratch frames (debugging).")
     p.add_argument("--overwrite", action="store_true", help="Reprocess sessions that already have a CSV.")
     p.add_argument("--dry-run", action="store_true", help="Print the sampled session list and exit.")
@@ -130,6 +150,8 @@ def fetch_session_frames(entry: dict, scratch: Path, args: argparse.Namespace) -
 
 def main() -> None:
     args = parse_args()
+    if not args.model.exists():
+        raise SystemExit(f"--model checkpoint not found: {args.model}")
     manifest = load_manifest(args.valid_streams)
     sessions = sample_sessions(manifest, args.session_fraction, args.seed, args.max_sessions)
 
@@ -139,6 +161,7 @@ def main() -> None:
     # closing speed comes out `stride` times too fast.
     effective_fps = args.fps / max(args.frame_stride, 1)
 
+    print(f"Model: {args.model}")
     print(f"Sampled {len(sessions)}/{len(manifest)} sessions "
           f"(fraction={args.session_fraction}, seed={args.seed})")
     print(f"Stride {args.frame_stride} -> effective {effective_fps:.2f} fps, "
@@ -170,7 +193,8 @@ def main() -> None:
             tmp_csv = out_csv.with_suffix(".csv.partial")
             with StreamingCSVWriter(tmp_csv) as writer:
                 for frame_rows in run_perception_stream(
-                    rgb_dir, depth_dir, effective_fps, source="sanpo", frame_step=1
+                    rgb_dir, depth_dir, effective_fps, source="sanpo", frame_step=1,
+                    model_path=str(args.model),
                 ):
                     writer.write_rows(frame_rows)
             # Rename only on success: a partial file must never look like a

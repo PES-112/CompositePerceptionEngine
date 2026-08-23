@@ -255,8 +255,13 @@ def write_report(run_dir: Path, results: dict) -> None:
         lines.append("")
     lines += ["## Referee agreement (Cohen's κ)", ""]
     lines += [f"- `{pair}`: {k:.2f}" for pair, k in results["_referee_agreement"].items()]
-    lines += ["", "## Agreement with human labels (Cohen's κ)", "",
-              f"{results['_human_kappa']}", ""]
+    lines += ["", "## Agreement with human labels (Cohen's κ)", ""]
+    human_kappa = results["_human_kappa"]
+    if isinstance(human_kappa, dict):
+        lines += [f"- `{name}`: {k:.2f}" for name, k in human_kappa.items()]
+    else:
+        lines.append(human_kappa)
+    lines.append("")
     (run_dir / "referee_report.md").write_text("\n".join(lines), encoding="utf-8")
 
 

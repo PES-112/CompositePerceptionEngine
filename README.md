@@ -68,6 +68,7 @@ CompositePerceptionEngine/
 ├── evaluation/
 │   ├── kinetic_ablation.py          # K0 term ablation + label-free metrics + disagreement export
 │   ├── vlm_referee.py               # Blinded 3-VLM referee (local servers) over disagreement frames
+│   ├── topk_threat_validation.py    # Per-scene K0 top-3 threats, validated by 3 blinded local VLMs
 │   ├── benchmarks/
 │   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
 │   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons

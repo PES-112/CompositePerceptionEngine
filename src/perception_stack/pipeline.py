@@ -121,6 +121,7 @@ def run_perception_stream(
     fps:        float,
     source:     str = "sanpo",
     frame_step: int = 1,
+    model_path: str | None = None,
 ) -> Generator[list[dict], None, None]:
     """
     Stage 1 streaming perception — yields a list of row dicts per processed frame.
@@ -132,6 +133,9 @@ def run_perception_stream(
         source:      'sanpo' or 'uasol' — controls depth scale.
         frame_step:  Process every Nth frame (default 1 = all frames).
                      Set to 3 for SANPO preprocessing to cut compute by ~67%.
+        model_path:  YOLO checkpoint to detect with. Defaults to
+                     YoloTracker's DEFAULT_MODEL (base checkpoint) when None —
+                     pass the finetuned CPE checkpoint explicitly to use it.
 
     Yields:
         List of flat row dicts for each processed frame.
@@ -143,7 +147,7 @@ def run_perception_stream(
     if not frame_paths:
         raise FileNotFoundError(f"No image frames found in {rgb_dir}")
 
-    tracker = YoloTracker()
+    tracker = YoloTracker(model_path=model_path) if model_path else YoloTracker()
 
     # Per-track rolling depth history for velocity estimation
     depth_history: dict = defaultdict(lambda: deque(maxlen=VELOCITY_WINDOW + 1))
@@ -241,6 +245,7 @@ def run_perception(
     fps:        float,
     source:     str = "sanpo",
     frame_step: int = 1,
+    model_path: str | None = None,
 ) -> list[dict]:
     """
     Stage 1 perception — returns all rows as a flat list (backward compatible).
@@ -249,6 +254,6 @@ def run_perception(
     See run_perception_stream() for argument docs.
     """
     rows: list[dict] = []
-    for frame_rows in run_perception_stream(rgb_dir, depth_dir, fps, source, frame_step):
+    for frame_rows in run_perception_stream(rgb_dir, depth_dir, fps, source, frame_step, model_path):
         rows.extend(frame_rows)
     return rows
