@@ -13,8 +13,8 @@ For the full technical reasoning behind any step, see `docs/ablation_guide.md` a
 - Your finetuned YOLO checkpoint present on the machine
   (`training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt` — the "preferred detector" per
   `models/yolo/cpe_yolo26n_hazards_v3_from_base/README.md`, not the older v1 checkpoint) —
-  it's gitignored, so make sure the file itself got copied over, not just the code. If it's not
-  there yet, `--model <path>` overrides the default.
+  it's tracked in git now, so `git pull` brings it in. If it's not there yet, `--model <path>`
+  overrides the default.
 - A GPU, to run the 3 AI judge models.
 - Internet access (to pull SANPO video frames, and to download the 3 AI models the first time).
 
