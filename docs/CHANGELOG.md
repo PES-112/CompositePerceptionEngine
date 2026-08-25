@@ -2,6 +2,21 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-08-25] - v3 Detector Default, Frozen Mass Exponent, Enforced 30% Ablation Sample
+
+### Changed
+- `src/perception_stack/yolo_tracker.py` - `DEFAULT_MODEL` now points at the finetuned CPE hazard checkpoint v3 (`training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt`) instead of base `models/yolo/base_yolo26n/yolo26n.pt`. The base COCO checkpoint does not contain the CPE hazard classes at all, so any caller that did not pass `model_path` explicitly was silently detecting a different taxonomy than the one the kinetic score's severity table is written against. The path is now absolute (derived from the module location) so the default survives being run from any working directory.
+- `src/perception_stack/physics.py` - `SEVERITY_LAMBDA` **frozen at 0.5**; the value is unchanged, but it is now documented as a declared design choice rather than a swept parameter. Dropping Tier-B blinded human labelling from the evaluation plan removed the only tier that could adjudicate between lambda values - the label-free metrics score arrival time, which lambda barely moves. The same applies to `BEHAVIOUR_MULTIPLIER`, which is retained by decision.
+- `evaluation/kinetic_ablation.py` - removed the `lam=0.25` and `lam=1.0` arms and the `lam` plumbing in `_score_k()`, which no longer mutates `physics.SEVERITY_LAMBDA`. Six arms remain: K0, linear, no-severity, no-velocity, size, ttc.
+- `evaluation/kinetic_ablation.py` - the run is now **restricted to the seeded sample** of `simulation/datasets/sanpo/valid_streams.json` via `--valid-streams`, `--session-fraction` (default 0.30) and `--sample-seed`, rather than scoring whatever CSVs happen to sit in `--csv-dir`. A stale session CSV from an earlier run would otherwise widen the corpus silently and invalidate the session-level bootstrap CIs. Off-sample CSVs are skipped and sampled sessions with no CSV yet are reported as a warning. `--sample-seed` is deliberately separate from `--seed` (bootstrap) so changing one cannot silently change the other. Pass `--session-fraction 1.0` to score every session on disk.
+- `tools/download_sanpo_valid_streams.py` - now owns `sample_sessions()` / `sampled_session_ids()` and the `DEFAULT_SESSION_FRACTION` (0.30) and `DEFAULT_SAMPLE_SEED` constants. Moved here from `tools/stream_sanpo_perception.py` because Stage 1 and the ablation must agree on the subset, and this module is stdlib-only so the analysis side can import it without pulling in ultralytics/torch. 139 of the 462 valid streams are selected at the default fraction and seed.
+- `tools/stream_sanpo_perception.py` - imports the shared sampler and constants instead of defining its own copy; the `DEFAULT_MODEL` comment claiming YoloTracker defaults to the base checkpoint is corrected.
+- `docs/ablation_guide.md`, `docs/architecture.md`, `docs/research_paper_prompts.md` - lambda documented as frozen and reported as a stated limitation; the two lambda arms removed from the arm table.
+
+### Testing
+- `python src/perception_stack/physics.py` self-check passes with lambda unchanged at 0.5 (car 4.63x, bus 13.09x a person).
+- `evaluation/kinetic_ablation.py` run end-to-end over six synthetic per-session CSVs named after real sampled session IDs plus one off-sample CSV: the off-sample file is skipped, the 133 not-yet-processed sampled sessions are warned about, all six arms score, and `report.md` / `disagreements.json` are written.
+
 ## [2026-08-19b] - Local VLM Referees, Mass Exponent Raised, Ablation Run Guide
 
 ### Changed

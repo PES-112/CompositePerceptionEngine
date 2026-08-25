@@ -21,9 +21,13 @@ ranking. An arm that changes nothing is a term we should not be claiming credit 
 | `no-severity  v²/d` | does class severity change any ranking? |
 | `no-velocity  sev/d` | does velocity change any ranking? (sanity arm — it must fail) |
 | `size  sev·v²·s^½/d` | does apparent bbox size `A/d` add anything beyond class + depth? |
-| `lam=0.25  weak mass` | is the shipped mass exponent too aggressive? |
-| `lam=1.0  full KE` | is it not aggressive enough? |
 | `ttc  -(d-D)/v` | is K beaten by plain time-to-hazard, which we already compute? |
+
+> **λ is frozen at 0.5 and is no longer an arm (2026-08-25).** Dropping Tier-B blinded
+> human labelling removed the only tier that could adjudicate between λ values — the
+> label-free metrics score arrival time, which λ barely moves. λ and the behaviour
+> multipliers are declared design choices and must be written up as a limitation, not
+> swept. See `src/perception_stack/physics.py`.
 
 The `no-velocity` arm exists to prove the harness can detect a broken formula. If it ever *wins*,
 distrust the metrics, not the finding.

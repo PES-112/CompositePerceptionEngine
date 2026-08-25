@@ -22,7 +22,12 @@ from ultralytics import YOLO
 
 from src.perception_stack.depth_loader import scale_point_to_depth
 
-DEFAULT_MODEL      = "models/yolo/base_yolo26n/yolo26n.pt"
+# Finetuned CPE hazard checkpoint (v3). v1 at training/runs/cpe_yolo26n_hazards/
+# is superseded by a retained-class regression (docs/yolo_training.md); the base
+# COCO checkpoint at models/yolo/base_yolo26n/ lacks the CPE hazard classes
+# entirely. Absolute so the default survives being run from any cwd.
+_PROJECT_ROOT      = Path(__file__).resolve().parents[2]
+DEFAULT_MODEL      = str(_PROJECT_ROOT / "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt")
 DEFAULT_CONF       = 0.30
 DEFAULT_TRACKER    = "bytetrack.yaml"
 

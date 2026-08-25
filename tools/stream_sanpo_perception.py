@@ -48,21 +48,23 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.perception_stack import run_perception_stream, StreamingCSVWriter
 from tools.download_sanpo_valid_streams import (
     BASE_PREFIX,
+    DEFAULT_SAMPLE_SEED,
+    DEFAULT_SESSION_FRACTION,
     DEFAULT_VALID_STREAMS,
     download_object,
     gcs_list,
     load_manifest,
+    sample_sessions,
     stem_map,
 )
 
-# Finetuned CPE hazard checkpoint — see models/yolo/cpe_yolo26n_hazards_v3_from_base/README.md,
-# which calls this the preferred detector export (v1, at
-# training/runs/cpe_yolo26n_hazards/weights/best.pt, is documented in
-# docs/yolo_training.md as superseded by a retained-class regression).
-# run_perception_stream/YoloTracker do NOT default to this on their own (their
-# own built-in default is the base COCO checkpoint) — this script passes
-# model_path explicitly on every call, defaulting --model below to the
-# finetuned checkpoint so a user doesn't have to type it in themselves.
+# Finetuned CPE hazard checkpoint v3 — see
+# models/yolo/cpe_yolo26n_hazards_v3_from_base/README.md, which calls this the
+# preferred detector export (v1, at training/runs/cpe_yolo26n_hazards/weights/
+# best.pt, is documented in docs/yolo_training.md as superseded by a
+# retained-class regression). YoloTracker now defaults to this same checkpoint;
+# it is repeated here so --model shows the real path in --help and so a moved
+# checkpoint fails loudly at argparse time rather than deep inside ultralytics.
 DEFAULT_MODEL = PROJECT_ROOT / "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt"
 
 
@@ -73,9 +75,9 @@ def parse_args() -> argparse.Namespace:
                    help="Destination for per-session CSVs.")
     p.add_argument("--scratch-dir", type=Path, default=PROJECT_ROOT / "data/.sanpo_scratch",
                    help="Working directory for the frames of the session being processed.")
-    p.add_argument("--session-fraction", type=float, default=0.30,
+    p.add_argument("--session-fraction", type=float, default=DEFAULT_SESSION_FRACTION,
                    help="Fraction of valid streams to process (default 0.30).")
-    p.add_argument("--seed", type=int, default=20260819,
+    p.add_argument("--seed", type=int, default=DEFAULT_SAMPLE_SEED,
                    help="Seed for the session sample — keep fixed so the sample is reproducible.")
     p.add_argument("--max-sessions", type=int, default=None, help="Hard cap, applied after sampling.")
     p.add_argument("--max-frames", type=int, default=300,
@@ -93,20 +95,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--overwrite", action="store_true", help="Reprocess sessions that already have a CSV.")
     p.add_argument("--dry-run", action="store_true", help="Print the sampled session list and exit.")
     return p.parse_args()
-
-
-def sample_sessions(manifest: list[dict], fraction: float, seed: int, cap: int | None) -> list[dict]:
-    """
-    Deterministic sample of the manifest.
-
-    Sorted first so the sample depends only on the seed, never on manifest order
-    — a reordered JSON must not silently change which 30% you evaluated.
-    """
-    ordered = sorted(manifest, key=lambda e: e["session_id"])
-    n = max(1, round(len(ordered) * fraction))
-    chosen = random.Random(seed).sample(ordered, n)
-    chosen.sort(key=lambda e: e["session_id"])
-    return chosen[:cap] if cap else chosen
 
 
 def fetch_session_frames(entry: dict, scratch: Path, args: argparse.Namespace) -> tuple[Path, Path, list[str]]:

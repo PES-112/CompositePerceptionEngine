@@ -26,8 +26,15 @@ Functions:
 # most reorderings, so λ mostly breaks ties between objects of similar motion.
 # Fitting the project's old hand-tuned table to log-mass recovers λ ≈ 0.18
 # (R²=0.50) — evidence the hand table was *under*-weighting mass, not that 0.18
-# is right. λ is swept by the ablation (0.25 / 0.5 / 1.0); this is the default,
-# not a finding.
+# is right.
+#
+# FROZEN at 0.5 (decided 2026-08-25). The λ sweep arms were removed from
+# evaluation/kinetic_ablation.py: with Tier-B blinded human labelling dropped
+# from the evaluation plan, nothing left in the pipeline can adjudicate between
+# λ values — the label-free metrics score arrival time, which λ barely moves.
+# λ is therefore a declared design choice, not a measured result, and must be
+# reported as a limitation rather than defended as a finding. Same applies to
+# BEHAVIOUR_MULTIPLIER below.
 CLASS_MASS_KG: dict[str, float] = {
     "person":              70.0,
     "bicycle":             15.0,

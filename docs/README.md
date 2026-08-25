@@ -30,7 +30,7 @@ Current cumulative evaluation report:
 evaluation/benchmarks/yolo26n_version_comparison/version_improvement_report.md
 ```
 
-YOLO26n v3 starts from `models/yolo/base_yolo26n/yolo26n.pt`, uses the cleaned 17-class dataset, repairs most v2 retained-class degradation, and is the preferred detector for downstream simulation.
+YOLO26n v3 starts from `models/yolo/base_yolo26n/yolo26n.pt`, uses the cleaned 17-class dataset, repairs most v2 retained-class degradation, and is the preferred detector for downstream simulation. As of 2026-08-25 the perception stack defaults to it: `YoloTracker`'s `DEFAULT_MODEL` is `training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt`, so callers no longer have to pass `model_path` to avoid silently running the base COCO taxonomy.
 
 ## Artifact and Naming Conventions
 

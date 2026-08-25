@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 import urllib.parse
 import urllib.request
@@ -64,6 +65,43 @@ def load_manifest(path: Path) -> list[dict]:
     if not isinstance(data, list):
         raise ValueError(f"{path} must contain a list of valid stream entries")
     return data
+
+
+DEFAULT_SESSION_FRACTION = 0.30
+DEFAULT_SAMPLE_SEED = 20260819
+
+
+def sample_sessions(
+    manifest: list[dict],
+    fraction: float = DEFAULT_SESSION_FRACTION,
+    seed: int = DEFAULT_SAMPLE_SEED,
+    cap: int | None = None,
+) -> list[dict]:
+    """
+    Deterministic sample of the manifest — the canonical ablation-study subset.
+
+    Sorted first so the sample depends only on the seed, never on manifest order
+    — a reordered JSON must not silently change which 30% you evaluated.
+
+    Lives here rather than in the streaming script because both Stage 1
+    (tools/stream_sanpo_perception.py) and the ablation
+    (evaluation/kinetic_ablation.py) must agree on the subset, and this module
+    is stdlib-only so the analysis side can import it without ultralytics/torch.
+    """
+    ordered = sorted(manifest, key=lambda e: e["session_id"])
+    n = max(1, round(len(ordered) * fraction))
+    chosen = random.Random(seed).sample(ordered, n)
+    chosen.sort(key=lambda e: e["session_id"])
+    return chosen[:cap] if cap else chosen
+
+
+def sampled_session_ids(
+    path: Path,
+    fraction: float = DEFAULT_SESSION_FRACTION,
+    seed: int = DEFAULT_SAMPLE_SEED,
+) -> set[str]:
+    """Session IDs of the seeded sample — what the ablation filters its CSVs by."""
+    return {entry["session_id"] for entry in sample_sessions(load_manifest(path), fraction, seed)}
 
 
 def select_entries(manifest: list[dict], session_ids: list[str] | None, max_streams: int) -> list[dict]:

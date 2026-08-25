@@ -25,6 +25,7 @@ import argparse
 import importlib.util
 import json
 import random
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +33,15 @@ import pandas as pd
 from scipy.stats import kendalltau
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# stdlib-only module — importing it does not pull in ultralytics/torch.
+from tools.download_sanpo_valid_streams import (  # noqa: E402
+    DEFAULT_SAMPLE_SEED,
+    DEFAULT_SESSION_FRACTION,
+    DEFAULT_VALID_STREAMS,
+    sampled_session_ids,
+)
 
 # Load physics.py directly: importing the package pulls in ultralytics/torch,
 # which this analysis does not need and reviewers may not have installed.
@@ -55,19 +65,16 @@ PERTURB_SIGMAS = (0.02, 0.05, 0.10)
 # different quantity by design.
 
 def _score_k(rows: pd.DataFrame, *, gamma: float, severity: bool,
-             size_exponent: float = 0.0, lam: float | None = None) -> np.ndarray:
-    # λ lives on the physics module, so the λ arms swap it in and put it back
-    # rather than duplicating the severity law here and letting it drift.
-    saved, out = physics.SEVERITY_LAMBDA, []
-    if lam is not None:
-        physics.SEVERITY_LAMBDA = lam
+             size_exponent: float = 0.0) -> np.ndarray:
+    # λ is frozen at physics.SEVERITY_LAMBDA (0.5) — see the module docstring.
+    # No arm swaps it any more, so the severity law here is the production one.
+    out = []
     for _, r in rows.iterrows():
         k = physics.kinetic_score(
             r["distance_m"], r["velocity_ms"], r["class"] if severity else "__none__",
             bbox_area_px=r["bbox_area_px"], gamma=gamma, size_exponent=size_exponent,
         )
         out.append(k)
-    physics.SEVERITY_LAMBDA = saved
     return np.asarray(out, dtype=float)
 
 
@@ -86,8 +93,6 @@ VARIANTS: dict[str, callable] = {
     "no-severity  v²/d":   lambda r: _score_k(r, gamma=2.0, severity=False),
     "no-velocity  sev/d":  lambda r: _score_k(r, gamma=0.0, severity=True),
     "size  sev·v²·s^½/d":  lambda r: _score_k(r, gamma=2.0, severity=True, size_exponent=0.5),
-    "lam=0.25  weak mass" :   lambda r: _score_k(r, gamma=2.0, severity=True, lam=0.25),
-    "lam=1.0  full KE"   :      lambda r: _score_k(r, gamma=2.0, severity=True, lam=1.0),
     "ttc  -(d-D)/v":       _score_ttc,
 }
 BASELINE = "K0  sev·v²/d"
@@ -322,7 +327,15 @@ def main() -> None:
     p.add_argument("--csv-dir", type=Path, required=True, help="Directory of per-session Stage-1 CSVs.")
     p.add_argument("--out-dir", type=Path, required=True)
     p.add_argument("--n-boot", type=int, default=1000)
-    p.add_argument("--seed", type=int, default=20260819)
+    p.add_argument("--seed", type=int, default=20260819, help="Bootstrap resampling seed.")
+    p.add_argument("--valid-streams", type=Path, default=DEFAULT_VALID_STREAMS,
+                   help="SANPO valid-stream manifest defining the ablation sample.")
+    p.add_argument("--session-fraction", type=float, default=DEFAULT_SESSION_FRACTION,
+                   help="Fraction of valid streams under study. Must match the value "
+                        "tools/stream_sanpo_perception.py was run with. 1.0 = no subsetting.")
+    p.add_argument("--sample-seed", type=int, default=DEFAULT_SAMPLE_SEED,
+                   help="Seed for the session sample. Kept separate from --seed so changing "
+                        "the bootstrap seed cannot silently change which sessions were evaluated.")
     p.add_argument("--disagreements-per-pair", type=int, default=60,
                    help="Frames exported per variant for the referee (§3 budget: 100–300 total).")
     args = p.parse_args()
@@ -330,6 +343,26 @@ def main() -> None:
     csv_paths = sorted(pth for pth in args.csv_dir.glob("*.csv") if not pth.name.endswith(".partial"))
     if not csv_paths:
         raise SystemExit(f"No session CSVs in {args.csv_dir} — run tools/stream_sanpo_perception.py first.")
+
+    # Evaluate exactly the seeded sample, not whatever happens to be on disk: a
+    # stale CSV from an earlier run would otherwise widen the corpus silently and
+    # invalidate the session-level bootstrap CIs.
+    wanted = sampled_session_ids(args.valid_streams, args.session_fraction, args.sample_seed)
+    off_sample = [pth for pth in csv_paths if pth.stem not in wanted]
+    csv_paths = [pth for pth in csv_paths if pth.stem in wanted]
+    missing = sorted(wanted - {pth.stem for pth in csv_paths})
+    print(f"Sample: {len(wanted)} of the valid streams at fraction={args.session_fraction} "
+          f"seed={args.sample_seed}")
+    if off_sample:
+        print(f"  skipped {len(off_sample)} CSV(s) outside the sample")
+    if missing:
+        print(f"  WARNING: {len(missing)} sampled session(s) have no CSV yet, e.g. {missing[:3]}")
+    if not csv_paths:
+        raise SystemExit(
+            f"None of the CSVs in {args.csv_dir} are in the seeded sample. Re-run Stage 1 with "
+            f"--session-fraction {args.session_fraction} --seed {args.sample_seed}, or pass "
+            f"--session-fraction 1.0 to score every session on disk."
+        )
 
     sessions = {pth.stem: load_session(pth) for pth in csv_paths}
     sessions = {sid: df for sid, df in sessions.items() if frame_groups(df)}
