@@ -201,3 +201,83 @@ the paper should not oversell it.
 
 For the top-3-per-scene VLM validation (a different question from this ablation — no competing formula
 involved, just K0 checked against independent VLM judgment) see `docs/verification_guide.md`.
+
+---
+
+## 6. Run results — 2026-08-26 (DGX Spark)
+
+### Chronological run log
+
+| Time (IST) | Event |
+|---|---|
+| 2026-08-25 00:32:33 | **Step 1 — Environment setup.** venv created, `pip install -r requirements.txt` (scipy 1.18.1 installed). CUDA confirmed: NVIDIA GB10. Weights found: `training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt` (5.2 MB). |
+| 2026-08-25 00:32:35 | **Self-checks.** `physics.py --self-check` OK, `kinetic_ablation.py --self-check` OK, `vlm_referee.py --self-check` OK. |
+| 2026-08-25 00:32:39 | **Dry run.** 139/462 sessions sampled (fraction=0.30, seed=20260819), stride 3 → effective 10.00 fps, ≤300 frames/session. |
+| 2026-08-25 00:32:39 | **Step 2 — Smoke test.** 2 sessions, 30 frames each. Session 1: 30 frames → 159 rows (23 s). Session 2: 30 frames → 157 rows (20 s). 2 CSVs written, 0 failed. |
+| 2026-08-25 00:33:24 | **Step 3 — Full Stage 1 launched** (nohup, PID 422872). 139 sessions from SANPO GCS bucket. |
+| 2026-08-26 ~04:30 | **Stage 1 complete.** `written=139 skipped_existing=0 failed=0`. All 139 CSVs in `data/processed/ablation_30pct/`. |
+| 2026-08-26 10:32:44 | **Step 4 — Ablation metrics.** `kinetic_ablation.py` over 139 sessions, 19,402 scored frames. 219 disagreement frames exported. |
+| 2026-08-26 10:35:07 | **Step 4 complete.** Report written to `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/`. |
+
+### Hardware
+
+- **Machine:** NVIDIA DGX Spark (`promaxgb10-7bf0`), NVIDIA GB10 GPU
+- **Checkpoint:** `training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt` (5.2 MB)
+- **CUDA:** True, PyTorch ≥ 2.2
+
+### Ablation report summary
+
+**139 sessions · 19,402 scored frames (≥2 objects)**
+
+All confidence intervals are 95% percentile bootstrap resampling whole sessions.
+
+#### Key metrics (K0 = baseline)
+
+| Metric | K0 | linear | no-severity | no-velocity | size | lam=0.25 | lam=1.0 | ttc |
+|---|---|---|---|---|---|---|---|---|
+| flicker ↓ | **0.975** | 0.975 | 0.975 | 0.994 | 0.974 | 0.975 | 0.975 | 0.572 |
+| tie_rate ↓ | **0.001** | 0.001 | 0.001 | 0.979 | 0.001 | 0.001 | 0.001 | 0.000 |
+| smoothness ↓ | **1.755** | 1.627 | 1.753 | 0.339 | 1.753 | 1.754 | 1.757 | 6.178 |
+| future_consist ↑ | **0.002** | 0.002 | 0.002 | 0.001 | 0.003 | 0.002 | 0.002 | 0.076 |
+| encounter_top1 ↑ | **0.307** | 0.307 | 0.307 | 0.342 | 0.307 | 0.307 | 0.307 | 0.067 |
+| rank_stab_2% ↑ | **1.000** | 1.000 | 1.000 | 0.524 | 0.999 | 1.000 | 1.000 | 1.000 |
+| rank_stab_5% ↑ | **1.000** | 0.999 | 1.000 | 0.387 | 0.998 | 0.998 | 1.000 | 1.000 |
+| rank_stab_10% ↑ | **0.998** | 0.998 | 0.997 | 0.283 | 0.999 | 0.997 | 0.997 | 0.258 |
+
+#### Per-arm verdicts
+
+| Arm | Verdict | Interpretation |
+|---|---|---|
+| **no-velocity** (sev/d) | **LOSES** | tie_rate 0.979, rank stability collapses (0.283–0.524). Velocity is doing real work. Sanity check passes. |
+| **ttc** (-(d-D)/v) | **LOSES** | flicker 0.572 (vs 0.975), encounter 0.067 (vs 0.307), smoothness 6.178 (vs 1.755). K0 dominates plain time-to-contact. |
+| **linear** (sev·v/d) | **TIES** | Identical to K0 on every metric (CIs fully overlap). The v² exponent is not measurably earning its place over v¹. |
+| **no-severity** (v²/d) | **TIES** | Identical to K0. Severity does not change any ranking — kinematics dominate, as predicted in the λ discussion. |
+| **size** (sev·v²·s^½/d) | **TIES** | Identical to K0. Apparent bbox size adds nothing beyond class + depth. |
+| **lam=0.25** (weak mass) | **TIES** | Identical to K0. λ is a low-sensitivity knob. |
+| **lam=1.0** (full KE) | **TIES** | Identical to K0. λ is a low-sensitivity knob. |
+
+#### Interpretation
+
+- The only terms that measurably affect ranking quality are **velocity** (catastrophic without it) and the **K0 formula structure** (crushes raw TTC).
+- Severity, the v² exponent, bbox size, and λ all tie — kinematics (velocity/distance) dominate every reordering. These terms should either be dropped or retained as declared design choices with explicit limitations in the paper.
+- 219 disagreement frames were exported to `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/disagreements.json` for VLM referee adjudication (Step 4 of this guide).
+
+### Output files
+
+| File | Path |
+|---|---|
+| Stage 1 CSVs (139) | `data/processed/ablation_30pct/*.csv` |
+| Frame maps (139) | `data/processed/ablation_30pct/*.frames.json` |
+| Ablation report | `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/report.md` |
+| Metrics JSON | `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/metrics.json` |
+| Disagreements (blind) | `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/disagreements.json` |
+| Disagreement key | `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/disagreements_key.json` |
+| Stage 1 log | `logs/stage1.log` |
+| Run log | `logs/ablation_runlog.txt` |
+
+### Next steps
+
+Per §3 of this guide: read the report before doing anything else. The `no-velocity` and `ttc` arms are
+settled — their CIs exclude K0. The remaining arms (`linear`, `no-severity`, `size`, `lam=0.25`,
+`lam=1.0`) all tie on label-free metrics and need VLM referees (§4) to determine whether their
+disagreement frames reveal a qualitative difference a human would care about.
