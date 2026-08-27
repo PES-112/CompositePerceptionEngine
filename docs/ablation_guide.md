@@ -260,36 +260,32 @@ As with the referee step above, this is not evidence on its own without the huma
 
 All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 
-> [!WARNING]
-> **`lam=0.25` and `lam=1.0` are not reproducible from the currently committed
-> `evaluation/kinetic_ablation.py`.** The lambda-sweep plumbing (`VARIANTS` entries
-> for those two arms, and the code path that mutated `physics.SEVERITY_LAMBDA`) was
-> removed in commit `0e6e0d7` ("froze lambda to 0.5") on 2026-08-25 — the day
-> *before* this run's Step 4 timestamp (2026-08-26 10:32). The numbers in the two
-> columns below cannot have come from the script as it exists in this repo today;
-> they are either carried over from an earlier pre-freeze run, or the run used a
-> local, uncommitted copy of the script. Until this is reconciled (rerun with a
-> version that restores the two arms, or confirm and cite which exact run produced
-> them), **treat `lam=0.25`/`lam=1.0` as unverified**, not as measured results —
-> do not cite them in a paper. `evaluation/kinetic_ablation_stratified.py` and the
-> other six arms are unaffected by this: they match what's in `VARIANTS` today.
-> Also raw `metrics.json`/`report.md`/`disagreements*.json` for this run were never
-> committed — only this summary table exists in the repo, so none of the numbers
-> below (lambda or otherwise) are independently auditable yet either. Tracked in
-> `pending_work.md` §1.
+> [!NOTE]
+> **`lam=0.25` and `lam=1.0` are struck from the tables below (resolved 2026-08-27).** The
+> lambda-sweep plumbing (`VARIANTS` entries for those two arms, and the code path that
+> mutated `physics.SEVERITY_LAMBDA`) was removed in commit `0e6e0d7` ("froze lambda to
+> 0.5") on 2026-08-25, the day *before* this run's Step 4 timestamp — the two columns were
+> produced by an earlier version of `evaluation/kinetic_ablation.py` (commit `e045310`)
+> that monkey-patched `SEVERITY_LAMBDA` per arm, not by the code currently committed.
+> **Not a bug in the run** — Tier-B human labelling was dropped before this run, and
+> nothing in the pipeline can adjudicate between λ values (see §0), so the plumbing was
+> intentionally removed. The raw numbers are preserved in `run_2026_08_26/metrics.json`
+> and `run_2026_08_26/report.md` (now committed, along with `disagreements.json` and
+> `disagreements_key.json`) for reference, but are not reproducible from current code and
+> should not appear in a paper. λ=0.5 is a declared design choice, not a measured result.
 
 #### Key metrics (K0 = baseline)
 
-| Metric | K0 | linear | no-severity | no-velocity | size | lam=0.25 (unverified) | lam=1.0 (unverified) | ttc |
-|---|---|---|---|---|---|---|---|---|
-| flicker ↓ | **0.975** | 0.975 | 0.975 | 0.994 | 0.974 | 0.975 | 0.975 | 0.572 |
-| tie_rate ↓ | **0.001** | 0.001 | 0.001 | 0.979 | 0.001 | 0.001 | 0.001 | 0.000 |
-| smoothness ↓ | **1.755** | 1.627 | 1.753 | 0.339 | 1.753 | 1.754 | 1.757 | 6.178 |
-| future_consist ↑ | **0.002** | 0.002 | 0.002 | 0.001 | 0.003 | 0.002 | 0.002 | 0.076 |
-| encounter_top1 ↑ | **0.307** | 0.307 | 0.307 | 0.342 | 0.307 | 0.307 | 0.307 | 0.067 |
-| rank_stab_2% ↑ | **1.000** | 1.000 | 1.000 | 0.524 | 0.999 | 1.000 | 1.000 | 1.000 |
-| rank_stab_5% ↑ | **1.000** | 0.999 | 1.000 | 0.387 | 0.998 | 0.998 | 1.000 | 1.000 |
-| rank_stab_10% ↑ | **0.998** | 0.998 | 0.997 | 0.283 | 0.999 | 0.997 | 0.997 | 0.258 |
+| Metric | K0 | linear | no-severity | no-velocity | size | ttc |
+|---|---|---|---|---|---|---|
+| flicker ↓ | **0.975** | 0.975 | 0.975 | 0.994 | 0.974 | 0.572 |
+| tie_rate ↓ | **0.001** | 0.001 | 0.001 | 0.979 | 0.001 | 0.000 |
+| smoothness ↓ | **1.755** | 1.627 | 1.753 | 0.339 | 1.753 | 6.178 |
+| future_consist ↑ | **0.002** | 0.002 | 0.002 | 0.001 | 0.003 | 0.076 |
+| encounter_top1 ↑ | **0.307** | 0.307 | 0.307 | 0.342 | 0.307 | 0.067 |
+| rank_stab_2% ↑ | **1.000** | 1.000 | 1.000 | 0.524 | 0.999 | 1.000 |
+| rank_stab_5% ↑ | **1.000** | 0.999 | 1.000 | 0.387 | 0.998 | 1.000 |
+| rank_stab_10% ↑ | **0.998** | 0.998 | 0.997 | 0.283 | 0.999 | 0.258 |
 
 #### Per-arm verdicts
 
@@ -300,14 +296,14 @@ All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 | **linear** (sev·v/d) | **TIES** | Identical to K0 on every metric (CIs fully overlap). The v² exponent is not measurably earning its place over v¹. |
 | **no-severity** (v²/d) | **TIES** | Identical to K0. Severity does not change any ranking — kinematics dominate, as predicted in the λ discussion. |
 | **size** (sev·v²·s^½/d) | **TIES** | Identical to K0. Apparent bbox size adds nothing beyond class + depth. |
-| **lam=0.25** (weak mass) | **unverified** | See warning above — not reproducible from the current script; do not cite as measured. |
-| **lam=1.0** (full KE) | **unverified** | See warning above — not reproducible from the current script; do not cite as measured. |
+| ~~**lam=0.25**~~ | ~~TIES~~ | _Struck — not reproducible from current code (see note above)._ |
+| ~~**lam=1.0**~~ | ~~TIES~~ | _Struck — not reproducible from current code (see note above)._ |
 
 #### Interpretation
 
 - The only terms that measurably affect ranking quality are **velocity** (catastrophic without it) and the **K0 formula structure** (crushes raw TTC).
 - Severity, the v² exponent, and bbox size tie on corpus-wide label-free metrics — kinematics (velocity/distance) dominate most reorderings. This does not by itself prove severity is unnecessary: these metrics are computed over the whole 19,402-frame corpus, which likely contains few frames where a severity-differentiated pair (e.g. bus vs. pedestrian) is also kinematically close enough for severity to be the deciding factor — a real effect restricted to a small, diluted minority of frames can look identical to no effect in an aggregate metric. `evaluation/kinetic_ablation_stratified.py` isolates exactly that minority and re-runs the same metrics on it; run it before concluding severity should be dropped or reweighted.
-- λ's status is currently unverified, not tied — see the warning above.
+- The λ arms (`lam=0.25`, `lam=1.0`) also tied in the raw run (see `run_2026_08_26/report.md`), corroborating that λ is a low-sensitivity knob — but those specific numbers are not reproducible from the current code, so cite the conclusion, not the struck figures.
 - 219 disagreement frames were exported to `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/disagreements.json` for VLM referee adjudication (Step 4 of this guide).
 
 ### Output files
@@ -338,8 +334,9 @@ This restricts the same metrics to only the frames where a severity-differentiat
 pair of objects actually exists — the scenario severity was designed for — and reports what fraction of
 the corpus that even is. A tie there is much stronger evidence than a corpus-wide tie. Then run the VLM
 referees (§4) on the disagreement frames to determine whether their picks reveal a qualitative
-difference a human would care about. See `pending_work.md` §1 for the full ordered list, including
-reconciling the `lam=0.25`/`lam=1.0` inconsistency flagged above before either goes in a paper.
+difference a human would care about. See `pending_work.md` §1 for the full ordered list. The
+`lam=0.25`/`lam=1.0` inconsistency itself is resolved (struck above, root-caused, raw numbers
+committed) — what's still open is running the referees on the frames that actually tied.
 
 ---
 
