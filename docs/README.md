@@ -4,16 +4,44 @@ Each document has one primary responsibility. Update the owning document instead
 
 ## Documentation Map
 
+Grouped by what question each file answers, not just alphabetically — start here if you're not sure
+which doc owns something.
+
+### Where things stand right now
+
 | File | Owns |
 |---|---|
-| [`progress.md`](./progress.md) | Current completion checklist, active focus, and immediate next steps. |
-| [`architecture.md`](./architecture.md) | Runtime components, contracts, data flow, routing, and safety behavior. |
+| [`progress.md`](./progress.md) | Current completion checklist, active focus, and immediate next steps. Living doc — update as state changes. |
+| [`progress_presentation.md`](./progress_presentation.md) | Presentation-ready narrative of progress and key results — slide-outline-shaped, not a checklist. |
+| [`pending_work.md`](./pending_work.md) | Everything not yet done, grouped by priority, with the top-3 recommended next actions. |
+
+### How the system works
+
+| File | Owns |
+|---|---|
+| [`architecture.md`](./architecture.md) | Runtime components, contracts, data flow, routing, safety behavior, the technology audit behind each model choice (§11), and the historical implementation plan (§12). |
 | [`hardware_targets.md`](./hardware_targets.md) | Observed GB10 host specs, planned edge target, latency budgets, and measured-versus-simulated status. |
-| [`roadmap.md`](./roadmap.md) | Technology choices, implementation phases, and future work. |
+
+### Research methodology and evidence
+
+| File | Owns |
+|---|---|
+| [`methodology.md`](./methodology.md) | **Paper-ready methods reference** — dataset construction, detector training/eval, kinetic-score derivation and ablation design, edge-latency simulation protocol, the experimental-design principles behind all of it, and an Appendix of LLM paper-drafting prompts. Start here for anything paper-related. |
+| [`kinetic_score_opinion.md`](./kinetic_score_opinion.md) | Full reasoning trail and decision record behind the kinetic-score evaluation strategy (why K1–K5 were dropped, how the ablation/referee design was chosen, the formal options analysis in §10). Source material for `methodology.md` §4. |
+| [`ablation_guide.md`](./ablation_guide.md) | Step-by-step run guide for the full K0 verification pass (YOLO → ablation → top-3 VLM check → referee), plus the latest ablation run's results (§6). |
+| [`related_work.md`](./related_work.md) | Verified external paper citations, organized by which CPE component or design decision each grounds. Check here before citing anything from memory. |
+
+### Datasets and training
+
+| File | Owns |
+|---|---|
 | [`yolo_training.md`](./yolo_training.md) | YOLO datasets, checkpoints, training/evaluation commands, metrics, and cleanup policy. |
-| [`sanpo_dataset.md`](./sanpo_dataset.md) | SANPO bucket layout, valid-stream intake, local data convention, and edge benchmark evidence. |
-| [`sanpo_gap_analysis.md`](./sanpo_gap_analysis.md) | Operational depth-versus-YOLO blind-spot and hard-example workflow. |
-| [`research_paper_prompts.md`](./research_paper_prompts.md) | Paper-drafting prompts aligned with implemented methodology and evidence. |
+| [`sanpo_dataset.md`](./sanpo_dataset.md) | SANPO bucket layout, valid-stream intake, local data convention, edge benchmark evidence, and the depth-versus-YOLO gap analysis workflow. |
+
+### History
+
+| File | Owns |
+|---|---|
 | [`CHANGELOG.md`](./CHANGELOG.md) | Chronological record of repository changes. |
 
 ## Current Detector
@@ -40,6 +68,8 @@ YOLO26n v3 starts from `models/yolo/base_yolo26n/yolo26n.pt`, uses the cleaned 1
 | `training/configs/` | Canonical class taxonomy and dataset-source manifests. |
 | `training/runs/<run_id>/` | Local Ultralytics outputs and checkpoints. |
 | `evaluation/benchmarks/<benchmark_id>/` | Compact CSV, JSON, and Markdown results worth retaining. |
+| `evaluation/generate_report_figures.py` | Regenerates every plot/table under `evaluation/benchmarks/figures/` from the current benchmark artifacts. Re-run after any benchmark result changes. |
+| `evaluation/benchmarks/figures/` | Generated PNG plots and a `results_summary.md` table digest — output only, safe to delete and regenerate. |
 | `models/yolo/<model_id>/README.md` | Human-readable model registry entry. |
 | `simulation/datasets/sanpo/valid_streams.json` | Curated SANPO streams for CPE evaluation. |
 | `data/` | Local raw and merged datasets; do not commit. |
@@ -56,3 +86,15 @@ After a successful training run, retain `weights/best.pt`, `args.yaml`, and `res
 - Put benchmark data in `evaluation/benchmarks/`, then summarize only the durable conclusion in the relevant guide.
 - Label analytical edge estimates as simulated until the same workload is measured on physical target hardware.
 - Update the main `README.md` project tree whenever files, folders, models, datasets, or benchmark artifacts are added or moved.
+- When a benchmark result changes, re-run `evaluation/generate_report_figures.py` so the figures and
+  `progress_presentation.md` stay consistent with the underlying data.
+- When an item in `pending_work.md` is finished, move its status into `progress.md` rather than
+  deleting it — `pending_work.md` should only ever list what's actually left.
+- Keep `kinetic_score_opinion.md` as permanent historical record even after a decision resolves;
+  only `methodology.md` gets rewritten to reflect the current, condensed state.
+- **Prefer adding a section to an existing doc over creating a new file.** This index currently holds
+  12 files; before adding a 13th, check whether the content actually belongs as a new section in a
+  file above with related ownership. Docs merged into others (`verification_guide.md` →
+  `ablation_guide.md`, `decisions.md` → `kinetic_score_opinion.md`, `sanpo_gap_analysis.md` →
+  `sanpo_dataset.md`, `roadmap.md` → `architecture.md`, `research_paper_prompts.md` →
+  `methodology.md`) are listed in `CHANGELOG.md` under 2026-08-27 if you need their original content.

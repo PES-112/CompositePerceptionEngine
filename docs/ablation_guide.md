@@ -199,8 +199,37 @@ The λ arms are the likeliest to tie: with `v²` in the score, kinematics domina
 reorderings. A tie there is a real finding — it means the mass exponent is a low-sensitivity knob and
 the paper should not oversell it.
 
-For the top-3-per-scene VLM validation (a different question from this ablation — no competing formula
-involved, just K0 checked against independent VLM judgment) see `docs/verification_guide.md`.
+## 5b. Optional: top-3 VLM agreement check (a different question from the ablation)
+
+This checks something the ablation doesn't: whether an independent VLM agrees with K0's top-3 picks
+at all, with **no competing formula involved** — just K0 as shipped, checked against blind judgment.
+Useful as a standalone sanity check even before or without running the ablation above.
+
+```bash
+RUN=evaluation/benchmarks/topk_threat_eval/run_$(date +%Y_%m_%d)
+
+# build the scenes: picks K0's top-3 per busy scene, hides the answer
+python evaluation/topk_threat_validation.py \
+    --run-dir $RUN \
+    --csv-dir data/processed/ablation_30pct
+
+# 5 scenes first, to confirm replies parse
+python evaluation/topk_threat_validation.py --run-dir $RUN --frames-dir data/processed/ablation_30pct \
+    --referee qwen2.5-vl --limit 5
+
+# the real run — each VLM independently picks its own top 3, no hints
+python evaluation/topk_threat_validation.py --run-dir $RUN --frames-dir data/processed/ablation_30pct \
+    --referee qwen2.5-vl --referee internvl3 --referee gemma3
+```
+
+Writes `$RUN/topk_report.md` automatically. It reports, per model: how often it picked the same 3
+objects as K0, how often it agreed on the single worst one, and how much the 3 VLMs agreed with each
+other. It also adds a `vlm_majority` row — not a fourth model, but the objects at least 2 of 3 VLMs
+agreed on, combined into one consensus answer per scene. That row is the steadier number to quote,
+since it doesn't ride on any single model's quirks.
+
+As with the referee step above, this is not evidence on its own without the human calibration set
+(§4c) — read it as "the VLMs agree with K0 this much," not as proof.
 
 ---
 
@@ -231,9 +260,27 @@ involved, just K0 checked against independent VLM judgment) see `docs/verificati
 
 All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 
+> [!WARNING]
+> **`lam=0.25` and `lam=1.0` are not reproducible from the currently committed
+> `evaluation/kinetic_ablation.py`.** The lambda-sweep plumbing (`VARIANTS` entries
+> for those two arms, and the code path that mutated `physics.SEVERITY_LAMBDA`) was
+> removed in commit `0e6e0d7` ("froze lambda to 0.5") on 2026-08-25 — the day
+> *before* this run's Step 4 timestamp (2026-08-26 10:32). The numbers in the two
+> columns below cannot have come from the script as it exists in this repo today;
+> they are either carried over from an earlier pre-freeze run, or the run used a
+> local, uncommitted copy of the script. Until this is reconciled (rerun with a
+> version that restores the two arms, or confirm and cite which exact run produced
+> them), **treat `lam=0.25`/`lam=1.0` as unverified**, not as measured results —
+> do not cite them in a paper. `evaluation/kinetic_ablation_stratified.py` and the
+> other six arms are unaffected by this: they match what's in `VARIANTS` today.
+> Also raw `metrics.json`/`report.md`/`disagreements*.json` for this run were never
+> committed — only this summary table exists in the repo, so none of the numbers
+> below (lambda or otherwise) are independently auditable yet either. Tracked in
+> `pending_work.md` §1.
+
 #### Key metrics (K0 = baseline)
 
-| Metric | K0 | linear | no-severity | no-velocity | size | lam=0.25 | lam=1.0 | ttc |
+| Metric | K0 | linear | no-severity | no-velocity | size | lam=0.25 (unverified) | lam=1.0 (unverified) | ttc |
 |---|---|---|---|---|---|---|---|---|
 | flicker ↓ | **0.975** | 0.975 | 0.975 | 0.994 | 0.974 | 0.975 | 0.975 | 0.572 |
 | tie_rate ↓ | **0.001** | 0.001 | 0.001 | 0.979 | 0.001 | 0.001 | 0.001 | 0.000 |
@@ -253,13 +300,14 @@ All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 | **linear** (sev·v/d) | **TIES** | Identical to K0 on every metric (CIs fully overlap). The v² exponent is not measurably earning its place over v¹. |
 | **no-severity** (v²/d) | **TIES** | Identical to K0. Severity does not change any ranking — kinematics dominate, as predicted in the λ discussion. |
 | **size** (sev·v²·s^½/d) | **TIES** | Identical to K0. Apparent bbox size adds nothing beyond class + depth. |
-| **lam=0.25** (weak mass) | **TIES** | Identical to K0. λ is a low-sensitivity knob. |
-| **lam=1.0** (full KE) | **TIES** | Identical to K0. λ is a low-sensitivity knob. |
+| **lam=0.25** (weak mass) | **unverified** | See warning above — not reproducible from the current script; do not cite as measured. |
+| **lam=1.0** (full KE) | **unverified** | See warning above — not reproducible from the current script; do not cite as measured. |
 
 #### Interpretation
 
 - The only terms that measurably affect ranking quality are **velocity** (catastrophic without it) and the **K0 formula structure** (crushes raw TTC).
-- Severity, the v² exponent, bbox size, and λ all tie — kinematics (velocity/distance) dominate every reordering. These terms should either be dropped or retained as declared design choices with explicit limitations in the paper.
+- Severity, the v² exponent, and bbox size tie on corpus-wide label-free metrics — kinematics (velocity/distance) dominate most reorderings. This does not by itself prove severity is unnecessary: these metrics are computed over the whole 19,402-frame corpus, which likely contains few frames where a severity-differentiated pair (e.g. bus vs. pedestrian) is also kinematically close enough for severity to be the deciding factor — a real effect restricted to a small, diluted minority of frames can look identical to no effect in an aggregate metric. `evaluation/kinetic_ablation_stratified.py` isolates exactly that minority and re-runs the same metrics on it; run it before concluding severity should be dropped or reweighted.
+- λ's status is currently unverified, not tied — see the warning above.
 - 219 disagreement frames were exported to `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/disagreements.json` for VLM referee adjudication (Step 4 of this guide).
 
 ### Output files
@@ -278,6 +326,31 @@ All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 ### Next steps
 
 Per §3 of this guide: read the report before doing anything else. The `no-velocity` and `ttc` arms are
-settled — their CIs exclude K0. The remaining arms (`linear`, `no-severity`, `size`, `lam=0.25`,
-`lam=1.0`) all tie on label-free metrics and need VLM referees (§4) to determine whether their
-disagreement frames reveal a qualitative difference a human would care about.
+settled — their CIs exclude K0. Before trusting the `linear`/`no-severity`/`size` ties, run:
+
+```bash
+python evaluation/kinetic_ablation_stratified.py \
+    --csv-dir data/processed/ablation_30pct \
+    --out-dir evaluation/benchmarks/kinetic_score_eval/run_2026_08_26
+```
+
+This restricts the same metrics to only the frames where a severity-differentiated, kinematically-close
+pair of objects actually exists — the scenario severity was designed for — and reports what fraction of
+the corpus that even is. A tie there is much stronger evidence than a corpus-wide tie. Then run the VLM
+referees (§4) on the disagreement frames to determine whether their picks reveal a qualitative
+difference a human would care about. See `pending_work.md` §1 for the full ordered list, including
+reconciling the `lam=0.25`/`lam=1.0` inconsistency flagged above before either goes in a paper.
+
+---
+
+## 7. Troubleshooting
+
+- **Stage 1 log doesn't show your finetuned checkpoint path** → the code or checkpoint didn't come
+  over correctly, or `--model` got overridden. It should print the finetuned checkpoint path
+  (`training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt`), not a base model.
+- **A `votes_*.json` file has a lot of `null` answers** → that model isn't returning parseable
+  replies; swap the model rather than loosening the parser (§4b).
+- **`report.md`'s confidence interval already excludes K0 on a stripped-down arm** → that arm is
+  settled without needing the referee step at all (§3, last paragraph).
+- Both `topk_report.md` (§5b) and `referee_report.md` (§4) will show a "human agreement" line as
+  `MISSING` until `human_labels.json` exists (§4c) — that's expected, not a bug.

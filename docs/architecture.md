@@ -160,7 +160,7 @@ Offline SANPO/perception CSVs can be converted into this event stream with `tool
 > had no benchmark behind it and has been withdrawn. K0 is to be defended by **ablation** of its own
 > terms and by **complementarity with SLM-1**, not by a contest against strawmen — see
 > `docs/kinetic_score_opinion.md` for the evaluation strategy and
-> `docs/decisions.md` for the open ground-truth decision.
+> `docs/kinetic_score_opinion.md` §10 for the ground-truth decision record.
 >
 > **Class severity is derived, not hand-tuned (2026-08-19).** `severity(c) = behaviour(c) ×
 > (mass(c)/70 kg)^λ` with `λ = 0.5`, because collision consequence scales with delivered energy.
@@ -399,3 +399,152 @@ To refine the architecture without making major structural changes:
 1. **Depth Extrapolation Smoothing:** Since dataset depth points can sometimes be sparse or noisy at bounding box edges, apply a **Kalman Filter** to the `d` values extracted from the dataset before calculating `v = Δd / Δt`. This prevents jitter in the Kinetic Score from causing false reflex overrides.
 2. **Dynamic Heartbeat:** Instead of a fixed 5-second interval, let the System Heartbeat scale inversely with scene complexity. (e.g., empty room = 10s, crowded but safe sidewalk = 4s).
 3. **Intent-Gating:** Only pass HEADSUP intent labels to SLM-1 for objects within a 15-meter radius. Processing intent for distant background pedestrians wastes SLM token context window.
+
+---
+
+## 11. Technology Audit: Model and Runtime Choices
+
+The rationale behind the model choices in §7's table, plus the tracking-stack and orchestration
+decisions. Formerly a standalone `roadmap.md`; merged here since it is elaborating on the same
+components this file already specifies. Current implementation status of each component:
+`progress.md`; backlog: `pending_work.md`.
+
+### 11.1 Perception: YOLO26n v3 + depth-guided tracking — keep
+
+YOLO26n is the right detector family because the system is edge-latency constrained, not
+leaderboard-mAP constrained (§2.2). The v3 checkpoint already passes the simulated Jetson
+detector/reflex budget across 10 SANPO valid streams (`hardware_targets.md`). Moving to a larger
+detector now would likely increase latency and integration risk before proving the current model is
+inadequate. The next optimization should be deployment format, not model size: export v3 to ONNX
+FP16/INT8, then TensorRT FP16/INT8 on actual Jetson/NVIDIA hardware, and compare PyTorch vs.
+ONNX/TensorRT latency and accuracy on the same SANPO 10-session set. Use Ultralytics `quantize=16` /
+`quantize=8` — the legacy `half=True` / `int8=True` flags are deprecated aliases. For INT8, use
+representative calibration data from `training/configs/cpe_hazard_classes.yaml` or SANPO-derived
+frames.
+
+**Tracking:** the Ultralytics tracking path uses ByteTrack. Keep it for prototype stability; evaluate
+TrackTrack or BoT-SORT only after baseline end-to-end metrics exist — switching trackers before an
+end-to-end baseline would confound any latency or accuracy comparison.
+
+### 11.2 SLM-1 Cognitive Layer — Qwen3-1.7B non-thinking, Qwen2.5-1.5B fallback
+
+Qwen3-1.7B over Qwen2.5-1.5B as primary: newer, Apache-2.0, multilingual, 32K context window, and
+supports explicit thinking/non-thinking modes. For real-time CPE cognition, use **non-thinking mode**
+to avoid unnecessary chain-of-thought latency. Qwen2.5-1.5B remains the fallback if Qwen3 runtime
+support or quantization causes deployment friction.
+
+```text
+SLM-1 primary: Qwen3-1.7B, quantized GGUF/ONNX where practical, non-thinking mode
+SLM-1 fallback: Qwen2.5-1.5B-Instruct, INT4/GGUF
+Output: strict JSON semantic assessment over the perception fact sheet
+Latency budget: soft real-time, <=500 ms
+```
+
+Do not let SLM-1 sit in the hard safety path — its output is advisory and must be arbitrated by
+Physics Verification (§2.6).
+
+### 11.3 SLM-2 Narration Layer — template-first, Phi-4-mini optional
+
+Phi-3 Mini is acceptable but no longer the best default; prefer Phi-4-mini-instruct for narration if
+memory permits, otherwise template-first narration for the prototype. Phi-4-mini-instruct is newer
+than Phi-3 Mini with stronger multilingual/reasoning support, but at ~3.8B/4B class it may be too
+heavy if SLM-1, translation, and TTS are also resident. The narrator has a constrained job — turn a
+verified event into a short warning — where a deterministic template layer may outperform an SLM on
+latency, safety, and consistency for the first demo.
+
+> [!NOTE]
+> **Phase 1 implemented (2026-08-27):** `src/narration/templates.py` — pure Python, no ML
+> dependency, consumes `NarratorEvent` directly and reproduces the worked example above exactly
+> (`"Motorcycle fast from your left."`). Phase 2 (Phi-4-mini) is still not started.
+
+```text
+SLM-2 phase 1: deterministic/template narrator for critical warnings
+SLM-2 phase 2: Phi-4-mini-instruct only for non-critical richer narration
+SLM-2 fallback: Phi-3-mini-4k-instruct ONNX/GGUF if Phi-4 runtime is too heavy
+```
+
+This keeps the demo safe: critical alerts should be short, deterministic, and immediate.
+
+### 11.4 Translation — IndicTrans2 distilled
+
+Keep IndicTrans2 distilled models for the prototype; revisit IndicTrans3 only after local
+availability/runtime is validated. IndicTrans2 supports the 22 scheduled Indic languages with
+distilled 200M/320M variants suitable for edge-style testing — the 1B variants may improve quality
+but are harder to fit alongside detector + SLMs + TTS. Translation must not block critical reflex
+alerts; critical alerts should use pre-translated phrase templates where possible.
+
+```text
+Critical path: pre-translated alert phrase table
+Non-critical narration: IndicTrans2 distilled En-Indic model
+Fallback: English-only output if translation exceeds latency budget
+```
+
+> [!NOTE]
+> **Partially implemented (2026-08-27):** `src/narration/translation.py` has real, tested
+> `PhraseTableTranslator` (critical path) and `EnglishFallbackTranslator` implementations, plus a
+> correct-API `IndicTrans2Translator` adapter that has **not** been run against real model weights
+> yet (`IndicTransToolkit`/`transformers` are installed and importable; the
+> `ai4bharat/indictrans2-en-indic-dist-200M` checkpoint itself was not downloaded in this session —
+> see the module docstring for the smoke-test command to run once it is).
+
+### 11.5 TTS / Audio — two-tier strategy
+
+Do not lock the prototype to FastSpeech2 only. FastSpeech2 is older but still viable if a working
+local voice is already available; for edge deployment, Piper-style ONNX voices are attractive where
+language coverage is acceptable because they are fast and designed for local inference; for Indic
+naturalness, AI4Bharat models such as IndicF5 / Indic Parler TTS may produce better quality but are
+heavier and should be benchmarked before entering the real-time path.
+
+```text
+Critical path: beep/haptic + cached short spoken clips
+Fast local TTS candidate: Piper/ONNX if target language voice exists
+Indic quality candidate: AI4Bharat IndicF5 or Indic Parler TTS for non-critical narration only after latency testing
+Fallback: FastSpeech2 if it is already integrated and meets latency
+```
+
+> [!NOTE]
+> **Implemented and measured (2026-08-27):** `src/narration/tts.py` has a real, tested
+> `CachedClipTTS` (critical path — a cache miss falls back to a beep in ~0ms, never blocks on a
+> model) and a real, tested `PiperTTS` backend. Measured on this dev machine (CPU only, no GPU),
+> voice `en_US-lessac-low`: one-time model load ~444 ms, per-utterance synthesis 30–68 ms for the
+> four representative `NarratorEvent` phrasings (`tools/benchmark_narration_latency.py`,
+> `evaluation/benchmarks/narration_latency/report.md`). No formal TTS latency budget exists yet
+> anywhere in `docs/` to grade this against — that benchmark script flags the gap; add one to
+> `hardware_targets.md` once a target device measurement exists. FastSpeech2 and the Indic voices
+> (IndicF5 / Indic Parler-TTS) remain unimplemented, per the "benchmark before entering the
+> real-time path" guidance above.
+
+### 11.6 Orchestration architecture — explicit queues and budgets
+
+Keep the asynchronous dual-track architecture, but implement it with explicit queues and budgets
+rather than vague asyncio glue:
+
+| Lane | Budget | Components | Behavior |
+|---|---:|---|---|
+| Perception/reflex | `<50 ms p95` detector/reflex budget | YOLO26n v3, tracker, depth, TTC/K-score | Never waits for SLM/translation/TTS |
+| Cognitive | `<=500 ms` soft budget | SLM-1 semantic assessment | Advisory only |
+| Narration | best effort, interruptible | template/SLM-2, translation, TTS | Dropped or shortened if stale |
+| Audio emergency | immediate | beep/haptic/cached clips | Preempts all other audio |
+
+Structured event queues: `PerceptionFrame -> TrackedObjects -> ThreatEvent -> VerifiedEvent ->
+AudioCommand`. The Physics Verification layer is the arbitration boundary; it must reject stale or
+hallucinated semantic output.
+
+---
+
+## 12. Historical Implementation Plan (superseded)
+
+A 14-day day-by-day plan was drafted after YOLO26n v3 training and SANPO edge benchmarking, before
+work diverged (after roughly Day 4) to prioritize the kinetic-score defense (`methodology.md` §4,
+`ablation_guide.md`) ahead of the Cognitive Layer. Kept here as a historical record of intent; the
+current backlog is `pending_work.md`, not this plan.
+
+| Days | Focus | Status at time of divergence |
+|---|---|---|
+| 1–2 | Detector export (ONNX/TensorRT) and runtime baseline comparison | Not run; export script exists (`training/scripts/export_yolo26n_edge.py`) but no exported artifact is committed |
+| 3–4 | Perception-to-Physics event contract (`ThreatEvent` schema, builder, unit tests) | Done — `src/threat_prioritizer/events.py`, `tools/build_threat_events.py` |
+| 5–6 | Reflex Layer + audio emergency path | Reflex Layer done first-pass (`src/reflex_layer/reflex.py`); audio emergency command layer still pending |
+| 7–8 | SLM-1 Cognitive prototype | Not started — work diverged here into the kinetic-score ablation instead |
+| 9–10 | Physics Verification arbitration rules + divergence logging | Partial — judge logic exists and is unit-tested against the Reflex Layer only |
+| 11–12 | Narration, translation, TTS | Not started |
+| 13–14 | Full pipeline edge simulation + demo packaging | Not started — no full SANPO replay has been run yet |

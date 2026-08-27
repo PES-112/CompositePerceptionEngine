@@ -2,6 +2,174 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-08-27] - First Full-Pipeline Runtime Composition (Synthetic Data)
+
+Closed the integration gap `pending_work.md` §5 called "the single most valuable integration
+milestone remaining": every runtime component built so far — Threat Prioritizer, Cognitive Layer,
+Physics Verification, Narration — is now called together, in order, in one process, and actually
+produces audio-ready output. Runs on synthetic data only; real SANPO replay is still open.
+
+### Added
+- `src/cognitive_layer/stub.py` - rule-based, non-ML stand-in for SLM-1: picks the highest-K object
+  among a frame's cognitive-route events as the semantic primary threat, with a canned reason string.
+  Explicitly documented as a placeholder to be replaced, not extended, once a real model exists - the
+  exact point where `SemanticEval` should come from a trained model instead.
+- `src/pipeline/orchestrator.py` - `process_frame()`/`process_frames()`, the composition that did not
+  exist anywhere in the repo before this: builds the physics ranking from every non-ignore object in
+  a frame (reflex- and cognitive-route alike), gets a `SemanticEval` from the Cognitive Layer,
+  adjudicates once via `PhysicsVerification`, and feeds any resulting `NarratorEvent` into
+  `NarrationPipeline`. **Real gap found and fixed:** `src/reflex_layer/reflex.py` only ever calls
+  `PhysicsVerification` for reflex-route events by design ("Cognitive events are intentionally left
+  for the SLM path") - nothing before this module built that other half. A frame containing only
+  cognitive-route objects (e.g. a near-static pothole with nothing fast-closing present) previously
+  produced no `PhysicsVerification` call and no narrator event at all, regardless of Cognitive Layer
+  output. `orchestrator.py`'s self-check specifically regression-tests against this.
+- `tools/run_full_pipeline_demo.py` - runs a 6-frame synthetic scenario (a car closing at a constant
+  1.5 m/s alongside a static pothole) through the full chain and prints per-frame routing, the
+  semantic pick, whether an alert fired, which narration lane it used, and the resulting text.
+  Distances were chosen by actually running `physics.kinetic_score()` first, not guessed, to produce
+  a genuine ignore -> cognitive -> reflex escalation. Confirmed live: the override frame stays in
+  English even when `--lang hi` is passed and a matching phrase-table entry exists for it - the
+  critical lane's translation bypass (`architecture.md` §11.6) working as designed, not a missing
+  translation.
+- **Finding from running the demo:** with real (not guessed) kinetic-score values, a `car` object
+  moving at a slow constant 1.5 m/s crosses `LOW_K_THRESHOLD` (cognitive routing) at roughly 20 m,
+  driven mostly by its class severity weight rather than proximity or closing speed - relevant to the
+  threshold-calibration item in `pending_work.md`'s refinement backlog, since it suggests the routing
+  may be more sensitive to vehicle classes than the thresholds were likely eyeballed against.
+
+### Changed
+- `docs/pending_work.md` §5, `docs/progress.md`, `docs/progress_presentation.md`, `README.md` -
+  updated from "not started" to reflect the above; §5 keeps "real SANPO replay" explicitly open since
+  this milestone used synthetic data only.
+
+No existing runtime component (`threat_prioritizer`, `reflex_layer`, `physics_verification`,
+`narration`) was modified - this entry is new, additive composition code on top of all of them.
+
+## [2026-08-27] - Narration Layer Phase 1: Template Narrator, Translation/TTS Adapters, Literature Review
+
+Built the end-of-pipeline narration/translation/TTS layer — the parts of the roadmap that don't
+depend on the SANPO ablation data — plus a verified external-literature reference doc and a
+refinement backlog from a critical pass over what's already built.
+
+### Added
+- `src/narration/` — new module: `templates.py` (deterministic template narrator, no ML dependency,
+  reproduces `architecture.md` §2.7's worked example exactly), `translation.py`
+  (`PhraseTableTranslator`, `EnglishFallbackTranslator` real and tested; `IndicTrans2Translator`
+  correct-API adapter, code complete but not run against real model weights), `tts.py`
+  (`CachedClipTTS` real and tested; `PiperTTS` real, tested, and latency-measured), `pipeline.py`
+  (`NarrationPipeline` — structurally enforces that an override event never reaches translation or
+  model-backed TTS, per the orchestration-lane rule in `architecture.md` §11.6). All four modules
+  have a runnable `--self-check` (invoke as `python -m src.narration.<module> --self-check`).
+- `tools/benchmark_narration_latency.py` - standalone latency benchmark, no SANPO data or GPU needed.
+  Measured on this dev machine (CPU only): template generation ~0 ms, Piper voice load ~444 ms
+  (one-time), Piper synthesis 30-68 ms/utterance for four representative `NarratorEvent` phrasings.
+  Found and flagged a real documentation gap: no formal TTS latency budget exists anywhere in
+  `docs/` (only 50 ms reflex / 500 ms cognitive are defined).
+- `models/tts/piper/en_US-lessac-low.onnx` (+ config) - downloaded Piper voice used for the above.
+- `piper-tts`, `IndicTransToolkit` added to `requirements.txt` (installed and verified importable
+  this session; the IndicTrans2 model weights themselves were not downloaded).
+- `docs/related_work.md` - ~20 externally-verified paper citations (title/authors/year/venue checked
+  against a live search, not recalled from memory), organized by which CPE component or design
+  decision each grounds: positioning (Dakopoulos & Bourbakis 2010 ETA survey; Liu & Slade 2026
+  "Mobilio" smartphone nav app - the closest published comparable system), perception (ByteTrack,
+  YOLO26 technical overview, Depth Anything, Grounding DINO), the SANPO dataset paper, kinetic-score
+  grounding in real traffic-safety literature (Rosen & Sander 2009/2011 pedestrian impact-speed risk
+  curves - independent empirical support for the `v^2` design choice beyond CPE's own architectural
+  argument), evaluation methodology (Bradley-Terry 1952, Cohen's kappa 1960, Zheng et al. 2023
+  LLM-as-judge), SLM/distillation (Hinton et al. 2015, Qwen3, Phi-4-mini), RL (Schulman et al. 2017
+  PPO; Bai et al. 2022 Constitutional AI/RLAIF as the conceptual anchor for Physics-Verification's
+  human-label-free reward design), translation (IndicTrans2), and TTS (FastSpeech2, VITS underlying
+  Piper, IndicF5/Indic Parler-TTS).
+- `docs/pending_work.md` §10 "Refinement backlog" - a critical pass distinct from "not started" work:
+  7 items where something already produces results but the result or code has a specific, named gap
+  (detector eval has no uncertainty quantification; reflex/cognitive routing thresholds are still
+  uncalibrated defaults despite the ablation corpus now existing to calibrate them against; the
+  Jetson simulation's 4.0x scaling factor has no cited basis; safety-critical test coverage is thin
+  at 9 tests total; `BEHAVIOUR_MULTIPLIER` has no grounding unlike mass now does; bearing uses a fixed
+  uncalibrated 70 degree HFoV; the VLM referees' "three distinct families" independence is assumed,
+  not checked).
+
+### Changed
+- `docs/architecture.md` §11.3-11.5 - added implementation-status notes with the measured numbers
+  above; §11.5 in particular now states FastSpeech2/IndicF5/Indic Parler-TTS remain unimplemented per
+  the existing "benchmark before entering the real-time path" guidance, now that Piper has been
+  benchmarked and it passed.
+- `docs/pending_work.md` §4, `docs/progress.md`, `README.md` (SLM Stack table + project tree) -
+  updated from "not started" to reflect the phase-1 status above.
+
+No formula, threshold, or existing pipeline component was changed - this entry is new, additive
+narration-layer code plus documentation/research, gated the same way everything else in this repo is
+gated: implemented-and-tested is stated separately from implemented-but-unverified.
+
+## [2026-08-27] - Ablation Methodology Audit: Stratified Severity Check, λ Inconsistency Flagged
+
+A critical review of the 2026-08-26 kinetic-score ablation run's methodology surfaced two real gaps
+before its "severity/λ/size tie with K0" conclusions should be treated as settled.
+
+### Added
+- `evaluation/kinetic_ablation_stratified.py` - re-runs `kinetic_ablation.py`'s label-free metrics
+  (imported, not reimplemented) restricted to frames containing a severity-differentiated,
+  kinematically-close pair of objects - the specific scenario severity's design intent targets. Also
+  reports the coverage number (what fraction of the corpus even qualifies) and the K0-vs-arm argmax
+  disagreement rate on the stratified subset vs. the full corpus. Rationale: a corpus-wide tie on
+  `no-severity` cannot distinguish "severity never matters" from "severity matters only in a minority
+  of frames diluted into 19,402" - this isolates that minority directly. Self-check passes; has not
+  yet been run against real data (needs `data/processed/ablation_30pct/` on the remote box that ran
+  the original ablation).
+- `evaluation/kinetic_ablation.py` - `session_metrics()` now accepts an optional pre-computed `groups`
+  argument so the stratified script reuses the exact same metric math instead of a second
+  implementation that could drift out of sync. Purely additive; default behavior (no `groups` passed)
+  is unchanged, verified against the existing `--self-check`.
+
+### Changed
+- `docs/ablation_guide.md` - added a `[!WARNING]` before the §6 results table: the `lam=0.25`/
+  `lam=1.0` columns are not reproducible from the currently committed `kinetic_ablation.py`, whose
+  lambda-sweep plumbing was removed in commit `0e6e0d7` on 2026-08-25 - the day *before* this run's
+  Step 4 timestamp. Both arms' verdicts changed from "TIES" to "unverified" pending reconciliation.
+  Also documented that no raw run artifacts (`metrics.json`, `report.md`, `disagreements*.json`) were
+  ever committed for this run, so the tie verdicts for every arm are not yet independently auditable
+  from this repo - only the transcribed summary table exists. Added the stratified-check command to
+  the "Next steps" section.
+- `docs/methodology.md` §4.9 - added the same three caveats (dilution risk, λ inconsistency, missing
+  raw artifacts) so the paper-ready methods reference doesn't overstate what the corpus-wide ties
+  currently prove.
+- `docs/pending_work.md` §1 - rewritten as a precise ordered list: push the missing run artifacts from
+  the remote box -> reconcile the λ inconsistency -> run the stratified check -> run the VLM referee ->
+  human calibration -> top-3 VLM check -> depth smoothing filter. Added an explicit instruction not to
+  change `physics.py`'s formula or weights based on the current evidence alone.
+- `README.md` - added `evaluation/kinetic_ablation_stratified.py` to the project tree.
+
+No formula or weight in `src/perception_stack/physics.py` was changed - this entry is entirely
+methodology/tooling/documentation, pending the remote-box steps in `pending_work.md` §1.
+
+## [2026-08-27] - Documentation Reorganization, Methodology/Progress/Backlog Docs, Result Figures
+
+### Added
+- `docs/methodology.md` - consolidated, paper-ready methods reference covering dataset construction, detector training/evaluation protocol, kinetic-score formulation and ablation design, edge-latency simulation methodology, and the experimental-design principles applied throughout (never grading a method against itself, relative/forced-choice judgments in place of absolute scores without ground truth, session-level bootstrapping, etc). Synthesizes `architecture.md`, `kinetic_score_opinion.md`, `decisions.md`, `ablation_guide.md`, `yolo_training.md`, and `hardware_targets.md` into one drafting-ready document without duplicating their full reasoning trails.
+- `docs/progress_presentation.md` - presentation-shaped summary of current progress: what's built vs. simulated vs. not started, the v2->v3 detector training-protocol finding, the kinetic-score ablation headline result, the measured-vs-simulated edge latency split, a suggested slide order, and a Q&A number sheet.
+- `docs/pending_work.md` - explicit, prioritized backlog (kinetic-score referee/human-calibration run, Cognitive Layer, Physics Verification completion, narration/translation/TTS, full SANPO replay, physical edge validation, detector loose ends, export packaging, paper-writing dependencies) with a top-3 recommended next actions section.
+- `evaluation/generate_report_figures.py` - regenerates every result figure and a markdown table digest from the current committed benchmark artifacts (`evaluation/benchmarks/yolo26n_version_comparison/`, `.../sanpo_edge_realtime/ten_session_v3_jetson_orin_nano_8gb/`, `.../kinetic_score_eval/`). Output: `evaluation/benchmarks/figures/` (6 PNGs + `results_summary.md`), safe to delete and regenerate.
+- `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/ablation_summary.csv` - machine-readable transcription of the ablation table already published in `docs/ablation_guide.md` §6 (2026-08-26 run, 139 sessions), so it can be plotted; no new data, just a queryable form of the existing published numbers.
+- `matplotlib` added to `requirements.txt` for the new figure-generation script.
+
+### Changed
+- `docs/progress.md` - refreshed; the previous version predated the kinetic-score ablation work and did not reflect it. Now includes the ablation result, the blinded-referee gap, and the depth-smoothing blocker, and points to `pending_work.md` for the full backlog instead of duplicating it.
+- `docs/decisions.md` - status header corrected: the ground-truth-strategy decision was already resolved 2026-08-18 in the body of the entry, but the header still read "Undecided" - fixed the inconsistency and clarified that resolved decisions stay in this file permanently as historical record rather than being deleted once closed.
+- `docs/roadmap.md` - added a status note clarifying that actual work after Day 4 diverged from the 14-day plan to prioritize the kinetic-score defense; the day-by-day schedule is historical intent, not a current plan.
+- `docs/README.md` - documentation map reorganized into grouped sections (current status / how the system works / research methodology and evidence / datasets and training / history) instead of one flat table, with the new docs and `evaluation/benchmarks/figures/` added to the artifact conventions and maintenance rules.
+- `README.md` - project tree updated with the new docs and `evaluation/generate_report_figures.py` / `evaluation/benchmarks/figures/`.
+
+No existing document content was deleted; all changes above are additive or status/consistency corrections.
+
+### Removed / merged (same-day follow-up)
+- `docs/verification_guide.md` - merged into `docs/ablation_guide.md` as new §5b (top-3 VLM agreement check via `topk_threat_validation.py`, which `ablation_guide.md` did not previously document) and §7 (troubleshooting). The two guides covered the same commands from different angles; content preserved, file count reduced.
+- `docs/decisions.md` - merged into `docs/kinetic_score_opinion.md` as new §10 (formal problem statement, the three-tier ground-truth options table, and the closed decision record). The header inconsistency noted earlier in this entry is now moot since the file no longer exists standalone.
+- `docs/sanpo_gap_analysis.md` - merged into `docs/sanpo_dataset.md` as a new "Gap Analysis Workflow" section; the two files covered adjacent SANPO workflows (intake/benchmarking vs. gap analysis) that belong under one dataset doc.
+- `docs/roadmap.md` - merged into `docs/architecture.md` as new §11 (Technology Audit: Model and Runtime Choices - the rationale behind §7's SLM/translation/TTS table, plus tracking and orchestration decisions) and §12 (Historical Implementation Plan, superseded by `pending_work.md`).
+- `docs/research_paper_prompts.md` - merged into `docs/methodology.md` as a new Appendix of LLM paper-drafting prompts, updated to reflect the current (not yet fully implemented) state of the Cognitive Layer and the pending referee step.
+- All cross-references to the five removed files were updated across `docs/`, `README.md`, and `.agents/AGENTS.md`. No content was deleted in these merges, only relocated and, where two files said the same thing, deduplicated. Net effect: 17 files in `docs/` -> 12.
+
 ## [2026-08-25] - v3 Detector Default, Frozen Mass Exponent, Enforced 30% Ablation Sample
 
 ### Changed

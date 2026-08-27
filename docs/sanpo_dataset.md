@@ -1,6 +1,8 @@
-# SANPO Dataset, Intake, and Edge Evaluation
+# SANPO Dataset, Intake, Edge Evaluation, and Gap Analysis
 
-This note documents the SANPO public Google Cloud Storage layout used by CPE for real-time edge testing with `valid_streams.json`.
+This note documents the SANPO public Google Cloud Storage layout used by CPE for real-time edge
+testing with `valid_streams.json`, plus the empirical depth-versus-YOLO gap analysis workflow used to
+prioritize which hazard classes to add (§"Gap Analysis Workflow" below).
 
 ## Source
 
@@ -252,3 +254,161 @@ Aggregate Jetson Orin Nano 8GB simulation result:
 | Simulated real-time-budget pass | Yes, all sessions |
 
 Interpretation: under the conservative `jetson_orin_nano_8gb` profile, v3 stays below the `<50 ms p95` detector/reflex budget across all 10 sampled SANPO valid streams.
+
+---
+
+## Gap Analysis Workflow
+
+**Author:** CPE Team | **Date:** 2026-07-10 | **Status:** Notebook ready (`notebooks/sanpo_yolo_gap_analysis.ipynb`).
+
+This section documents the empirical depth-versus-YOLO blind-spot workflow used to identify which
+physical objects are consistently present at hazard range but not detected by the current YOLO26n
+whitelist — the outputs directly inform which new classes to prioritize in `yolo_training.md`.
+
+### Objective
+
+Run the gap analysis notebook across the SANPO dataset to **empirically identify** which physical
+objects are consistently present at hazard range (0.5–6m) but are NOT detected by the current
+YOLO26n whitelist.
+
+### What the gap analysis does
+
+For every sampled frame:
+1. Run YOLO26n with the current CPE detector configuration.
+2. Load the `.float16.gz` SANPO depth map.
+3. Find all depth "blobs" in the **0.5–6.0m alert zone** that have **no overlapping YOLO bounding box**.
+4. Tag each blob with:
+   - **Elevation:** `head_level` (top 45% of frame) | `mid_level` | `foot_level`
+   - **Column:** which of 5 vertical navigation columns it occupies
+   - **Depth:** nearest and mean distance in metres
+5. Generate a 3-panel visualization and save it to the output folder.
+6. Export all stats to a CSV for summary analysis.
+
+The frequency of unlabelled blobs across all sessions tells us **what the gap classes are**, and the
+elevation distribution tells us **how dangerous they are**.
+
+### Data structure
+
+```
+data/sanpo/raw/
+└── <session_hash>/
+    └── camera_head/
+        └── left/
+            ├── video_frames/        ← RGB PNGs  (000000.png, 000001.png, ...)
+            ├── depth_maps/          ← Depth     (000000.float16.gz, ...)
+            └── frame_segmentation_annotation_type.json
+```
+
+### Key configuration parameters
+
+All parameters are in **Cell 1** of `notebooks/sanpo_yolo_gap_analysis.ipynb`.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `SESSION_FILTER` | `None` | Set to a list of session hashes to restrict analysis. `None` = all sessions. |
+| `MAX_FRAMES_PER_SESSION` | `30` | **Critical — controls output volume.** Frames are sampled evenly across the session (not just the first N). |
+| `DEPTH_MIN_M` | `0.5` | Minimum depth to count as a hazard candidate. |
+| `DEPTH_MAX_M` | `6.0` | Maximum depth. Objects beyond 6m are informational only. |
+| `MIN_BLOB_AREA_PX` | `800` | Minimum blob pixel area to report. Filters out noise/reflections. |
+| `OBSTACLE_GRID_COLS` | `5` | Number of vertical navigation columns to sweep. |
+| `YOLO_MODEL_PATH` | `models/yolo/base_yolo26n/yolo26n.pt` | Path to YOLO model (relative to repo root). |
+
+### Output folder management
+
+> **This is important to prevent folder bloat.**
+
+The notebook only saves visualizations for frames **that actually have depth gaps** — frames where
+YOLO detected everything get skipped automatically. With `MAX_FRAMES_PER_SESSION = 30` and 3
+sessions, worst-case output is **90 PNG files**; typical output will be far fewer.
+
+```
+notebooks/gap_analysis_output/
+├── <session_hash>_<frame_id>.png    ← 3-panel visualization (saved only for gap frames)
+└── gap_analysis_stats.csv          ← Per-frame statistics table
+```
+
+| Scenario | `MAX_FRAMES_PER_SESSION` | Expected output files |
+|---|---|---|
+| Quick check (1 session) | 10 | ~5–10 PNGs |
+| Standard analysis (all 3 sessions) | 30 | ~20–60 PNGs |
+| Full SANPO sweep (all sessions) | 20 | ~500–700 PNGs (large run) |
+
+### Running the notebook — step by step
+
+Prerequisites:
+
+```bash
+pip install ultralytics opencv-python matplotlib scipy pandas
+```
+
+1. Open `notebooks/sanpo_yolo_gap_analysis.ipynb`.
+2. Configure Cell 1 — for a quick first run, set `MAX_FRAMES_PER_SESSION = 10` and
+   `SESSION_FILTER = None`; confirm `YOLO_MODEL_PATH` points to `models/yolo/base_yolo26n/yolo26n.pt`.
+3. Run all cells in order (Cells 1–9). Cell 7 (the main loop) prints per-frame progress and displays
+   inline visualizations.
+4. Review Cell 8 (Summary Statistics) — the most important output: which YOLO classes are detected
+   most, head-level vs. foot-level gap counts (severity distribution), and the top 10 gap frames.
+5. Use Cell 10 to manually inspect interesting frames by changing `FRAME_INDEX`.
+
+### Reading the 3-panel visualization
+
+```
+[ RGB + YOLO boxes (blue) + gap dots ]  |  [ Depth heatmap 0–10m ]  |  [ Gap-only mask ]
+```
+
+| Visual element | Meaning |
+|---|---|
+| Blue rectangle | YOLO detected this object (labelled, tracked) |
+| Red filled circle | Depth blob at **head/chest level** — highest priority gap |
+| Orange filled circle | Depth blob at **mid/waist level** |
+| Green filled circle | Depth blob at **foot level** — trip hazard |
+| White ring | Outline of any gap blob |
+| Label text | Elevation tag + mean depth in metres |
+
+### Interpreting the gap statistics CSV
+
+`gap_analysis_stats.csv` columns:
+
+| Column | Description |
+|---|---|
+| `session` | Session hash (first 20 chars) |
+| `frame` | Frame index |
+| `yolo_detections` | Number of YOLO detections in this frame |
+| `yolo_classes` | Pipe-separated list of detected class names |
+| `depth_gaps_total` | Total unlabelled depth blobs found |
+| `gaps_head_level` | Count of head-level gaps |
+| `gaps_mid_level` | Count of mid-level gaps |
+| `gaps_foot_level` | Count of foot-level gaps |
+| `nearest_gap_m` | Distance to the nearest unlabelled obstacle (metres) |
+| `largest_gap_area` | Pixel area of the largest gap blob |
+
+Analysis queries to run in pandas after the run:
+
+```python
+import pandas as pd
+df = pd.read_csv("notebooks/gap_analysis_output/gap_analysis_stats.csv")
+
+print((df.depth_gaps_total > 0).mean())        # fraction of frames with significant gaps
+print(df.gaps_head_level.mean())               # avg head-level gaps per frame
+urgent = df[df.nearest_gap_m < 2.0]             # frames with a gap closer than 2m
+print(urgent.shape[0], "urgent frames")
+```
+
+### What to do with the results
+
+1. Export the CSV and sort by `depth_gaps_total` to find the most gap-heavy sessions.
+2. Visually inspect the top 20 gap frames (saved as PNGs) and note what objects appear in the gap
+   regions — poles/bollards, benches, vegetation/clutter, construction barriers, stairs/kerbs.
+3. Feed observations back into `yolo_training.md` — e.g. if 70% of gap frames show a pole in that
+   region, `pole` is the highest-priority new class.
+4. Update `CHANGELOG.md` once the analysis run is complete and the gap class list is finalized.
+
+### Open questions
+
+1. Should more SANPO sessions be downloaded for a more statistically robust gap analysis, beyond the
+   local `data/sanpo/raw/` sample?
+2. Should the gap analysis also run on real SANPO sessions (not just synthetic) — real sessions may
+   show different gap distributions (e.g. more construction hazards)?
+3. SANPO's panoptic segmentation masks (`segmentation_masks/`) could cross-reference consistent gap
+   blobs to recover the ground-truth class of the unlabelled blob — a strong potential paper result
+   if pursued.

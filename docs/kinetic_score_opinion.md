@@ -1,9 +1,12 @@
 # Kinetic Score: How to Choose and Defend It
 
-**Status:** Opinion / recommendation — input to the open decision in `docs/decisions.md`
+**Status:** Resolved decision record. §§1–9 are the original reasoning (2026-08-18); §10 is the
+formal problem statement and options analysis that led to it (formerly the standalone
+`docs/decisions.md`, merged here since the two were reasoning about the same decision). The
+condensed, paper-ready version of everything below lives in `docs/methodology.md` §4.
 **Date:** 2026-08-18
 **Related:** `src/perception_stack/physics.py`, `src/threat_prioritizer/events.py`,
-`docs/decisions.md`, `docs/architecture.md` §2.7 §3
+`docs/architecture.md` §2.7 §3, `docs/methodology.md` §4
 
 ---
 
@@ -301,4 +304,90 @@ optional — and equally why it is the *only* place human effort is required.
   `depth_loader.py:26`. This matters concretely: at 10% depth error, K0's score error is **+741%**
   versus **+190%** for a linear variant, because K0 squares the noisiest input in the system.
   Choosing or defending a formula on the unfiltered signal benchmarks a system you do not intend to
-  ship. **Build the filter first.**
+  ship. **Build the filter first.** Tracked in `docs/pending_work.md` §1.4.
+
+---
+
+## 10. Formal problem statement and options analysis (2026-08-18)
+
+This is the problem framing and options comparison that this decision was made against — kept for
+the historical record and because a paper's methodology section benefits from showing the
+alternatives that were rejected and why, not just the final choice.
+
+### 10.1 The problem as originally framed
+
+Six candidate kinetic-score formulas existed (K0–K5, in `src/perception_stack/physics.py`, mirrored
+in the now-deleted `evaluation/kinetic_score_comparison.py`), and a production formula needed to be
+picked with evidence defensible in a research paper.
+
+The evaluation harness in use at the time was **circular**: `evaluation/threat_score_eval.py` (since
+deleted) graded each formula's routing decision against a "ground truth" computed by *re-running that
+same formula* on a future frame. Each formula sat an exam it wrote itself. Likewise
+`kinetic_score_comparison.py` correlated K against `1/TTC`, but TTC is `d/v` — the same two inputs K
+consumes — and K1 was *defined* as `sev·min(1/TTC, 10)`, so K1 won by construction.
+`docs/architecture.md` stated at the time that "K4 (hybrid momentum + TTC) is the leading candidate,"
+with no benchmark results anywhere in the repo to support it — that claim was later withdrawn.
+
+A separate **scale-comparability bug** was found: K5 was bounded to `[0, severity]` (max ≈ 2.5), so it
+could structurally never cross a `high_k=5.0` threshold and therefore could never trigger a K-based
+reflex route on its own, while K0/K3 were unbounded — comparing routing %/F1 across formulas at
+identical absolute thresholds was comparing incompatible scales, not discriminative quality.
+
+### 10.2 The core question: what counts as "ground truth danger"?
+
+Any fix requires a formula-independent definition of "this object was actually dangerous." Three
+non-mutually-exclusive tiers were considered:
+
+- **Tier A — kinematic "encounter" ground truth** (automatic, formula-free): an object is a true
+  encounter if its *measured* future distance drops below a hazard threshold inside a forward bearing
+  cone. Automatic, full corpus, large N. Cannot validate whether severity weights themselves are
+  right, since severity is a value judgment, not a physical quantity.
+- **Tier B — blinded human judgment** (small-N, validates severity weights): a human sees the scene
+  with K scores and routing hidden and picks the top threat. The only tier that can validate severity
+  weighting and scene-level prioritization.
+- **Tier C — VLM-as-annotator** (scale-up, only after calibration): cheap at scale, but only
+  trustworthy after measuring Cohen's κ against the Tier B human gold set — VLMs can't see metric
+  depth or velocity from a still frame, and multi-VLM majority voting does not substitute for
+  calibration, because VLM errors are correlated through shared training priors.
+
+| Option | What it buys | What it can't do | Cost |
+|---|---|---|---|
+| A only | Automatic, reproducible, all sessions, large N | Can't validate severity weights or scene-level prioritization | Low — script only |
+| **A + B (chosen)** | A's scale + B's ability to validate severity/prioritization; the standard defensible pair for a paper | B is small-N, manual labeling time | Medium — ~2–4 hrs human labeling for 300–500 frames |
+| A + B + C | Scales human judgment to thousands of frames via a calibrated VLM; VLM reliability becomes a citable number | Extra engineering + cost; still needs B first to calibrate | High |
+| Multi-VLM voting as primary ground truth | Cheapest scale-up | Relocates the ground-truth question rather than answering it; VLMs lack metric depth/velocity from stills; correlated errors overstate reliability; not defensible as primary evidence | Low build, weak evidence — **rejected** |
+
+**Answering the question directly:** manual verification (Tier B) is necessary but doesn't scale to
+full-corpus evidence alone. Multiple VLMs voting, used as *primary* ground truth, was rejected — it
+swaps one unvalidated oracle for another and cannot see the physical quantities the score is built
+from. The chosen combination: Tier A for scale, Tier B to validate the human-judgment parts, Tier C
+optionally to scale B once its agreement with B is measured and reported. This is exactly the §3/§4
+design above.
+
+**Other open parameters, not settled by this decision:** the encounter label's lookahead horizon H,
+hazard distance threshold, and bearing cone width are knobs, reported as a sensitivity grid rather
+than defended as single "correct" values (§6). SANPO-Synthetic (exact ground-truth depth) vs.
+SANPO-Real (deployment-representative, but temporally correlated depth error) is an open dataset-slice
+question — running both and treating the gap as its own robustness result was the recommendation but
+has not been executed (`pending_work.md`).
+
+### 10.3 Decision (2026-08-18)
+
+Formal record of the decision this section's analysis fed into — identical in substance to the
+Recommendation in §8 above, restated here as the closed decision:
+
+1. **Keep K0.** Its `v²` term is the only element encoding *consequence* rather than *arrival time* —
+   the reflex TTC gate already covers arrival time.
+2. **Removed K1–K5 and both evaluation scripts.** Not independent dummies: K1/K2/K5 are exactly
+   rank-identical to `1/TTC` within a class (ρ = 1.0000), K3 is ρ = 0.9998.
+3. **K0 defended by ablation of its own terms**, not a beauty contest, and by complementarity with
+   SLM-1 — the actual architectural claim, measurable with zero labels.
+4. **Ground-truth tiers: A + B.** Tier A eliminates but never selects. Tier B is restricted to the
+   ~5% of frames where formulas disagree (~100–300 frames).
+5. **Multi-VLM polling rejected as primary evidence**; inverted into a blinded referee design. Any
+   VLM number requires Cohen's κ against a human gold set.
+
+**Explicitly still open:** the class severity weights themselves — the exponent choice is a
+*definition*, not a discovery (§7), so severity weights and the `v²` exponent must be settled
+together by Tier B, not by more unlabelled data. Executing Tier B is the top item in
+`docs/pending_work.md` §1.

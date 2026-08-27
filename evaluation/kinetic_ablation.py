@@ -137,8 +137,16 @@ def encounters(df: pd.DataFrame) -> dict[int, set[str]]:
     return hits
 
 
-def session_metrics(df: pd.DataFrame, scorer, rng: np.random.Generator) -> dict:
-    groups = frame_groups(df)
+def session_metrics(df: pd.DataFrame, scorer, rng: np.random.Generator,
+                     groups: list[tuple[int, pd.DataFrame]] | None = None) -> dict:
+    """
+    `groups` lets a caller pass a pre-filtered subset of frame_groups(df) — e.g.
+    evaluation/kinetic_ablation_stratified.py restricts to severity-discriminating
+    frames only — while reusing the exact same metric math, so a stratified report
+    can never silently drift out of sync with the full-corpus one.
+    """
+    if groups is None:
+        groups = frame_groups(df)
     if not groups:
         return {}
 

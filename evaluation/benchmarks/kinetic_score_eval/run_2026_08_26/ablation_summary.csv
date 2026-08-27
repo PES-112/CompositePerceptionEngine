@@ -1,0 +1,9 @@
+arm,formula,flicker,tie_rate,smoothness,future_consist,encounter_top1,rank_stab_2pct,rank_stab_5pct,rank_stab_10pct,verdict
+K0,sev*v^2/d,0.975,0.001,1.755,0.002,0.307,1.000,1.000,0.998,baseline
+linear,sev*v/d,0.975,0.001,1.627,0.002,0.307,1.000,0.999,0.998,ties
+no-severity,v^2/d,0.975,0.001,1.753,0.002,0.307,1.000,1.000,0.997,ties
+no-velocity,sev/d,0.994,0.979,0.339,0.001,0.342,0.524,0.387,0.283,loses
+size,sev*v^2*(A/d)^0.5/d,0.974,0.001,1.753,0.003,0.307,0.999,0.998,0.999,ties
+lam=0.25,weak-mass,0.975,0.001,1.754,0.002,0.307,1.000,0.998,0.997,ties
+lam=1.0,full-KE,0.975,0.001,1.757,0.002,0.307,1.000,1.000,0.997,ties
+ttc,-(d-D)/v,0.572,0.000,6.178,0.076,0.067,1.000,1.000,0.258,loses

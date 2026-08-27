@@ -14,6 +14,7 @@ numpy>=1.26.0
 # Data handling
 pandas>=2.2.0
 scipy>=1.11.0               # Kendall tau — rank stability in evaluation/kinetic_ablation.py
+matplotlib>=3.8.0            # figures in evaluation/generate_report_figures.py
 
 # Utilities
 tqdm>=4.66.0
@@ -22,3 +23,12 @@ google-cloud-storage>=2.8.0  # anonymous download of SANPO-Synthetic from GCS
 # VLM referees (evaluation/vlm_referee.py) need no client library — they are local
 # OpenAI-compatible servers reached over stdlib urllib. Serve the models with your
 # stack of choice, e.g. `pip install vllm`; see docs/ablation_guide.md §4a.
+
+# Narration layer (src/narration/) — optional, only needed for the components
+# actually instantiated. templates.py and the PhraseTableTranslator/
+# CachedClipTTS/EnglishFallbackTranslator paths need none of this.
+piper-tts>=1.7.0             # local ONNX TTS (src/narration/tts.py PiperTTS) — voices via
+                              # `python -m piper.download_voices`, see docs/architecture.md §11.5
+IndicTransToolkit>=1.1.1     # + transformers (pulled in transitively) — needed only if
+                              # src/narration/translation.py IndicTrans2Translator is used;
+                              # the model weights themselves are a separate HuggingFace download.

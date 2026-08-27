@@ -1,0 +1,62 @@
+[
+  {
+    "stage": "template",
+    "case": "override",
+    "ms": 0.001999898813664913,
+    "output": "Stop! Car very close ahead."
+  },
+  {
+    "stage": "template",
+    "case": "fast_closing",
+    "ms": 0.0017499551177024841,
+    "output": "Motorcycle fast from your left."
+  },
+  {
+    "stage": "template",
+    "case": "near_static",
+    "ms": 0.00108394306153059,
+    "output": "Person close, ahead."
+  },
+  {
+    "stage": "template",
+    "case": "context",
+    "ms": 0.003291061148047447,
+    "output": "Bus far right, 25 meters."
+  },
+  {
+    "stage": "critical_tts_cache_miss",
+    "case": "override",
+    "ms": 0.0005420297384262085,
+    "output": "(fallback beep \u2014 no clip cached)"
+  },
+  {
+    "stage": "piper_load",
+    "case": "n/a",
+    "ms": 443.6024590395391,
+    "output": null
+  },
+  {
+    "stage": "piper_synthesize",
+    "case": "override",
+    "ms": 68.06337495800108,
+    "output": "67116 bytes"
+  },
+  {
+    "stage": "piper_synthesize",
+    "case": "fast_closing",
+    "ms": 39.16308295447379,
+    "output": "62508 bytes"
+  },
+  {
+    "stage": "piper_synthesize",
+    "case": "near_static",
+    "ms": 30.353249981999397,
+    "output": "48172 bytes"
+  },
+  {
+    "stage": "piper_synthesize",
+    "case": "context",
+    "ms": 42.87041607312858,
+    "output": "74796 bytes"
+  }
+]
