@@ -31,13 +31,29 @@ script after any benchmark artifact changes instead.
 
 ## Kinetic score ablation verdicts
 
-| arm | formula | flicker | rank_stab_10pct | encounter_top1 | verdict |
+Source: `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/metrics.json` (committed 2026-08-27, copied from the DGX Spark run — see `docs/ablation_guide.md` §6).
+
+| arm | flicker | flicker_ci | rank_stab_10pct | encounter_top1 | verdict |
 |---|---|---|---|---|---|
-| K0 | sev*v^2/d | 0.975 | 0.998 | 0.307 | baseline |
-| linear | sev*v/d | 0.975 | 0.998 | 0.307 | ties |
-| no-severity | v^2/d | 0.975 | 0.997 | 0.307 | ties |
-| no-velocity | sev/d | 0.994 | 0.283 | 0.342 | loses |
-| size | sev*v^2*(A/d)^0.5/d | 0.974 | 0.999 | 0.307 | ties |
-| lam=0.25 | weak-mass | 0.975 | 0.997 | 0.307 | ties |
-| lam=1.0 | full-KE | 0.975 | 0.997 | 0.307 | ties |
-| ttc | -(d-D)/v | 0.572 | 0.258 | 0.067 | loses |
+| K0 | 0.975 | [0.964, 0.983] | 0.998 | 0.307 | baseline |
+| linear | 0.975 | [0.964, 0.983] | 0.998 | 0.307 | ties |
+| no-severity | 0.975 | [0.964, 0.983] | 0.997 | 0.307 | ties |
+| no-velocity | 0.994 | [0.991, 0.997] | 0.283 | 0.342 | loses |
+| size | 0.974 | [0.963, 0.983] | 0.999 | 0.307 | ties |
+| lam=0.25 | 0.975 | [0.964, 0.983] | 0.997 | 0.307 | struck |
+| lam=1.0 | 0.975 | [0.964, 0.983] | 0.997 | 0.307 | struck |
+| ttc | 0.572 | [0.516, 0.610] | 0.258 | 0.067 | loses |
+
+### Disagreement frames exported per arm (of 219 total, capped at 60/arm)
+
+How often each arm's top pick differed from K0's, out of 19,402 scored frames — the frames the VLM referee (`evaluation/vlm_referee.py`) still needs to adjudicate.
+
+| Arm | Disagreement frames exported |
+|---|---:|
+| linear | 26 |
+| no-severity | 11 |
+| no-velocity | 60 |
+| size | 51 |
+| lam=0.25 | 6 |
+| lam=1.0 | 5 |
+| ttc | 60 |

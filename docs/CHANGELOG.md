@@ -2,6 +2,48 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-08-27] - Merged Real Ablation Run Artifacts; Docs Reconciled Against Ground Truth
+
+Merged `origin/kinetic-score-evaluation` (ishaan's commit `d9f4330`, "Add run_2026_08_26 artifacts;
+strike unreproducible lambda arms") into this branch, then updated every doc that had been written
+with caveats pending this exact data.
+
+### Merged
+- `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/{report.md,metrics.json,disagreements.json,disagreements_key.json}`
+  - the real DGX Spark run outputs, previously only a hand-transcribed summary table in this repo.
+- One conflict in `docs/ablation_guide.md` (both branches had independently edited the same λ-arm
+  section) resolved by combining rather than picking a side: ishaan's more precise root-cause
+  explanation (commit `e045310` monkey-patched `SEVERITY_LAMBDA` per arm) and cleaner strikethrough
+  table treatment, plus this branch's dilution-effect explanation, `kinetic_ablation_stratified.py`
+  pointer, and §7 Troubleshooting section (which predates his branch point).
+
+### Verified (not just merged)
+- Cross-checked the merged `report.md`/`metrics.json` against `ablation_guide.md`'s summary table:
+  every point estimate matches exactly, and the CI bounds behind every "TIES" verdict genuinely
+  overlap (e.g. K0 and `linear` flicker rate both report the identical 95% CI `[0.964, 0.983]`) -
+  confirming the tie verdicts were not just eyeballed from the missing data.
+
+### Changed
+- `docs/methodology.md` §4.9 - removed the two now-resolved caveats (λ numbers "flagged unverified",
+  raw artifacts "never committed"); replaced with a "Resolved 2026-08-27" note stating what was
+  verified and how. One caveat remains open (the stratified-check dilution question).
+- `docs/pending_work.md` §1 - items 1-2 (push artifacts, reconcile λ) marked done with what was
+  verified; added the per-arm disagreement-frame breakdown now visible from the committed
+  `disagreements_key.json` (`no-velocity` 60, `ttc` 60, `size` 51, `linear` 26, `no-severity` 11,
+  `lam=0.25` 6, `lam=1.0` 5); fixed a stale cross-reference (depth-smoothing filter was cited as
+  "§1.4", actually "§1.7" after earlier renumbering); updated "Suggested next actions".
+- `docs/progress.md` - kinetic-score-ablation checklist row updated from "λ tie" to "λ struck, raw
+  data committed and audited".
+- `evaluation/generate_report_figures.py` - `plot_kinetic_ablation_metrics()` and the results-summary
+  table now read from the real `metrics.json` (with genuine 95% CI error bars on the chart) instead of
+  the hand-transcribed `ablation_summary.csv`, which is kept only as a fallback for older checkouts.
+  Struck λ arms are plotted with a distinct color/legend entry rather than hidden. Added a new
+  "disagreement frames exported per arm" table to `results_summary.md`, sourced from
+  `disagreements_key.json`.
+
+No formula or threshold in `src/perception_stack/physics.py` was changed - `pending_work.md` still
+explicitly advises against that until the stratified check and blinded referee (items 3-4) run.
+
 ## [2026-08-27] - First Full-Pipeline Runtime Composition (Synthetic Data)
 
 Closed the integration gap `pending_work.md` §5 called "the single most valuable integration

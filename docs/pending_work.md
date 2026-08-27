@@ -9,28 +9,25 @@ dated record.
 
 ## 1. Finish the kinetic-score evidence (closest to done)
 
-Everything in this section needs `data/processed/ablation_30pct/` and the run outputs, which live on
-the remote box the ablation actually ran on (`ssh student-machine`, `10.1.24.55`, user `student-4` —
-not reachable from this environment; reachable from the local/campus network). Items 1–2 need to
-happen there before 3–6 make sense.
+1. ~~Push the missing run artifacts.~~ **Done 2026-08-27** — ishaan committed `report.md`,
+   `metrics.json`, `disagreements.json`, and `disagreements_key.json` from the DGX Spark (commit
+   `d9f4330`). All four are now in `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/` and
+   independently auditable — cross-checked directly against `ablation_guide.md`'s summary table and
+   they match exactly, including CI bounds (e.g. K0 and `linear` flicker rate both report the
+   identical `[0.964, 0.983]`, confirming the "TIES" verdicts weren't just eyeballed).
+2. ~~Reconcile the `lam=0.25`/`lam=1.0` inconsistency.~~ **Done 2026-08-27** — same commit root-caused
+   it precisely: an earlier version of `kinetic_ablation.py` (commit `e045310`) monkey-patched
+   `SEVERITY_LAMBDA` per arm before that plumbing was intentionally removed on 2026-08-25. The raw
+   numbers are real (preserved in the committed run artifacts) but not reproducible from current code,
+   so they're struck from `ablation_guide.md`'s tables rather than cited. Resolved during the merge of
+   local doc work with ishaan's push (`docs/ablation_guide.md` §6 now has the full account).
 
-1. **Push the missing run artifacts.** `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/`
-   only has a hand-transcribed `ablation_summary.csv` in this repo — `report.md`, `metrics.json`,
-   `disagreements.json`, and `disagreements_key.json` were never copied off the machine that produced
-   them, so none of the published numbers are independently auditable yet. Pull and commit them:
-   ```bash
-   scp student-machine:~/Projects/CompositePerceptionEngine/evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/{report.md,metrics.json,disagreements.json,disagreements_key.json} \
-       evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/
-   ```
-2. **Reconcile the `lam=0.25`/`lam=1.0` inconsistency**, flagged with a `[!WARNING]` in
-   `ablation_guide.md` §6. Those two columns are not reproducible from the currently committed
-   `evaluation/kinetic_ablation.py` — its lambda-sweep plumbing was removed the day *before* this
-   run's timestamp. Check `git log -p -- evaluation/kinetic_ablation.py` on the remote box around
-   2026-08-25 to see which version actually ran; either rerun those two arms with a version that has
-   the plumbing, or strike the columns and mark them explicitly as carried over from an earlier run.
-   Do not cite either number in a paper until this is resolved.
+Everything below still needs `data/processed/ablation_30pct/` (the raw per-session Stage 1 CSVs —
+large, still only on the remote box the ablation ran on: `ssh student-machine`, `10.1.24.55`, user
+`student-4`, not reachable from this environment) and, for items 3–4, GPU-served local VLMs.
+
 3. **Run the stratified severity check** (`evaluation/kinetic_ablation_stratified.py`, added
-   2026-08-27 — self-checks pass, needs the same CSVs as the main ablation to run for real):
+   2026-08-27 — self-checks pass, needs the raw CSVs to run for real):
    ```bash
    python evaluation/kinetic_ablation_stratified.py \
        --csv-dir data/processed/ablation_30pct \
@@ -42,10 +39,12 @@ happen there before 3–6 make sense.
    scenario severity was designed for — and reports both the coverage (how many such frames even
    exist) and the same metrics restricted to them. Read this before deciding whether to change
    `physics.py`.
-4. **Run the blinded VLM referee on the 219 exported disagreement frames.**
-   `evaluation/vlm_referee.py` against the `linear`, `no-severity`, and `size` arms that tied on
-   label-free metrics — those ties are unresolved on whether a human would actually notice the
-   difference. Commands: `ablation_guide.md` §4.
+4. **Run the blinded VLM referee on the 219 already-exported disagreement frames** (`disagreements.json`
+   is committed and ready — this step no longer needs a push, only GPU + the raw CSVs for
+   `--frames-dir`). Per-arm breakdown of those 219, now knowable from the committed
+   `disagreements_key.json`: `no-velocity` 60 (capped), `ttc` 60 (capped), `size` 51, `linear` 26,
+   `no-severity` 11, `lam=0.25` 6, `lam=1.0` 5 — `evaluation/vlm_referee.py` against the `linear`,
+   `no-severity`, and `size` arms that tied on label-free metrics. Commands: `ablation_guide.md` §4.
 5. **Human calibration set (100–150 frames), not optional.** Until `human_labels.json` exists, VLM
    win rates are not citable evidence — three models can share one prior. `--human-template` /
    `--score-only` flags in `vlm_referee.py`. Report Cohen's κ per model against the human set and
@@ -59,9 +58,10 @@ happen there before 3–6 make sense.
    linear variant — and no Kalman/smoothing filter exists yet in `src/perception_stack/depth_loader.py`
    beyond a basic range filter. `architecture.md` §10.1 already calls for this.
 
-**Do not change the equation or weights in `physics.py` based on the current evidence alone** — the
-corpus-wide "severity ties" result has the dilution problem item 3 addresses, and the un-audited/
-unreconciled state of items 1–2 means the ties aren't fully verifiable yet either. Revisit after 1–4.
+**Do not change the equation or weights in `physics.py` based on the current evidence alone** — items
+1–2 are resolved and the data is now audited, but the corpus-wide "severity ties" result still has the
+dilution problem item 3 addresses (untested), and the human-judgment question (item 4) is still
+unrun. Revisit after 3–4.
 
 ## 2. Cognitive Layer (SLM-1) — not started
 
@@ -160,9 +160,10 @@ Required before any paper or demo claims real edge performance (`hardware_target
 - Results/Discussion sections cannot claim physical edge FPS, high-kinetic recall under real noise, or
   stale-SLM filtering until items 1.4, 2, and 6 exist (`methodology.md` Appendix §A.7 already states
   this constraint explicitly — keep enforcing it as later sections get drafted).
-- The blinded-referee kinetic-score result (item 1.1–1.2) is likely the single most defensible novel
+- The blinded-referee kinetic-score result (item 1.4) is likely the single most defensible novel
   result once it exists — prioritize it over new feature work if a paper deadline is the driving
-  constraint.
+  constraint. The λ root-cause and audited-data findings (items 1.1–1.2, now resolved) are already
+  citable as-is.
 
 ---
 
@@ -230,11 +231,12 @@ finished being right."
 
 Given everything above, the highest-leverage next steps, in order:
 
-1. **On the remote box: push the missing run artifacts, reconcile the λ inconsistency, then run the
-   stratified severity check** (item 1.1–1.3). Cheapest, fastest path to a *trustworthy* — not just
-   complete — kinetic-score result, and a prerequisite for #2.
-2. **Run the VLM referee + human calibration on the 219 already-exported disagreement frames**
-   (item 1.4–1.5). The data is already computed and sitting idle.
+1. ~~Push the missing run artifacts and reconcile the λ inconsistency~~ — **done 2026-08-27**
+   (item 1.1–1.2). Data is real, committed, and audited.
+2. **On the remote box: run the stratified severity check, then the VLM referee + human calibration
+   on the 219 already-exported disagreement frames** (item 1.3–1.5). The disagreement frames
+   themselves no longer need pushing — only the raw CSVs (for the stratified check and the referee's
+   `--frames-dir`) and GPU access for the referee are still remote-only.
 3. ~~Wire together one full replay end-to-end~~ — **done 2026-08-27** on synthetic data
    (`tools/run_full_pipeline_demo.py`, item 5). Re-run the same orchestrator on real SANPO CSVs once
    available — that part of item 5 is still open.

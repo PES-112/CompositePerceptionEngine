@@ -25,9 +25,33 @@ OUT_DIR = BENCH_DIR / "figures"
 
 VERSION_COMPARISON_DIR = BENCH_DIR / "yolo26n_version_comparison"
 EDGE_REALTIME_DIR = BENCH_DIR / "sanpo_edge_realtime" / "ten_session_v3_jetson_orin_nano_8gb"
-KINETIC_ABLATION_CSV = (
-    BENCH_DIR / "kinetic_score_eval" / "run_2026_08_26" / "ablation_summary.csv"
-)
+KINETIC_RUN_DIR = BENCH_DIR / "kinetic_score_eval" / "run_2026_08_26"
+# Ground truth as of 2026-08-27: metrics.json/disagreements_key.json were copied from the
+# DGX Spark and committed (git log: d9f4330). ablation_summary.csv (a hand transcription of
+# docs/ablation_guide.md's table, written before the raw files existed) is kept only as a
+# fallback for anyone running this script against an older checkout.
+KINETIC_METRICS_JSON = KINETIC_RUN_DIR / "metrics.json"
+KINETIC_DISAGREEMENTS_KEY = KINETIC_RUN_DIR / "disagreements_key.json"
+KINETIC_ABLATION_CSV = KINETIC_RUN_DIR / "ablation_summary.csv"
+
+# Struck arms (lam=0.25/lam=1.0) are real numbers from an earlier script version that can't
+# be reproduced from the currently committed evaluation/kinetic_ablation.py — see the
+# [!NOTE] in docs/ablation_guide.md §6. Plotted, but visually distinguished, not hidden.
+KINETIC_VERDICTS = {
+    "K0  sev·v²/d": "baseline",
+    "linear  sev·v/d": "ties",
+    "no-severity  v²/d": "ties",
+    "no-velocity  sev/d": "loses",
+    "size  sev·v²·s^½/d": "ties",
+    "lam=0.25  weak mass": "struck",
+    "lam=1.0  full KE": "struck",
+    "ttc  -(d-D)/v": "loses",
+}
+KINETIC_SHORT_NAMES = {
+    "K0  sev·v²/d": "K0", "linear  sev·v/d": "linear", "no-severity  v²/d": "no-severity",
+    "no-velocity  sev/d": "no-velocity", "size  sev·v²·s^½/d": "size",
+    "lam=0.25  weak mass": "lam=0.25", "lam=1.0  full KE": "lam=1.0", "ttc  -(d-D)/v": "ttc",
+}
 
 PALETTE = {
     "v1": "#8c8c8c",
@@ -38,6 +62,7 @@ PALETTE = {
     "loses": "#d64545",
     "ties": "#8c8c8c",
     "baseline": "#2f6fed",
+    "struck": "#c9b8e0",
 }
 BUDGET_COLOR = "#d64545"
 
@@ -218,44 +243,53 @@ def plot_edge_latency_native_vs_sim() -> Path | None:
     return _save(fig, "edge_latency_native_vs_sim.png")
 
 
+def _load_kinetic_metrics() -> dict | None:
+    if KINETIC_METRICS_JSON.exists():
+        return json.loads(KINETIC_METRICS_JSON.read_text())
+    return None
+
+
 def plot_kinetic_ablation_metrics() -> Path | None:
-    if not KINETIC_ABLATION_CSV.exists():
-        print(f"skip: {KINETIC_ABLATION_CSV} not found")
+    metrics = _load_kinetic_metrics()
+    if metrics is None:
+        print(f"skip: {KINETIC_METRICS_JSON} not found")
         return None
-    df = pd.read_csv(KINETIC_ABLATION_CSV)
 
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4.5))
-    colors = [PALETTE.get(v, "#8c8c8c") for v in df["verdict"]]
+    arms = list(KINETIC_SHORT_NAMES)
+    labels = [KINETIC_SHORT_NAMES[a] for a in arms]
+    colors = [PALETTE[KINETIC_VERDICTS[a]] for a in arms]
 
-    ax = axes[0]
-    ax.bar(df["arm"], df["flicker"], color=colors)
-    ax.set_title("Flicker rate (lower is better)")
-    ax.set_ylim(0, 1.05)
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-
-    ax = axes[1]
-    ax.bar(df["arm"], df["rank_stab_10pct"], color=colors)
-    ax.set_title("Rank stability @ 10% depth noise\n(Kendall τ, higher is better)")
-    ax.set_ylim(0, 1.05)
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
-
-    ax = axes[2]
-    ax.bar(df["arm"], df["encounter_top1"], color=colors)
-    ax.set_title("Encounter top-1 recall\n(higher is better)")
-    ax.set_ylim(0, 0.5)
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.8))
+    panels = [
+        ("flicker_rate", "Flicker rate (lower is better)", (0, 1.05)),
+        ("rank_stability_10pct", "Rank stability @ 10% depth noise\n(Kendall τ, higher is better)", (0, 1.05)),
+        ("encounter_top1", "Encounter top-1 recall\n(higher is better)", (0, 0.5)),
+    ]
+    for ax, (metric, title, ylim) in zip(axes, panels):
+        point = [metrics[a][metric][0] for a in arms]
+        lo = [metrics[a][metric][1] for a in arms]
+        hi = [metrics[a][metric][2] for a in arms]
+        yerr = [[p - l for p, l in zip(point, lo)], [h - p for p, h in zip(point, hi)]]
+        ax.bar(labels, point, color=colors, yerr=yerr, capsize=3,
+               error_kw={"linewidth": 1, "ecolor": "#444444"})
+        ax.set_title(title)
+        ax.set_ylim(*ylim)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
 
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=PALETTE["baseline"]),
         plt.Rectangle((0, 0), 1, 1, color=PALETTE["ties"]),
         plt.Rectangle((0, 0), 1, 1, color=PALETTE["loses"]),
+        plt.Rectangle((0, 0), 1, 1, color=PALETTE["struck"]),
     ]
     fig.legend(
-        handles, ["K0 (baseline)", "ties with K0", "loses to K0"],
-        loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.06), frameon=False,
+        handles, ["K0 (baseline)", "ties with K0", "loses to K0", "struck (unreproducible, see docs)"],
+        loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.08), frameon=False, fontsize=9,
     )
     fig.suptitle(
-        "K0 term ablation — 139 SANPO sessions, 19,402 frames (2026-08-26)", y=1.14, fontweight="bold"
+        "K0 term ablation — 139 SANPO sessions, 19,402 frames (2026-08-26)\n"
+        "error bars: 95% session-level bootstrap CI",
+        y=1.17, fontweight="bold",
     )
     return _save(fig, "kinetic_ablation_metrics.png")
 
@@ -314,10 +348,47 @@ def write_results_summary_md(written: list[Path]) -> None:
         "",
         "## Kinetic score ablation verdicts",
         "",
+        "Source: `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/metrics.json` "
+        "(committed 2026-08-27, copied from the DGX Spark run — see `docs/ablation_guide.md` §6).",
+        "",
     ]
-    if KINETIC_ABLATION_CSV.exists():
+    metrics = _load_kinetic_metrics()
+    if metrics is not None:
+        rows = []
+        for arm, short in KINETIC_SHORT_NAMES.items():
+            m = metrics[arm]
+            rows.append({
+                "arm": short,
+                "flicker": m["flicker_rate"][0],
+                "flicker_ci": f"[{m['flicker_rate'][1]:.3f}, {m['flicker_rate'][2]:.3f}]",
+                "rank_stab_10pct": m["rank_stability_10pct"][0],
+                "encounter_top1": m["encounter_top1"][0],
+                "verdict": KINETIC_VERDICTS[arm],
+            })
+        lines.append(_df_to_markdown(pd.DataFrame(rows)))
+    elif KINETIC_ABLATION_CSV.exists():
         df = pd.read_csv(KINETIC_ABLATION_CSV)[["arm", "formula", "flicker", "rank_stab_10pct", "encounter_top1", "verdict"]]
         lines.append(_df_to_markdown(df))
+
+    if KINETIC_DISAGREEMENTS_KEY.exists():
+        key = json.loads(KINETIC_DISAGREEMENTS_KEY.read_text())
+        counts: dict[str, int] = {}
+        for entry in key:
+            counts[entry["variant"]] = counts.get(entry["variant"], 0) + 1
+        lines += [
+            "",
+            "### Disagreement frames exported per arm (of 219 total, capped at 60/arm)",
+            "",
+            "How often each arm's top pick differed from K0's, out of 19,402 scored frames — "
+            "the frames the VLM referee (`evaluation/vlm_referee.py`) still needs to adjudicate.",
+            "",
+            "| Arm | Disagreement frames exported |",
+            "|---|---:|",
+        ]
+        for arm, short in KINETIC_SHORT_NAMES.items():
+            if arm == "K0  sev·v²/d":
+                continue
+            lines.append(f"| {short} | {counts.get(arm, 0)} |")
     out_path = OUT_DIR / "results_summary.md"
     out_path.write_text("\n".join(lines) + "\n")
     print(f"wrote {out_path.relative_to(REPO_ROOT)}")

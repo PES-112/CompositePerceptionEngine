@@ -23,9 +23,9 @@ Cognitive Layer to plug into.
 | Detector validation | Done for v1/v2/v3 comparison | Version comparison artifacts live under `evaluation/benchmarks/yolo26n_version_comparison/`. |
 | SANPO edge latency benchmark | Done for detector/reflex budget proxy | 10-session Jetson Orin Nano 8GB simulation avg p95 `34.31 ms`, worst p95 `41.96 ms`. Simulated, not physical hardware. |
 | Kinetic score K0 defined and defended | Done | `severity(c) · v² / max(d, ε)`; K1–K5 dummies deleted; see `docs/methodology.md` §4. |
-| Kinetic score ablation (label-free metrics) | Done | 139 sessions, 19,402 frames, 2026-08-26. `no-velocity`/`ttc` lose; `linear`/`no-severity`/`size`/λ tie. `docs/ablation_guide.md` §6. |
-| Kinetic score blinded referee adjudication | **Not started** | 219 disagreement frames exported and idle; VLM + human calibration not run. `docs/pending_work.md` §1. |
-| Depth smoothing filter | **Not started** | Flagged as a blocker for trusting K0 under real depth noise. `docs/pending_work.md` §1.4. |
+| Kinetic score ablation (label-free metrics) | Done, raw data committed and audited | 139 sessions, 19,402 frames, 2026-08-26. `no-velocity`/`ttc` lose; `linear`/`no-severity`/`size` tie; λ arms struck (not reproducible from current code, root-caused). Raw `metrics.json`/`report.md`/`disagreements*.json` committed 2026-08-27. `docs/ablation_guide.md` §6. |
+| Kinetic score blinded referee adjudication | **Not started** | 219 disagreement frames committed and ready; VLM + human calibration not run — needs GPU + raw CSVs. `docs/pending_work.md` §1.4–1.5. |
+| Depth smoothing filter | **Not started** | Flagged as a blocker for trusting K0 under real depth noise. `docs/pending_work.md` §1.7. |
 | Edge detector export | Ready, deferred | `training/scripts/export_yolo26n_edge.py` exists; run after runtime components stabilize. |
 | ThreatEvent contract | Done first pass | `src/threat_prioritizer/events.py` converts perception rows to `ignore`, `cognitive`, or `reflex` events. |
 | Reflex Layer bridge | Done first pass | `src/reflex_layer/reflex.py` converts reflex events into Physics Verification narrator events. |

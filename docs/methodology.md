@@ -265,22 +265,32 @@ and 4× worse encounter recall than K0) — these two verdicts are solid regardl
 on this corpus, kinematics (velocity/distance) dominate most reorderings. Full table and per-arm
 verdicts: `ablation_guide.md` §6.
 
-**Three open caveats before treating the tie verdicts (or the λ numbers) as settled**, all tracked in
-`pending_work.md` §1:
+**One open caveat before treating the tie verdicts as settled**, tracked in `pending_work.md` §1:
 
 1. **A corpus-wide tie cannot distinguish "the term never matters" from "the term matters only in a
    minority of frames diluted into 19,402."** `evaluation/kinetic_ablation_stratified.py` isolates just
    the frames with a severity-differentiated, kinematically-close pair of objects — the scenario
    severity was designed for — and re-runs the same metrics restricted to that subset. This has not
-   been run against real data yet (self-checks pass; needs `data/processed/ablation_30pct/`).
-2. **The `lam=0.25`/`lam=1.0` numbers in `ablation_guide.md` §6 are flagged unverified**: the currently
-   committed `kinetic_ablation.py` has no lambda-sweep code (removed 2026-08-25, the day before this
-   run), so those two columns cannot have been reproduced from what's in the repo today.
-3. **The raw run artifacts** (`metrics.json`, `report.md`, `disagreements*.json`) were never committed
-   — only the transcribed summary table exists, so the "CIs fully overlap" claims behind every tie
-   verdict are not yet independently auditable from this repo.
+   been run against real data yet (self-checks pass; needs `data/processed/ablation_30pct/`, the raw
+   per-session CSVs, which are large and still only exist on the machine that ran Stage 1).
 
-Blinded referee adjudication of the tied arms (§4.7) has also not yet been run.
+**Resolved 2026-08-27, no longer open caveats:**
+
+- The raw run artifacts (`metrics.json`, `report.md`, `disagreements.json`, `disagreements_key.json`)
+  are now committed (`evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/`) and independently
+  auditable — the "CIs fully overlap" claims behind every tie verdict have been checked directly
+  against them and hold (e.g. K0 and `linear` flicker rate both report the identical 95% CI
+  `[0.964, 0.983]`).
+- The `lam=0.25`/`lam=1.0` numbers are root-caused, not just flagged: they came from an earlier
+  version of `kinetic_ablation.py` (commit `e045310`) that monkey-patched `SEVERITY_LAMBDA` per arm,
+  before that plumbing was intentionally removed on 2026-08-25. The raw numbers are real and preserved
+  in the committed run artifacts, but are struck from `ablation_guide.md`'s summary table (not merely
+  annotated) since they can't be reproduced from the code currently in the repo. Full account:
+  `ablation_guide.md` §6.
+
+Blinded referee adjudication of the tied arms (§4.7) has not yet been run — the 219 disagreement
+frames are committed and ready (`disagreements.json`), but running `evaluation/vlm_referee.py` against
+them needs local GPU-served VLMs, which this environment doesn't have.
 
 ---
 
