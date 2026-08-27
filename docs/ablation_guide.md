@@ -233,16 +233,25 @@ All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 
 #### Key metrics (K0 = baseline)
 
-| Metric | K0 | linear | no-severity | no-velocity | size | lam=0.25 | lam=1.0 | ttc |
-|---|---|---|---|---|---|---|---|---|
-| flicker ↓ | **0.975** | 0.975 | 0.975 | 0.994 | 0.974 | 0.975 | 0.975 | 0.572 |
-| tie_rate ↓ | **0.001** | 0.001 | 0.001 | 0.979 | 0.001 | 0.001 | 0.001 | 0.000 |
-| smoothness ↓ | **1.755** | 1.627 | 1.753 | 0.339 | 1.753 | 1.754 | 1.757 | 6.178 |
-| future_consist ↑ | **0.002** | 0.002 | 0.002 | 0.001 | 0.003 | 0.002 | 0.002 | 0.076 |
-| encounter_top1 ↑ | **0.307** | 0.307 | 0.307 | 0.342 | 0.307 | 0.307 | 0.307 | 0.067 |
-| rank_stab_2% ↑ | **1.000** | 1.000 | 1.000 | 0.524 | 0.999 | 1.000 | 1.000 | 1.000 |
-| rank_stab_5% ↑ | **1.000** | 0.999 | 1.000 | 0.387 | 0.998 | 0.998 | 1.000 | 1.000 |
-| rank_stab_10% ↑ | **0.998** | 0.998 | 0.997 | 0.283 | 0.999 | 0.997 | 0.997 | 0.258 |
+| Metric | K0 | linear | no-severity | no-velocity | size | ttc |
+|---|---|---|---|---|---|---|
+| flicker ↓ | **0.975** | 0.975 | 0.975 | 0.994 | 0.974 | 0.572 |
+| tie_rate ↓ | **0.001** | 0.001 | 0.001 | 0.979 | 0.001 | 0.000 |
+| smoothness ↓ | **1.755** | 1.627 | 1.753 | 0.339 | 1.753 | 6.178 |
+| future_consist ↑ | **0.002** | 0.002 | 0.002 | 0.001 | 0.003 | 0.076 |
+| encounter_top1 ↑ | **0.307** | 0.307 | 0.307 | 0.342 | 0.307 | 0.067 |
+| rank_stab_2% ↑ | **1.000** | 1.000 | 1.000 | 0.524 | 0.999 | 1.000 |
+| rank_stab_5% ↑ | **1.000** | 0.999 | 1.000 | 0.387 | 0.998 | 1.000 |
+| rank_stab_10% ↑ | **0.998** | 0.998 | 0.997 | 0.283 | 0.999 | 0.258 |
+
+> **λ arms omitted (2026-08-27).** The `lam=0.25` and `lam=1.0` columns reported here
+> previously were produced by a prior version of `evaluation/kinetic_ablation.py` (commit
+> `e045310`) that monkey-patched `physics.SEVERITY_LAMBDA` per arm. That plumbing was
+> intentionally removed on 2026-08-25 when Tier-B human labelling was dropped — nothing
+> remaining in the pipeline can adjudicate between λ values (see §0 above). The raw numbers
+> are preserved in `run_2026_08_26/metrics.json` and `run_2026_08_26/report.md` for
+> reference, but they are **not reproducible from the current committed code** and should
+> not appear in the paper. λ=0.5 is a declared design choice, not a measured result.
 
 #### Per-arm verdicts
 
@@ -253,13 +262,14 @@ All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 | **linear** (sev·v/d) | **TIES** | Identical to K0 on every metric (CIs fully overlap). The v² exponent is not measurably earning its place over v¹. |
 | **no-severity** (v²/d) | **TIES** | Identical to K0. Severity does not change any ranking — kinematics dominate, as predicted in the λ discussion. |
 | **size** (sev·v²·s^½/d) | **TIES** | Identical to K0. Apparent bbox size adds nothing beyond class + depth. |
-| **lam=0.25** (weak mass) | **TIES** | Identical to K0. λ is a low-sensitivity knob. |
-| **lam=1.0** (full KE) | **TIES** | Identical to K0. λ is a low-sensitivity knob. |
+| ~~**lam=0.25**~~ | ~~TIES~~ | _Struck — not reproducible from current code (see note above)._ |
+| ~~**lam=1.0**~~ | ~~TIES~~ | _Struck — not reproducible from current code (see note above)._ |
 
 #### Interpretation
 
 - The only terms that measurably affect ranking quality are **velocity** (catastrophic without it) and the **K0 formula structure** (crushes raw TTC).
-- Severity, the v² exponent, bbox size, and λ all tie — kinematics (velocity/distance) dominate every reordering. These terms should either be dropped or retained as declared design choices with explicit limitations in the paper.
+- Severity, the v² exponent, and bbox size all tie — kinematics (velocity/distance) dominate every reordering. These terms should either be dropped or retained as declared design choices with explicit limitations in the paper.
+- The λ arms (`lam=0.25`, `lam=1.0`) also tied in the raw run, corroborating that λ is a low-sensitivity knob, but those results are not reproducible from the current code and are excluded from the summary table above.
 - 219 disagreement frames were exported to `evaluation/benchmarks/kinetic_score_eval/run_2026_08_26/disagreements.json` for VLM referee adjudication (Step 4 of this guide).
 
 ### Output files
@@ -278,6 +288,6 @@ All confidence intervals are 95% percentile bootstrap resampling whole sessions.
 ### Next steps
 
 Per §3 of this guide: read the report before doing anything else. The `no-velocity` and `ttc` arms are
-settled — their CIs exclude K0. The remaining arms (`linear`, `no-severity`, `size`, `lam=0.25`,
-`lam=1.0`) all tie on label-free metrics and need VLM referees (§4) to determine whether their
-disagreement frames reveal a qualitative difference a human would care about.
+settled — their CIs exclude K0. The remaining arms (`linear`, `no-severity`, `size`) all tie on
+label-free metrics and need VLM referees (§4) to determine whether their disagreement frames reveal
+a qualitative difference a human would care about.
