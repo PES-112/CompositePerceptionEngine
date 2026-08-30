@@ -18,6 +18,7 @@ Post-processing pipeline (ported from notebook):
 from pathlib import Path
 
 import numpy as np
+import torch
 from ultralytics import YOLO
 
 from src.perception_stack.depth_loader import scale_point_to_depth
@@ -215,10 +216,22 @@ class YoloTracker:
         model_path: str = DEFAULT_MODEL,
         conf: float = DEFAULT_CONF,
         tracker: str = DEFAULT_TRACKER,
+        device: str | None = None,
     ):
         self.model = YOLO(model_path)
         self.model.overrides["conf"]    = conf
         self.model.overrides["tracker"] = tracker
+        self.device = device or self._resolve_device()
+        self.model.to(self.device)
+
+    @staticmethod
+    def _resolve_device() -> str:
+        if torch.cuda.is_available():
+            return "cuda"
+        mps_backend = getattr(torch.backends, "mps", None)
+        if mps_backend is not None and mps_backend.is_available():
+            return "mps"
+        return "cpu"
 
     def track(self, frame: np.ndarray, depth_map: np.ndarray | None = None) -> list[dict]:
         """
