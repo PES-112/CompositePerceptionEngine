@@ -57,6 +57,9 @@ CompositePerceptionEngine/
 │   ├── scripts/                     # YOLO download, training, export, evaluation, comparison scripts
 │   └── rl_agent/                    # PPO/LoRA training entry points for SLM-1
 ├── models/
+│   ├── GRU/                         # Learned encounter predictors + shared data/train/evaluate (see models/GRU/README.md)
+│   │   ├── GRU/                     # Architecture 1: per-object GRU (no scene context)
+│   │   └── GRU_attention/           # Architecture 2: per-object GRU + attention across objects in the frame
 │   ├── yolo/
 │   │   ├── base_yolo26n/            # Local base YOLO26n checkpoint registry entry
 │   │   └── cpe_yolo26n_hazards_v3_from_base/ # Preferred detector export registry
@@ -65,6 +68,8 @@ CompositePerceptionEngine/
 │   ├── indic/                       # IndicTrans2 artifacts
 │   └── tts/
 │       └── piper/                   # Downloaded Piper ONNX voices (e.g. en_US-lessac-low)
+├── dataset/                         # Model-ready datasets built from Stage-1 CSVs (see dataset/README.md)
+│   └── GRU/                         # samples.py + build.py; one built dataset shared by both GRU architectures
 ├── tools/
 │   ├── benchmark_edge_realtime.py   # RGB/depth real-time benchmark with edge profiles
 │   ├── benchmark_narration_latency.py # Standalone narration/TTS latency benchmark (no SANPO data needed)
@@ -90,7 +95,7 @@ CompositePerceptionEngine/
 │   │   └── figures/                 # Generated PNG plots + results_summary.md (output only)
 │   └── logs/
 ├── notebooks/                       # EDA and SANPO/YOLO prototyping notebooks
-├── tests/                           # Unit/integration tests for threat routing and reflex bridge checks
+├── tests/                           # Unit/integration tests for threat routing, reflex bridge, and GRU models
 ├── data/                            # Local datasets/downloads (gitignored)
 └── README.md
 ```

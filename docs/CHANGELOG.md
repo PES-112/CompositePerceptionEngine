@@ -2,6 +2,54 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-09-28] - Learned Encounter Predictors: GRU vs. GRU + Cross-Object Attention
+
+New branch `contextual_evaluation` (from `kinetic-score-evaluation`). Adds two small learned models
+that predict the §4.6 encounter label from each object's recent track history, to test whether
+scene context (objects seeing each other) improves threat prediction over K0 and over a per-object
+model. Implemented and unit-tested; **not yet run on real SANPO CSVs**.
+
+### Added
+- `models/GRU/GRU/model.py` - Architecture 1: per-object GRU; each object scored from its own 0.8 s
+  history.
+- `models/GRU/GRU_attention/model.py` - Architecture 2: same GRU plus one residual self-attention
+  block across the objects in a frame (no positional encoding, since fact sheets are K-sorted;
+  training-time context dropout).
+- `models/GRU/layers.py` - shared encoder and head, so the attention block is the only difference
+  between the two.
+- New top-level `dataset/` folder (model-ready datasets, one subfolder per model family; see
+  `dataset/README.md`). `dataset/GRU/` is deliberately **one dataset shared by both GRU
+  architectures** - separate datasets would add a second difference besides the attention layer.
+  - `dataset/GRU/samples.py` - Stage-1 per-session CSVs -> per-frame samples. Reuses
+    `evaluation/kinetic_ablation.py`'s `prepare()` and `encounters()` directly (no
+    re-implementation); `kinetic_score` is deliberately excluded from the inputs. Stores splits as
+    compressed `.npz` (plain arrays, no pickle).
+  - `dataset/GRU/build.py` - builds `dataset/GRU/<name>/{train,val,test}.npz` + `manifest.json`
+    (settings, source-CSV fingerprint, session split, label stats) once; warns if a file exceeds
+    GitHub's 50 MB warning size.
+- `models/GRU/train.py`, `models/GRU/evaluate.py`, `models/GRU/registry.py` - one shared training
+  loop and evaluation, reading a built dataset (`--dataset`). Runs record the dataset fingerprint and
+  re-evaluation refuses a different dataset. Per-object AUROC/average precision and per-frame
+  encounter_top1/flicker_rate with the ablation's exact definitions and session bootstrap, reported
+  on all frames and on an interaction slice, against K0, nearest-object, and nearest-in-cone
+  baselines.
+- `models/GRU/README.md`, `tests/test_gru_models.py` - 8 tests: labels match the ablation, history
+  padding, `.npz` save/load round trip, disjoint session split, padding invariance, object-order
+  invariance, only the attention model sees other objects, no NaNs with single-object frames.
+- `models/__init__.py`, `dataset/__init__.py` so `python -m ...` resolves to this repo's packages.
+
+### Verified
+- End-to-end train -> checkpoint -> standalone re-evaluation on synthetic session CSVs (not SANPO):
+  both architectures learn the task and the standalone evaluator reproduces the training-time
+  metrics. Synthetic numbers are a pipeline check only and are not reported anywhere.
+
+### Changed
+- `docs/methodology.md` - new §4.10 (design, protocol, baselines, capacity control, caveats) and a
+  matching bullet in the A.6 drafting prompt.
+- `README.md` - project structure lists `models/GRU/` and `dataset/`.
+- `docs/architecture.md` unchanged: these models are an offline evaluation experiment and do not
+  enter the runtime pipeline yet.
+
 ## [2026-08-27] - Merged Real Ablation Run Artifacts; Docs Reconciled Against Ground Truth
 
 Merged `origin/kinetic-score-evaluation` (ishaan's commit `d9f4330`, "Add run_2026_08_26 artifacts;

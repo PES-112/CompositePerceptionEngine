@@ -292,6 +292,44 @@ Blinded referee adjudication of the tied arms (§4.7) has not yet been run — t
 frames are committed and ready (`disagreements.json`), but running `evaluation/vlm_referee.py` against
 them needs local GPU-served VLMs, which this environment doesn't have.
 
+### 4.10 Learned encounter predictors: GRU vs. GRU + cross-object attention (implemented 2026-09-28, not yet run on real data)
+
+K0 is a closed-form score of one frame. The question this experiment asks is whether a small learned
+model, given each object's recent history, predicts the §4.6 encounter label better than K0 — and
+whether letting objects in a frame see each other ("scene context") adds anything on top of that.
+Code: `dataset/GRU/` (samples, labels, split) and `models/GRU/` (models, training, evaluation); see
+their READMEs.
+
+- **Input.** Per object, its last 8 processed frames (0.8 s at the 10 Hz stride) of runtime-derivable
+  features: distance, closing velocity, bearing, per-step change in distance and bearing (retreat and
+  lateral motion, both invisible to K0), YOLO confidence, log box area, track age, and a learned
+  class embedding. `kinetic_score` is deliberately **not** an input, so a model cannot learn to copy K0.
+- **Label.** Exactly the §4.6 encounter label, imported from `evaluation/kinetic_ablation.py` rather
+  than re-implemented (unit-tested to match). A `--future-only` variant excludes frame T itself.
+- **Two architectures, one variable.** Both share the same per-object GRU encoder and scoring head
+  (`models/GRU/layers.py`). Architecture 1 (`GRU/`) scores each object independently. Architecture 2
+  (`GRU_attention/`) adds one residual pre-norm self-attention block across the objects of a frame,
+  with no positional encoding (fact sheets are K-sorted, so list position would leak K0's ranking)
+  and training-time context dropout (so a single spurious detection cannot dominate its neighbours).
+  Same samples, same split, same loop — a metric gap is attributable to the attention block.
+- **Capacity control.** The attention model has ~2× the parameters (≈64k vs. ≈30k at hidden=64). If
+  it wins narrowly, re-run the plain GRU at `--hidden 96` (≈ matched parameters) before crediting
+  scene context.
+- **Metrics.** Per object: AUROC and average precision. Per frame: `encounter_top1` and
+  `flicker_rate` with the ablation's exact definitions and frame weighting. Everything is reported
+  again on an **interaction slice** (≥ 2 objects within 5 m, or a crosswalk in view), because most
+  frames contain no interaction and a corpus-wide average would dilute any effect — the same
+  dilution concern as §4.9's open caveat.
+- **Baselines, on the same held-out sessions.** K0, nearest object, and nearest object inside the
+  ±30° encounter cone. The last is a plain rule mirroring the label's own definition: a learned model
+  must beat it to show it learned more than the label.
+- **Protocol.** Session-level 70/15/15 split fixed once at dataset build time and shared by both
+  architectures, ≥ 3 training seeds per architecture, early stopping on validation loss,
+  session-level bootstrap CIs (§4.8).
+- **Caveat to state when reporting.** The label comes from the same noisy perception stack as the
+  inputs (depth noise, ByteTrack ID switches), so "predicts encounters" means "predicts what the
+  perception stack will measure", not ground-truth collisions.
+
 ---
 
 ## 5. Edge-latency simulation methodology
@@ -516,7 +554,16 @@ section of this document (§1–6 above) as additional grounding context first.
 >   pairwise Cohen's kappa between them and, critically, kappa against a human-labelled calibration
 >   subset. State plainly that if human kappa is poor, the VLM numbers are not evidence. **Note when
 >   drafting:** this referee step has not been run yet as of this writing (`pending_work.md` §1) — the
->   219 disagreement frames are exported and waiting."
+>   219 disagreement frames are exported and waiting.
+> - If the learned-predictor experiment (§4.10) has been run, add a paragraph comparing K0 against two
+>   learned encounter predictors trained on the same formula-free labels: a per-object GRU over 0.8 s
+>   of track history, and the same GRU plus one self-attention block across the objects in a frame
+>   (no positional encoding, so object order — which is K-sorted — cannot leak). Report per-object
+>   AUROC/average precision and per-frame encounter_top1/flicker with session-bootstrap CIs, on all
+>   frames and on the interaction slice, against the nearest-in-cone rule baseline as well as K0.
+>   Attribute any GRU-vs-attention gap to scene context only if it survives a parameter-matched plain
+>   GRU. State that the labels come from the same perception stack as the inputs. **Note when
+>   drafting:** as of 2026-09-28 this is implemented but has not been run on real SANPO CSVs."
 
 ### A.7 Results, Discussion & Conclusion
 
