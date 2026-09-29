@@ -60,6 +60,7 @@ CompositePerceptionEngine/
 │   ├── GRU/                         # Learned encounter predictors + shared data/train/evaluate (see models/GRU/README.md)
 │   │   ├── GRU/                     # Architecture 1: per-object GRU (no scene context)
 │   │   └── GRU_attention/           # Architecture 2: per-object GRU + attention across objects in the frame
+│   ├── Ensemble/                    # ensemble.py: rank-average / out-of-fold stacked arrival ensemble (README.md)
 │   ├── yolo/
 │   │   ├── base_yolo26n/            # Local base YOLO26n checkpoint registry entry
 │   │   └── cpe_yolo26n_hazards_v3_from_base/ # Preferred detector export registry
@@ -93,6 +94,7 @@ CompositePerceptionEngine/
 │   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
 │   │   ├── kinetic_score_eval/      # K0 ablation runs: label-free metrics, referee ballots, reports
 │   │   ├── gru_encounter_eval/      # GRU vs. GRU+attention encounter/arrival-time runs (one report.md per run)
+│   │   ├── ensemble_eval/           # models/Ensemble results: report.md, paired differences, stacker weights
 │   │   ├── narration_latency/       # Narration/TTS latency benchmark output (report.md, latency.json)
 │   │   └── figures/                 # Generated PNG plots + results_summary.md (output only)
 │   └── logs/

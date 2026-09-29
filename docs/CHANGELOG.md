@@ -50,6 +50,21 @@ sessions. Full write-up: `evaluation/benchmarks/gru_encounter_eval/run_2026_09_2
   - The preliminary `arrival139_2026_09_28` runs were kept local, not committed. They can be
     reproduced from `dataset/GRU/ablation_30pct_tracked_d3_h8_current_m32_f5_s0`.
 
+- `models/Ensemble/ensemble.py` implements Level 1 of the ensemble plan. It combines the GRU,
+  attention GRU, nearest-in-cone and TTC arrival scores in two ways:
+  - **Rank averaging**, which fits nothing.
+  - **A softmax-regression stacker** fitted out-of-fold. A test proves fold F never sees its own
+    labels.
+  - Run on 387 sessions:
+    - The stacked ensemble is the best "will it come close" predictor so far: AUROC 0.889, +0.019
+      [+0.008, +0.032] over nearest-in-cone, and +0.012 over the GRU.
+    - It still only **ties** the nearest-in-cone rule on arrival order (+0.001 [−0.010, +0.012]).
+  - Results: `evaluation/benchmarks/ensemble_eval/arrival387_2026_09_29/`.
+  - Level 2 (blending arrival with K0 severity for the announcement order) is still planned.
+  - 3 new tests: `tests/test_ensemble.py`.
+- `models/GRU/summarize.py` now exposes `run_dirs()` and `pooled_runs()` for reuse. Its output is
+  unchanged, which was verified.
+
 ### Verified
 - Re-running `summarize` and `evaluate` on the 2026-09-28 fixed-split runs reproduces their numbers
   exactly after the refactor.

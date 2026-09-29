@@ -125,20 +125,33 @@ def paired_differences(samples: list[dict], seeds: list[tuple[list, list]],
     return out
 
 
-def collect(run_name: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
-    """({arch: [metrics per seed]}, {arch: paired differences}) — the latter for cross-validation runs only."""
-    found, pooled_by_arch = {}, {}
+def run_dirs(run_name: str) -> dict[str, list[Path]]:
+    """{arch: run folders} named exactly <run_name>[_fold<F>]_seed<N>."""
     own = re.compile(re.escape(run_name) + r"_(fold\d+_)?seed\d+")
-    for arch, root in RUN_ROOTS.items():
-        dirs = sorted(p.parent for p in root.glob(f"{run_name}_*/metrics.json") if own.fullmatch(p.parent.name))
-        if not dirs:
-            continue
+    found = {arch: sorted(p.parent for p in root.glob(f"{run_name}_*/metrics.json") if own.fullmatch(p.parent.name))
+             for arch, root in RUN_ROOTS.items()}
+    return {arch: dirs for arch, dirs in found.items() if dirs}
+
+
+def pooled_runs(run_name: str) -> dict[str, list[tuple[list[dict], list, list]]]:
+    """{arch: [(samples, arrive, soon) per seed]} for cross-validation runs, each joined across its folds."""
+    out = {}
+    for arch, dirs in run_dirs(run_name).items():
         folded = defaultdict(list)
         for d in dirs:
             if "_fold" in d.name:
                 folded[d.name.rsplit("_seed", 1)[1]].append(d)
         if folded:
-            pooled_by_arch[arch] = [pooled_scores(ds) for _, ds in sorted(folded.items())]
+            out[arch] = [pooled_scores(ds) for _, ds in sorted(folded.items(), key=lambda kv: int(kv[0]))]
+    return out
+
+
+def collect(run_name: str) -> tuple[dict[str, list[dict]], dict[str, dict]]:
+    """({arch: [metrics per seed]}, {arch: paired differences}) — the latter for cross-validation runs only."""
+    found = {}
+    pooled_by_arch = pooled_runs(run_name)
+    for arch, dirs in run_dirs(run_name).items():
+        if arch in pooled_by_arch:
             found[arch] = [evaluate_scores(s, (a, n)) for s, a, n in pooled_by_arch[arch]]
         else:
             found[arch] = [json.loads((d / "metrics.json").read_text(encoding="utf-8")) for d in dirs]

@@ -380,6 +380,18 @@ their READMEs.
     the interaction slice.
   - **Reporting guidance.** Report the K0 result as "K0 is not an arrival ranking" rather than as a
     straw-man win. Report the scene-context result as small and limited to encounter prediction.
+- **Ensemble (2026-09-29; `models/Ensemble/`, `evaluation/benchmarks/ensemble_eval/`).**
+  - **Components.** The GRU, the attention GRU, nearest-in-cone and TTC.
+  - **Combiners.**
+    - Rank averaging, with nothing fitted.
+    - A softmax-regression stacker predicting the arrival slice, trained on out-of-fold
+      predictions. Fold F is scored by a stacker fitted on the other folds only; this is standard
+      cross-validation stacking, not fully nested.
+  - **Results.** The stacked ensemble gives the best encounter prediction: AUROC 0.889, +0.019
+    [+0.008, +0.032] over nearest-in-cone. It still **ties** nearest-in-cone on arrival order
+    (+0.001 [−0.010, +0.012]).
+  - **Reporting guidance.** Report it as evidence that arrival ordering is limited by the
+    perception features, not by the choice of model.
 
 ---
 
