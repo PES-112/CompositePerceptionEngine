@@ -1,0 +1,157 @@
+{
+  "sessions": 21,
+  "methods": {
+    "model": {
+      "all": {
+        "objects": 15656,
+        "positive_rate": 0.12755493819713593,
+        "auroc": 0.9999574000432525,
+        "average_precision": 0.9997118035630449,
+        "frames": 3007,
+        "encounter_frames": 1215,
+        "encounter_top1": [
+          0.30200904331985867,
+          0.19815686739173632,
+          0.420495464709013
+        ],
+        "flicker_rate": [
+          0.9598202864259978,
+          0.9211686637322878,
+          0.988932168607934
+        ]
+      },
+      "interaction": {
+        "objects": 14619,
+        "positive_rate": 0.13660305738449097,
+        "auroc": 0.9999539001101875,
+        "average_precision": 0.9997118035630449,
+        "frames": 2790,
+        "encounter_frames": 1171,
+        "encounter_top1": [
+          0.3178445226292318,
+          0.2107770011639478,
+          0.4410197848837719
+        ],
+        "flicker_rate": [
+          0.9570564240127515,
+          0.9151623224452119,
+          0.9883163045390144
+        ]
+      }
+    },
+    "K0": {
+      "all": {
+        "objects": 15656,
+        "positive_rate": 0.12755493819713593,
+        "auroc": 0.49044585987261147,
+        "average_precision": 0.11821367278391781,
+        "frames": 3007,
+        "encounter_frames": 1215,
+        "encounter_top1": [
+          0.2739807434035004,
+          0.170866899858237,
+          0.3988948776218551
+        ],
+        "flicker_rate": [
+          0.9775660577492749,
+          0.9517087252409923,
+          0.9961813435607232
+        ]
+      },
+      "interaction": {
+        "objects": 14619,
+        "positive_rate": 0.13660305738449097,
+        "auroc": 0.49001742988432895,
+        "average_precision": 0.12734197075392267,
+        "frames": 2790,
+        "encounter_frames": 1171,
+        "encounter_top1": [
+          0.2878962475261853,
+          0.17981020951053728,
+          0.4175064674472415
+        ],
+        "flicker_rate": [
+          0.9761828744463337,
+          0.9486519583954819,
+          0.9961601037243075
+        ]
+      }
+    },
+    "nearest": {
+      "all": {
+        "objects": 15656,
+        "positive_rate": 0.12755493819713593,
+        "auroc": 1.0,
+        "average_precision": 1.0,
+        "frames": 3007,
+        "encounter_frames": 1215,
+        "encounter_top1": [
+          0.30200904331985867,
+          0.19815686739173632,
+          0.420495464709013
+        ],
+        "flicker_rate": [
+          0.9993283645350391,
+          0.9978620569865327,
+          1.0
+        ]
+      },
+      "interaction": {
+        "objects": 14619,
+        "positive_rate": 0.13660305738449097,
+        "auroc": 1.0,
+        "average_precision": 1.0,
+        "frames": 2790,
+        "encounter_frames": 1171,
+        "encounter_top1": [
+          0.3178445226292318,
+          0.2107770011639478,
+          0.4410197848837719
+        ],
+        "flicker_rate": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    "nearest_in_cone": {
+      "all": {
+        "objects": 15656,
+        "positive_rate": 0.12755493819713593,
+        "auroc": 1.0,
+        "average_precision": 1.0,
+        "frames": 3007,
+        "encounter_frames": 1215,
+        "encounter_top1": [
+          0.30200904331985867,
+          0.19815686739173632,
+          0.420495464709013
+        ],
+        "flicker_rate": [
+          0.9993283645350391,
+          0.9978620569865327,
+          1.0
+        ]
+      },
+      "interaction": {
+        "objects": 14619,
+        "positive_rate": 0.13660305738449097,
+        "auroc": 1.0,
+        "average_precision": 1.0,
+        "frames": 2790,
+        "encounter_frames": 1171,
+        "encounter_top1": [
+          0.3178445226292318,
+          0.2107770011639478,
+          0.4410197848837719
+        ],
+        "flicker_rate": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  }
+}

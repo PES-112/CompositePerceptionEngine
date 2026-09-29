@@ -273,6 +273,22 @@ verdicts: `ablation_guide.md` §6.
    severity was designed for — and re-runs the same metrics restricted to that subset. This has not
    been run against real data yet (self-checks pass; needs `data/processed/ablation_30pct/`, the raw
    per-session CSVs, which are large and still only exist on the machine that ran Stage 1).
+2. **The §4.6 encounter label is dominated by untracked depth blobs (found 2026-09-28).**
+   - **Where they come from.** `detect_unlabeled_obstacles` emits one `unlabeled_obstacle` per fixed
+     column of the lower 60% of every frame: the closest depth pixel YOLO didn't claim, with no
+     ground removal. These are mostly the ground ahead of the walker.
+   - **Share of the label.** They are 99.7% of all (frame, encounter-track) pairs.
+   - **Why K0 misses them.** They are re-IDed every frame, so they have velocity 0 and K0 = 0.
+   - **Unwinnable frames.** Only ~36% of encounter frames have the encounter object visible at T,
+     which caps every arm's encounter_top1.
+   - **Effect on the arms.** With the blobs removed (`evaluation/encounter_blob_check.py`), K0,
+     no-velocity and TTC tie: 0.305 [0.177, 0.427], 0.306 [0.203, 0.409], 0.310 [0.177, 0.440].
+     The corpus-wide TTC and no-velocity encounter results are therefore artifacts of blob
+     selection, not evidence about real encounters.
+   - **Unaffected.** The label-free metrics in §4.5 do not use this label and are not affected by
+     this caveat.
+   - **Fix.** Ground-plane removal in the obstacle detector, or tracked-object-only encounter
+     labels, before encounter_top1 is cited.
 
 **Resolved 2026-08-27, no longer open caveats:**
 
@@ -292,7 +308,7 @@ Blinded referee adjudication of the tied arms (§4.7) has not yet been run — t
 frames are committed and ready (`disagreements.json`), but running `evaluation/vlm_referee.py` against
 them needs local GPU-served VLMs, which this environment doesn't have.
 
-### 4.10 Learned encounter predictors: GRU vs. GRU + cross-object attention (implemented 2026-09-28, not yet run on real data)
+### 4.10 Learned encounter predictors: GRU vs. GRU + cross-object attention (first run 2026-09-28)
 
 K0 is a closed-form score of one frame. The question this experiment asks is whether a small learned
 model, given each object's recent history, predicts the §4.6 encounter label better than K0 — and
@@ -329,6 +345,41 @@ their READMEs.
 - **Caveat to state when reporting.** The label comes from the same noisy perception stack as the
   inputs (depth noise, ByteTrack ID switches), so "predicts encounters" means "predicts what the
   perception stack will measure", not ground-truth collisions.
+- **Two dataset variants.**
+  - **All objects:** the ablation's label, dominated by depth blobs (§4.9 caveat 2).
+  - **Tracked only** (`--tracked-only`): the blobs are dropped. This is the only variant that tests
+    prediction.
+- **First results** (139 sessions, 3 seeds; `evaluation/benchmarks/gru_encounter_eval/run_2026_09_28/`).
+  - **All objects:** both architectures reduce to the nearest-object rule (AUROC 1.000). This
+    variant cannot test prediction.
+  - **Tracked only:** the plain GRU reaches AUROC 0.905 ± 0.054, the attention GRU 0.879 ± 0.022,
+    nearest 0.937 and K0 0.481.
+  - **Stability:** the GRUs' top pick is steadier than nearest's (flicker 0.57–0.58 vs. 0.68–0.70).
+  - **Verdict:** neither GRU beats nearest, and attention adds nothing measurable. The result is
+    inconclusive rather than negative: validation holds only 7 positive object-frames and the test
+    set 45 encounter frames.
+  - **Next:** a relaxed tracked-object threshold (e.g. 3 m) and session-level cross-validation.
+- **Arrival-time ranking (2026-09-29, 387 sessions;
+  `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival/`).**
+  - **Label.** Tracked objects; the hazard distance is relaxed to 3 m to get enough positives
+    (263 vs. 45 encounter tracks on 139 sessions). Arrival time = frames until the object first
+    enters the zone.
+  - **Output.** The model outputs a distribution over 4 slices of the 2 s horizon plus "not within
+    it". The how-soon score is minus the expected arrival time.
+  - **Metrics.** `arrival_order` (pairwise concordance within a frame) and `soonest_top1`.
+    TTC = (d − 3 m)/v joins the baselines as physics' own arrival estimate.
+  - **Protocol.** 5-fold session-level cross-validation, stratified so each fold holds ~19
+    encounter sessions. Test predictions are pooled across folds. Differences are reported as
+    paired session-bootstrap CIs (1,000 resamples).
+  - **Results vs. K0 and TTC.** The GRU beats K0 (AUROC +0.31, arrival order +0.08) and TTC
+    (+0.23 / +0.06); all CIs exclude 0.
+  - **Results vs. nearest-in-cone.** The GRU ties it (+0.007 / −0.011, CIs include 0), with a
+    steadier top pick (flicker 0.59 vs. 0.73).
+  - **Attention vs. plain GRU.** +0.010 AUROC [+0.002, +0.021]. That survives a size-matched
+    control (plain GRU at hidden 96 ≈ 67k parameters), but there is no gain in arrival order or on
+    the interaction slice.
+  - **Reporting guidance.** Report the K0 result as "K0 is not an arrival ranking" rather than as a
+    straw-man win. Report the scene-context result as small and limited to encounter prediction.
 
 ---
 
@@ -563,7 +614,10 @@ section of this document (§1–6 above) as additional grounding context first.
 >   frames and on the interaction slice, against the nearest-in-cone rule baseline as well as K0.
 >   Attribute any GRU-vs-attention gap to scene context only if it survives a parameter-matched plain
 >   GRU. State that the labels come from the same perception stack as the inputs. **Note when
->   drafting:** as of 2026-09-28 this is implemented but has not been run on real SANPO CSVs."
+>   drafting:** the first run (2026-09-28) is in §4.10.
+>   - It found that the encounter label is 99.7% untracked depth blobs (§4.9 caveat 2).
+>   - Do not cite corpus-wide encounter_top1 for any arm, K0 included, without stating that caveat.
+>     On tracked objects only, K0, no-velocity and TTC tie."
 
 ### A.7 Results, Discussion & Conclusion
 

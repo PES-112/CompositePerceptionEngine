@@ -84,6 +84,7 @@ CompositePerceptionEngine/
 ├── evaluation/
 │   ├── kinetic_ablation.py          # K0 term ablation + label-free metrics + disagreement export
 │   ├── kinetic_ablation_stratified.py # Severity-discriminating-frame-only re-run of the ablation metrics
+│   ├── encounter_blob_check.py      # Re-runs encounter_top1 with/without untracked obs_* depth blobs
 │   ├── vlm_referee.py               # Blinded 3-VLM referee (local servers) over disagreement frames
 │   ├── topk_threat_validation.py    # Per-scene K0 top-3 threats, validated by 3 blinded local VLMs
 │   ├── generate_report_figures.py   # Regenerates all plots/tables in benchmarks/figures/ from current results
@@ -91,6 +92,7 @@ CompositePerceptionEngine/
 │   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
 │   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
 │   │   ├── kinetic_score_eval/      # K0 ablation runs: label-free metrics, referee ballots, reports
+│   │   ├── gru_encounter_eval/      # GRU vs. GRU+attention encounter/arrival-time runs (one report.md per run)
 │   │   ├── narration_latency/       # Narration/TTS latency benchmark output (report.md, latency.json)
 │   │   └── figures/                 # Generated PNG plots + results_summary.md (output only)
 │   └── logs/

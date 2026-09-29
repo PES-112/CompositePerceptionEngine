@@ -2,6 +2,101 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-09-29] - Arrival-Time GRUs with Cross-Validation (387 SANPO Sessions)
+
+The GRUs can now rank tracked objects by **how soon** they will come within a hazard distance. They
+were evaluated with 5-fold session-level cross-validation on 387 of the 462 curated SANPO-Real
+sessions. Full write-up: `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival/report.md`.
+
+### Found
+- **K0 and TTC.** On "will this tracked object come within 3 m in front of you in 2 s", the GRU
+  beats K0 (AUROC +0.31 [+0.25, +0.35]) and TTC (+0.23). It also ranks objects by arrival better
+  than both (+0.08 / +0.06, CIs exclude 0).
+- **Nearest-object rules.** The GRU ties the plain "nearest object in the forward cone" rule on
+  both AUROC and arrival order. Its advantage is a steadier top pick: flicker 0.59 vs. 0.73.
+- **Attention.** Cross-object attention adds +0.010 AUROC [+0.002, +0.021]. That survives a
+  size-matched control (plain GRU at hidden 96), but there is no gain on arrival order or on
+  interaction frames, and flicker is worse.
+- **K0 as an arrival ranking.** It is barely above chance at predicting who comes close (AUROC
+  0.57). It should not be the only ranking used to decide what gets announced first.
+
+### Added
+- **Dataset builder options.**
+  - `--hazard-m` sets the encounter distance; 1.5 m stays identical to the ablation, which is
+    unit-tested.
+  - `--folds K` builds session-level K-fold cross-validation, stratified by encounter count and
+    stored as `all.npz`.
+  - Per-object `tte` (frames until arrival) and `ttc` arrays.
+- **Model and training options.**
+  - `models/GRU/train.py --time-bins K` adds an arrival-time output (K slices of the 2 s horizon
+    plus "not within it"), trained with cross-entropy. It is shared by both architectures through
+    `ThreatHead(n_outputs)`.
+  - Training loops over folds.
+  - Each run saves `test_outputs.npy`.
+- **Evaluation.**
+  - `models/GRU/evaluate.py` adds a TTC baseline and two metrics: `soonest_top1` and
+    `arrival_order` (pairwise concordance).
+  - Flicker now follows the announced (how-soon) pick; this is identical for yes/no models.
+- **Summaries.**
+  - `models/GRU/summarize.py` pools cross-validation folds, so every session is scored once.
+  - It reports paired session-bootstrap differences, model vs. each baseline and attention vs. GRU.
+  - Run names are matched exactly.
+- **Tests.** 16 in total, covering arrival times, folds, the cross-validation round trip, arrival
+  pairs, score conversion, loss targets and output shape.
+- **Data and runs.**
+  - Built datasets `ablation_30pct_tracked_d3_h8_current_m32_f5_s0` and
+    `sanpo_real_387_tracked_d3_h8_current_m32_f5_s0`.
+  - Run sets `arrival387_2026_09_29` and `arrival387h96_2026_09_29`.
+  - The preliminary `arrival139_2026_09_28` runs were kept local, not committed. They can be
+    reproduced from `dataset/GRU/ablation_30pct_tracked_d3_h8_current_m32_f5_s0`.
+
+### Verified
+- Re-running `summarize` and `evaluate` on the 2026-09-28 fixed-split runs reproduces their numbers
+  exactly after the refactor.
+
+### Changed
+- `docs/methodology.md` §4.10 covers the arrival-time task, the cross-validation protocol, paired
+  statistics and results.
+- `dataset/README.md` and `models/GRU/README.md` document the new options, metrics and latest
+  results.
+
+## [2026-09-28] - GRU First Real Run; Encounter Label Found to Be Dominated by Depth Blobs
+
+Regenerated the 139-session ablation CSVs locally, built the GRU datasets, and trained both
+architectures (3 seeds each). Full write-up:
+`evaluation/benchmarks/gru_encounter_eval/run_2026_09_28/report.md`.
+
+### Found
+- **99.7% of the ablation's encounter labels are untracked `obs_*` depth blobs.**
+  `detect_unlabeled_obstacles` has no ground removal, so these are mostly the ground ahead of the
+  walker. They are re-IDed every frame, so K0 is always 0 for them, and only ~36% of encounter
+  frames are winnable by any method.
+- **With blobs removed, K0, no-velocity and TTC tie on encounter_top1** (0.305 / 0.306 / 0.310, CIs
+  roughly [0.18, 0.43]). The ablation's TTC and no-velocity encounter results are artifacts of which
+  formula picks the ground blob. Flicker and rank-stability results were not re-checked.
+- **GRU results.**
+  - All objects: both GRUs learn exactly "nearest object" (AUROC 1.000).
+  - Tracked only: GRU AUROC 0.905 ± 0.054, attention 0.879 ± 0.022, nearest 0.937, K0 0.481.
+  - Neither beats nearest, and attention adds nothing measurable.
+  - The tracked-only data is too thin to be conclusive (7 validation positives, 45 test encounter
+    frames).
+- **Correction.** The encounter horizon is 20 frames at 10 Hz = **2 s**, not "20 source frames".
+  The CSVs renumber strided frames consecutively. Docs and docstrings corrected.
+
+### Added
+- `dataset/GRU/build.py --tracked-only`, which drops the `obs_*` blobs (`samples.UNTRACKED_PREFIX`),
+  with a test (9 tests total).
+- Built datasets `dataset/GRU/ablation_30pct_h8_current_m32_s0/` and
+  `dataset/GRU/ablation_30pct_tracked_h8_current_m32_s0/` (1.5 MB and 0.4 MB).
+- 12 trained runs under `models/GRU/{GRU,GRU_attention}/runs/{all,tracked}_2026_09_28_seed{0,1,2}/`.
+- `models/GRU/summarize.py`, which gives mean ± std across seeds next to the baselines.
+- `evaluation/encounter_blob_check.py`, which recomputes the ablation's encounter_top1 with and
+  without the blobs.
+
+### Changed
+- `docs/methodology.md` - new §4.9 open caveat 2 (blob-dominated encounter label); §4.10 results.
+- `README.md`, `dataset/README.md`, `models/GRU/README.md` - new files and the blob explanation.
+
 ## [2026-09-28] - Learned Encounter Predictors: GRU vs. GRU + Cross-Object Attention
 
 New branch `contextual_evaluation` (from `kinetic-score-evaluation`). Adds two small learned models

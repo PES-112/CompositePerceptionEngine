@@ -35,12 +35,18 @@ class TrackEncoder(nn.Module):
 
 
 class ThreatHead(nn.Module):
-    """[B, N, hidden] -> encounter logit per object [B, N]."""
+    """
+    [B, N, hidden] -> per object either one encounter logit [B, N] (n_outputs=1)
+    or arrival-time logits [B, N, n_outputs]: one per slice of the horizon plus
+    a final "not within the horizon" class.
+    """
 
-    def __init__(self, hidden: int = 64, dropout: float = 0.1):
+    def __init__(self, hidden: int = 64, dropout: float = 0.1, n_outputs: int = 1):
         super().__init__()
+        self.n_outputs = n_outputs
         self.net = nn.Sequential(nn.Linear(hidden, hidden), nn.GELU(),
-                                 nn.Dropout(dropout), nn.Linear(hidden, 1))
+                                 nn.Dropout(dropout), nn.Linear(hidden, n_outputs))
 
     def forward(self, h: torch.Tensor) -> torch.Tensor:
-        return self.net(h).squeeze(-1)
+        out = self.net(h)
+        return out.squeeze(-1) if self.n_outputs == 1 else out

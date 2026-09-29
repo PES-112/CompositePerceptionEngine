@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,15 +11,21 @@ from dataset.GRU.samples import (
     FEATURES,
     N_CLASSES,
     N_FEATURES,
+    arrival_bins,
     collate,
+    fold_sessions,
+    fold_split,
+    load_dataset,
     load_split,
     save_split,
     session_samples,
     split_sessions,
 )
 from evaluation.kinetic_ablation import encounters, prepare
+from models.GRU.evaluate import arrival_pairs, model_scores
 from models.GRU.GRU.model import TrackGRU
 from models.GRU.GRU_attention.model import TrackGRUAttention
+from models.GRU.train import make_loss
 
 D = FEATURES.index("distance")
 DD = FEATURES.index("d_distance")
@@ -70,6 +77,17 @@ class DataTests(unittest.TestCase):
         self.assertTrue(np.all(last["x"][person, 1:, DD] < 0))   # distance shrinking every step
         self.assertTrue(np.all(np.diff(last["x"][person, :, D]) < 0))
 
+    def test_tracked_only_drops_untracked_depth_blobs(self):
+        raw = csv_rows()
+        blob = raw.iloc[[0]].assign(track_id="obs_0_1104", **{"class": "unlabeled_obstacle"}, distance_m=1.0)
+        raw = pd.concat([raw, blob], ignore_index=True)
+        kept = session_samples(raw, "s1")
+        dropped = session_samples(raw, "s1", tracked_only=True)
+        self.assertIn("obs_0_1104", kept[0]["track_ids"])
+        self.assertTrue(kept[0]["y"][kept[0]["track_ids"].index("obs_0_1104")])   # blob at 1 m, dead ahead
+        self.assertTrue(all(not t.startswith("obs_") for s in dropped for t in s["track_ids"]))
+        self.assertFalse(dropped[0]["frame_has_encounter"])
+
     def test_saved_split_loads_back_identically(self):
         samples = session_samples(csv_rows(), "s1")
         with tempfile.TemporaryDirectory() as tmp:
@@ -88,6 +106,73 @@ class DataTests(unittest.TestCase):
         parts = [set(v) for v in split.values()]
         self.assertEqual(sum(map(len, parts)), 20)
         self.assertFalse(parts[0] & parts[1] or parts[0] & parts[2] or parts[1] & parts[2])
+
+    def test_arrival_times(self):
+        # The person is 6.0 - 0.5*step m away at frame 3*step: first under 1.5 m at frame 30, under 3 m at frame 21.
+        by_frame = {s["frame_idx"]: s for s in session_samples(csv_rows(), "s1")}
+        person = lambda s: s["track_ids"].index("1")   # noqa: E731
+        self.assertEqual(by_frame[12]["tte"][person(by_frame[12])], 18)
+        self.assertEqual(by_frame[3]["tte"][person(by_frame[3])], -1)          # 27 frames away > 20
+        wide = {s["frame_idx"]: s for s in session_samples(csv_rows(), "s1", hazard_m=3.0)}
+        self.assertEqual(wide[3]["tte"][person(wide[3])], 18)
+        for s in list(by_frame.values()) + list(wide.values()):
+            np.testing.assert_array_equal(s["y"], (s["tte"] >= 0).astype(np.float32))
+            self.assertEqual(s["tte"][s["track_ids"].index("2")], -1)       # the car is outside the cone
+        np.testing.assert_array_equal(arrival_bins(np.array([0, 4, 5, 19, 20, -1]), 4), [0, 0, 1, 3, 3, 4])
+
+    def test_folds_cover_every_session_once_and_spread_encounters(self):
+        corpus = {f"pos{i}": session_samples(csv_rows(), f"pos{i}") for i in range(3)}
+        corpus.update({f"neg{i}": session_samples(csv_rows()[lambda d: d.track_id == "2"], f"neg{i}")
+                       for i in range(6)})
+        folds = fold_sessions(corpus, 3, seed=1)
+        self.assertEqual(sorted(sid for f in folds for sid in f), sorted(corpus))
+        self.assertEqual([sum(sid.startswith("pos") for sid in f) for f in folds], [1, 1, 1])
+        split = fold_split(folds, 2)
+        self.assertEqual(split["test"], folds[2])
+        self.assertEqual(split["val"], folds[0])
+        self.assertEqual(set(split["train"]), set(folds[1]))
+
+    def test_cross_validation_dataset_round_trip(self):
+        corpus = {f"s{i}": session_samples(csv_rows(), f"s{i}") for i in range(4)}
+        folds = fold_sessions(corpus, 2)
+        with tempfile.TemporaryDirectory() as tmp:
+            save_split([s for sid in sorted(corpus) for s in corpus[sid]], Path(tmp) / "all.npz")
+            (Path(tmp) / "manifest.json").write_text(json.dumps({"features": FEATURES, "folds": folds}))
+            manifest, split = load_dataset(Path(tmp), fold=1)
+            with self.assertRaises(ValueError):
+                load_dataset(Path(tmp))
+        self.assertEqual({s["session"] for s in split["test"]}, set(folds[1]))
+        self.assertEqual(manifest["split"]["test"], folds[1])
+        self.assertEqual(len(split["train"]), 0)   # 2 folds: one test, one val, nothing left to train on
+
+
+class ArrivalTests(unittest.TestCase):
+    def test_arrival_pairs(self):
+        tte = np.array([0, 5, -1])            # arrives now, arrives later, never
+        self.assertEqual(arrival_pairs(tte, np.array([3.0, 2.0, 1.0])), (3.0, 3))
+        self.assertEqual(arrival_pairs(tte, np.array([1.0, 2.0, 3.0])), (0.0, 3))
+        self.assertEqual(arrival_pairs(tte, np.array([1.0, 1.0, 1.0])), (1.5, 3))
+        self.assertEqual(arrival_pairs(np.array([-1, -1]), np.array([1.0, 2.0])), (0.0, 0))
+
+    def test_model_scores(self):
+        logits = [np.array([0.3, -1.2])]
+        self.assertIs(model_scores(logits, 0)[0], logits)
+        early, late = np.array([5.0, 0, 0, 0, 0]), np.array([0, 0, 0, 5.0, 0])
+        arrive, soon = model_scores([np.stack([early, late, np.array([0, 0, 0, 0, 9.0])])], 4)
+        self.assertGreater(soon[0][0], soon[0][1])          # mass in the first slice = sooner
+        self.assertGreater(soon[0][1], soon[0][2])          # "never" is latest of all
+        self.assertLess(arrive[0][2], 0.01)
+
+    def test_arrival_loss_targets(self):
+        loss = make_loss(4, 20, 1.0, "cpu")
+        tte = torch.tensor([[0, 19, -1]])
+        target = torch.tensor([0, 3, 4])
+        perfect = torch.full((1, 3, 5), -20.0)
+        perfect[0, torch.arange(3), target] = 20.0
+        batch = {"tte": tte}
+        mask = torch.ones(1, 3, dtype=torch.bool)
+        self.assertLess(loss(perfect, batch, mask).item(), 1e-6)
+        self.assertGreater(loss(-perfect, batch, mask).item(), 10)
 
 
 class ModelTests(unittest.TestCase):
@@ -125,6 +210,12 @@ class ModelTests(unittest.TestCase):
         attention = models()[1].train()
         for _ in range(20):
             self.assertTrue(torch.isfinite(attention(x, cls, mask)).all())
+
+    def test_arrival_time_output_shape(self):
+        x, cls, mask = random_frame(3)
+        for model in (TrackGRU(N_FEATURES, N_CLASSES, n_outputs=5),
+                      TrackGRUAttention(N_FEATURES, N_CLASSES, n_outputs=5)):
+            self.assertEqual(tuple(model.eval()(x, cls, mask).shape), (1, 3, 5))
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ from models.GRU.layers import ThreatHead, TrackEncoder
 class TrackGRUAttention(nn.Module):
     def __init__(self, n_features: int, n_classes: int, hidden: int = 64,
                  dropout: float = 0.1, gru_layers: int = 1,
-                 heads: int = 4, context_dropout: float = 0.1):
+                 heads: int = 4, context_dropout: float = 0.1, n_outputs: int = 1):
         super().__init__()
         self.heads = heads
         self.context_dropout = context_dropout
@@ -37,7 +37,7 @@ class TrackGRUAttention(nn.Module):
         self.norm2 = nn.LayerNorm(hidden)
         self.ffn = nn.Sequential(nn.Linear(hidden, 2 * hidden), nn.GELU(), nn.Dropout(dropout),
                                  nn.Linear(2 * hidden, hidden), nn.Dropout(dropout))
-        self.head = ThreatHead(hidden, dropout)
+        self.head = ThreatHead(hidden, dropout, n_outputs)
 
     def _blocked(self, mask: torch.Tensor) -> torch.Tensor:
         """
@@ -55,7 +55,7 @@ class TrackGRUAttention(nn.Module):
         return blocked.repeat_interleave(self.heads, dim=0)
 
     def forward(self, x: torch.Tensor, cls: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        """x [B, N, T, F], cls [B, N], mask [B, N] -> encounter logits [B, N]."""
+        """x [B, N, T, F], cls [B, N], mask [B, N] -> encounter logits [B, N] (or [B, N, n_outputs])."""
         h = self.encoder(x, cls)
         a = self.norm1(h)
         a, _ = self.attn(a, a, a, attn_mask=self._blocked(mask), need_weights=False)
