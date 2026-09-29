@@ -5,7 +5,7 @@ first**. A later step would blend that with K0's consequence score to decide wha
 
 | Level | What | Status |
 |---|---|---|
-| 1 | Arrival ensemble (`ensemble.py`) | **Implemented and run** on 387 sessions |
+| 1 | Arrival ensemble (`ensemble.py`) | **Implemented and run**: 387 sessions, then all 462 curated sessions |
 | 2 | Announcement priority (arrival × K0 severity) | Planned |
 
 ## Why
@@ -44,6 +44,21 @@ python -m models.Ensemble.ensemble --run-name arrival387_2026_09_29
 
 It takes about 1 minute on a CPU. No training is needed beyond the GRU runs it reads. Tests:
 `python -m unittest tests.test_ensemble`.
+
+### Results on all 462 sessions (final)
+
+Report: `evaluation/benchmarks/ensemble_eval/arrival462_2026_09_29/report.md`. The verdict is the
+same as at 387 sessions below.
+
+| ensemble_stack minus | AUROC | arrival_order |
+|---|---|---|
+| nearest_in_cone | **+0.023** [+0.013, +0.034] | +0.007 [−0.008, +0.021] |
+| gru | **+0.007** [+0.001, +0.014] | +0.012 [−0.002, +0.028] |
+| gru_attention | +0.001 [−0.003, +0.009] | **+0.022** [+0.009, +0.037] |
+| ensemble_rank | **+0.015** [+0.009, +0.021] | **+0.015** [+0.003, +0.025] |
+
+ensemble_stack reaches AUROC 0.894 and arrival_order 0.688; nearest_in_cone scores 0.871 and
+0.681.
 
 ### Results (387 sessions, 3 seeds, 95% paired session-bootstrap CIs)
 

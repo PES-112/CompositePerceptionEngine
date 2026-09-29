@@ -14,11 +14,12 @@ models/GRU/
 └── registry.py               # arch name -> class, and where runs are written
 ```
 
-**Latest results:** `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival/report.md`
-(387 sessions, arrival-time ranking, 5-fold cross-validation).
+**Latest results:** `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival462/report.md`
+(all 462 curated sessions, arrival-time ranking, 5-fold cross-validation).
 - **vs. K0 and TTC:** both GRUs beat them.
-- **vs. nearest object in the cone:** they tie, but the GRU's top pick is steadier.
-- **Attention:** a small encounter-prediction gain only.
+- **vs. nearest object in the cone:** the GRU slightly beats it at predicting *whether* objects come
+  close, ties it at ranking *who arrives first*, and has a much steadier top pick.
+- **Attention:** adds nothing measurable on full data.
 
 Read `dataset/README.md` on depth blobs before interpreting any encounter number.
 

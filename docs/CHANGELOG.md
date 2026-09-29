@@ -2,6 +2,29 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-09-29] - Full 462-Session Run of the Arrival GRUs and Ensemble
+
+The download of all 462 curated SANPO-Real sessions finished, and the arrival-time experiment and
+ensemble were re-run on the full set. Write-up:
+`evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival462/report.md`.
+
+### Changed conclusions (vs. the 387-session run)
+- **GRU vs. nearest-in-cone, AUROC:** +0.007 (tie) → **+0.016 [+0.002, +0.029]**, a small real
+  gain. Arrival order is still a tie.
+- **Attention vs. size-matched GRU, AUROC:** +0.010 (significant) → **+0.007 [−0.000, +0.016]**,
+  a tie. On full data, scene context adds nothing measurable.
+
+### Unchanged
+- GRU vs. K0: +0.32 AUROC, +0.09 arrival order. GRU vs. TTC: +0.23 / +0.06.
+- The stacked ensemble is best at encounter prediction (AUROC 0.894, +0.023 over nearest-in-cone).
+- No model beats nearest-in-cone on arrival order.
+
+### Added
+- Stage-1 CSVs for all 462 sessions in `data/processed/sanpo_real_462/`, which is gitignored.
+- Dataset `dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_f5_s0/` (1.0 MB).
+- Run sets `arrival462_2026_09_29` (both architectures) and `arrival462h96_2026_09_29`.
+- Ensemble results in `evaluation/benchmarks/ensemble_eval/arrival462_2026_09_29/`.
+
 ## [2026-09-29] - Arrival-Time GRUs with Cross-Validation (387 SANPO Sessions)
 
 The GRUs can now rank tracked objects by **how soon** they will come within a hazard distance. They

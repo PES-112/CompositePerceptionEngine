@@ -392,6 +392,17 @@ their READMEs.
     (+0.001 [−0.010, +0.012]).
   - **Reporting guidance.** Report it as evidence that arrival ordering is limited by the
     perception features, not by the choice of model.
+- **Final numbers: all 462 curated sessions (2026-09-29;
+  `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival462/`).** Use these, not the
+  387-session ones, in the paper.
+  - **Data.** 364 sessions with tracked objects, 109 with encounters.
+  - **GRU vs. K0.** AUROC +0.316 [+0.264, +0.353], arrival order +0.091 [+0.054, +0.122].
+  - **GRU vs. nearest-in-cone.** AUROC +0.016 [+0.002, +0.029]; arrival order ties (−0.005
+    [−0.028, +0.019]).
+  - **Attention vs. size-matched GRU.** AUROC +0.007 [−0.000, +0.016], which is **not** credible
+    on full data, so scene context adds nothing measurable.
+  - **Stacked ensemble.** AUROC 0.894, +0.023 [+0.013, +0.034] over nearest-in-cone; arrival
+    order ties (+0.007 [−0.008, +0.021]).
 
 ---
 
