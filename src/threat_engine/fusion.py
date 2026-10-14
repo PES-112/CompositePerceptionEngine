@@ -67,16 +67,23 @@ class EgoPose:
 
     @classmethod
     def from_sanpo(cls, pos_x: float, pos_y: float, pos_z: float,
-                   q_x: float, q_y: float, q_z: float, q_w: float) -> "EgoPose":
+                   q_x: float, q_y: float, q_z: float, q_w: float,
+                   up: tuple[float, float, float] = (0.0, 1.0, 0.0)) -> "EgoPose":
         """
-        One row of SANPO's camera_poses.csv (ZED convention: right-handed, y up,
-        the camera looks along its own -z). The ground plane is world (x, z).
+        One row of SANPO's camera_poses.csv. The camera axes follow the ZED
+        convention (x right, y up, looking along its own -z). The *world* up
+        axis is not the same in every session, so pass the session's `up`
+        (sanpo_session_poses() estimates it); the ground plane is the plane
+        perpendicular to it.
         """
         rot = _quat_to_matrix(q_x, q_y, q_z, q_w)
+        e1, e2 = _ground_basis(np.asarray(up, dtype=float))
+        pos = np.array([pos_x, pos_y, pos_z], dtype=float)
         right = rot @ np.array([1.0, 0.0, 0.0])
         forward = rot @ np.array([0.0, 0.0, -1.0])
-        return cls((float(pos_x), float(pos_z)),
-                   _unit((right[0], right[2])), _unit((forward[0], forward[2])))
+        return cls((float(pos @ e1), float(pos @ e2)),
+                   _unit((float(right @ e1), float(right @ e2))),
+                   _unit((float(forward @ e1), float(forward @ e2))))
 
     def basis(self) -> np.ndarray:
         """2×2 matrix whose columns are the camera's right and forward vectors in world coordinates."""
@@ -304,6 +311,31 @@ class GroundTracker:
         )
 
 
+def sanpo_session_poses(rows: list[dict]) -> list[EgoPose]:
+    """
+    EgoPose per row of one session's camera_poses.csv (dicts with tracking_state,
+    pos_*, q_*). World up = the mean of the camera's up axis over the session
+    (the walker's head is upright on average). Rows where visual tracking was
+    lost (anything but TrackingState.READY) repeat the last good pose, so the
+    walker is treated as standing still rather than teleporting.
+    """
+    keys = ("pos_x", "pos_y", "pos_z", "q_x", "q_y", "q_z", "q_w")
+    vals = [[float(r[k]) for k in keys] for r in rows]
+    ready = [str(r.get("tracking_state", "")).endswith("READY") and "NOT" not in str(r.get("tracking_state", ""))
+             for r in rows]
+    ups = [_quat_to_matrix(*v[3:]) @ np.array([0.0, 1.0, 0.0]) for v, ok in zip(vals, ready) if ok]
+    if not ups:
+        return [EgoPose.identity()] * len(rows)
+    up = np.mean(ups, axis=0)
+    up = tuple(up / np.linalg.norm(up))
+    out, last = [], None
+    for v, ok in zip(vals, ready):
+        if ok or last is None:
+            last = EgoPose.from_sanpo(*v, up=up)
+        out.append(last)
+    return out
+
+
 def time_to_radius(p: np.ndarray, v: np.ndarray, radius: float) -> float | None:
     """Smallest t ≥ 0 with |p + v·t| ≤ radius, or None if the path never gets that close."""
     c = float(p @ p) - radius ** 2
@@ -316,6 +348,16 @@ def time_to_radius(p: np.ndarray, v: np.ndarray, radius: float) -> float | None:
     if disc < 0:
         return None
     return (-b - math.sqrt(disc)) / (2 * a)
+
+
+def _ground_basis(up: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Two orthonormal vectors spanning the plane perpendicular to `up`, right-handed with it."""
+    up = up / np.linalg.norm(up)
+    seed = np.array([1.0, 0.0, 0.0]) if abs(up[0]) < 0.9 else np.array([0.0, 0.0, 1.0])
+    e1 = seed - (seed @ up) * up
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(e1, up)
+    return e1, e2
 
 
 def _unit(v: tuple[float, float]) -> tuple[float, float]:

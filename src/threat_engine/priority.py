@@ -131,7 +131,8 @@ class PhysicsArrivalPredictor:
             if tz is None:
                 out[t.track_id] = Arrival(0.0, self.horizon_s * 1.25)
                 continue
-            p = 1.0 / (1.0 + math.exp((tz - self.horizon_s) / self.softness_s))
+            z = min(50.0, (tz - self.horizon_s) / self.softness_s)   # far-future entries: p -> 0 without overflow
+            p = 1.0 / (1.0 + math.exp(z))
             out[t.track_id] = Arrival(p, min(tz, self.horizon_s * 1.25))
         return out
 
