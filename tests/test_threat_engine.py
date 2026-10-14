@@ -12,7 +12,8 @@ from models.GRU.registry import build_model
 from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
-from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, Measurement, time_to_radius
+from src.threat_engine.fusion import (EgoPose, FusedTrack, GroundTracker, Measurement, sanpo_session_poses,
+                                      time_to_radius)
 from src.threat_engine.priority import (Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat,
                                         SceneContext, rank)
 
@@ -93,6 +94,19 @@ class FusionTests(unittest.TestCase):
         pose = EgoPose.from_sanpo(0, 0, 0, 0, 0, 0, 1)
         np.testing.assert_allclose(pose.forward, (0.0, -1.0), atol=1e-9)
         np.testing.assert_allclose(pose.right, (1.0, 0.0), atol=1e-9)
+
+    def test_sanpo_poses_find_each_sessions_up_axis(self):
+        """SANPO sessions disagree on the world up axis; walking forward must still be ground motion."""
+        # Camera rotated -90 deg about world x: its up (+y) points along world +z (a z-up world).
+        s = math.sqrt(0.5)
+        rows = [{"tracking_state": "TrackingState.READY", "pos_x": 0.0, "pos_y": -1.4 * DT * k, "pos_z": 0.0,
+                 "q_x": -s, "q_y": 0.0, "q_z": 0.0, "q_w": s} for k in range(5)]
+        rows.append({**rows[-1], "tracking_state": "TrackingState.NOT_READY", "pos_y": 50.0})
+        poses = sanpo_session_poses(rows)
+        step = np.subtract(poses[1].position, poses[0].position)
+        self.assertAlmostEqual(float(np.linalg.norm(step)), 1.4 * DT, places=6)
+        self.assertAlmostEqual(float(step @ np.asarray(poses[0].forward)), 1.4 * DT, places=6)   # forward is forward
+        self.assertEqual(poses[-1], poses[-2])                   # lost tracking holds the last good pose
 
     def test_time_to_radius(self):
         self.assertEqual(time_to_radius(np.array([0.0, 1.0]), np.array([0.0, -1.0]), 2.0), 0.0)

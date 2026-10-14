@@ -16,6 +16,10 @@ Examples:
         --quantize 8 \
         --device 0 \
         --calibration-fraction 0.25
+
+    # iPhone (architecture.md §7): Core ML for the Neural Engine. Run on a Mac;
+    # coremltools' converter is macOS/Linux only.
+    python training/scripts/export_yolo26n_edge.py --formats coreml --quantize 16
 """
 
 from __future__ import annotations
@@ -66,7 +70,7 @@ def parse_args() -> argparse.Namespace:
         "--formats",
         nargs="+",
         default=["onnx"],
-        choices=["onnx", "engine", "openvino", "torchscript"],
+        choices=["onnx", "engine", "openvino", "torchscript", "coreml"],
         help="One or more Ultralytics export formats.",
     )
     parser.add_argument(
@@ -175,7 +179,10 @@ def copy_exported_artifact(exported: Any, export_root: Path) -> list[str]:
             continue
         destination = export_root / path.name
         if path.resolve() != destination.resolve():
-            shutil.copy2(path, destination)
+            if path.is_dir():   # Core ML writes a .mlpackage directory
+                shutil.copytree(path, destination, dirs_exist_ok=True)
+            else:
+                shutil.copy2(path, destination)
         copied.append(str(destination))
     return copied
 

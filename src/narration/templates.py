@@ -21,6 +21,10 @@ FAST_CLOSING_MS = 3.0     # m/s — "fast" wording kicks in above this
 NEAR_DISTANCE_M = 3.0     # m — "close" wording kicks in below this
 BEARING_CENTER_DEG = 15.0
 BEARING_FAR_DEG = 45.0
+# Distances are spoken in buckets so the phrase set is finite and every phrase
+# can be pre-rendered offline (all_phrases()); beyond the last bucket: "far".
+DISTANCE_BUCKETS_M = (5, 10, 20)
+DIRECTIONS = ("ahead", "left", "right", "far left", "far right")
 
 
 def direction(bearing_deg: float) -> str:
@@ -33,6 +37,13 @@ def direction(bearing_deg: float) -> str:
     if mag >= BEARING_FAR_DEG:
         return f"far {side}"
     return side
+
+
+def distance_words(distance_m: float) -> str:
+    for bucket in DISTANCE_BUCKETS_M:
+        if distance_m <= bucket:
+            return f"{bucket} meters"
+    return "far"
 
 
 def _class_words(object_class: str) -> str:
@@ -54,7 +65,18 @@ def narrate(event: NarratorEvent) -> str:
         return f"{cls} fast from your {d}."
     if event.distance_m <= NEAR_DISTANCE_M:
         return f"{cls} close, {d}."
-    return f"{cls} {d}, {event.distance_m:.0f} meters."
+    return f"{cls} {d}, {distance_words(event.distance_m)}."
+
+
+def all_phrases(classes: list[str]) -> list[str]:
+    """Every string narrate() can return for these classes: the clip library to pre-render offline."""
+    phrases = []
+    for c in classes:
+        cls = _class_words(c)
+        for d in DIRECTIONS:
+            phrases += [f"Stop! {cls} very close {d}.", f"{cls} fast from your {d}.", f"{cls} close, {d}."]
+            phrases += [f"{cls} {d}, {w}." for w in [f"{b} meters" for b in DISTANCE_BUCKETS_M] + ["far"]]
+    return phrases
 
 
 # ── Self-check ───────────────────────────────────────────────────────────────
@@ -87,7 +109,14 @@ def _demo() -> None:
         closing_velocity_ms=1.0, bearing_deg=50.0, reason="context", is_override=False,
     )
     msg = narrate(far_away)
-    assert "far right" in msg and "25" in msg, msg
+    assert msg == "Bus far right, far.", msg
+    assert distance_words(4.2) == "5 meters" and distance_words(10.0) == "10 meters"
+
+    # The pre-render list must cover everything narrate() can say.
+    from src.perception_stack.physics import CLASS_SEVERITY
+    library = set(all_phrases(list(CLASS_SEVERITY)))
+    for ev in (fast_left, override, near_slow, far_away):
+        assert narrate(ev) in library, narrate(ev)
 
     assert direction(0.0) == "ahead"
     assert direction(-10.0) == "ahead"       # within center cone
