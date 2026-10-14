@@ -21,9 +21,12 @@ Baselines and binary models use one score for both; an arrival-time model
 expected arrival time.
 
 Baselines: K0 (the production formula), TTC ((distance - hazard) / closing
-speed), nearest object, and nearest object inside the ±30° cone. The last is a
-plain rule mirroring the label's own definition — a learned model has to beat
-it to show it learned more than the label.
+speed), TTC_in_cone (the same TTC, but objects inside the ±30° cone always
+rank above those outside it, and objects that aren't closing fall back on
+distance), nearest object, and nearest object inside the cone. The cone rules
+mirror the label's own definition — a learned model has to beat them to show
+it learned more than the label's geometry. TTC_in_cone is the fair physics
+baseline: plain TTC is penalised for not knowing where the walker is going.
 
 Everything is repeated on an "interaction" slice (>= 2 objects within 5 m, or
 a crosswalk in view). Most frames contain no real interaction, so averages
@@ -48,6 +51,7 @@ from dataset.GRU.samples import collate, load_dataset
 from evaluation.kinetic_ablation import HORIZON_FRAMES, THETA_DEG, bootstrap_ci
 
 INTERACTION_RADIUS_M = 5.0
+TTC_CAP_S = 10.0   # non-closing objects (TTC = inf) tie at the cap and are then ordered by distance
 N_BOOT = 2000
 
 Scores = list[np.ndarray]   # one array per sample (frame), one value per object
@@ -58,6 +62,8 @@ def baseline_scores(s: dict) -> dict[str, np.ndarray]:
     out = {"K0": s["k0"]}
     if "ttc" in s:
         out["TTC"] = -np.maximum(s["ttc"], 0.0)   # sooner = higher; not closing = -inf
+        capped = np.minimum(np.maximum(s["ttc"], 0.0), TTC_CAP_S)
+        out["TTC_in_cone"] = -capped - 1e-3 * s["distance"] - np.where(in_cone, 0.0, 1e3)
     out["nearest"] = -s["distance"]
     out["nearest_in_cone"] = -s["distance"] - np.where(in_cone, 0.0, 1e3)
     return out
