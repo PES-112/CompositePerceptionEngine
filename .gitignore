@@ -49,3 +49,5 @@ training/runs/**/*.cache
 evaluation/benchmarks/**/prediction_previews/
 evaluation/benchmarks/**/*.png
 evaluation/benchmarks/**/*.jpg
+
+presentation/
