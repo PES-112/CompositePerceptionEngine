@@ -3,8 +3,8 @@ csv_writer.py
 =============
 CPE Perception Stack — CSV schema definition and writer for Stage 1 output.
 
-Defines the canonical column layout so Stage 1 (pipeline.py) and Stage 2
-(fact_sheet_builder.py) share the exact same field names without duplication.
+Defines the canonical column layout that Stage 1 (pipeline.py) writes and the
+threat engine, GRU dataset and replay tools read.
 """
 
 import csv

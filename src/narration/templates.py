@@ -28,8 +28,7 @@ DIRECTIONS = ("ahead", "left", "right", "far left", "far right")
 
 
 def direction(bearing_deg: float) -> str:
-    """Mirrors DetectedObject.bearing's ahead/left/right/far-left/far-right convention
-    (src/shared/fact_sheet.py) but as narration-ready words, not a label."""
+    """Ahead / left / right / far left / far right, as narration-ready words."""
     mag = abs(bearing_deg)
     side = "left" if bearing_deg < 0 else "right"
     if mag <= BEARING_CENTER_DEG:

@@ -18,9 +18,6 @@ from src.perception_stack.physics           import (
     CLASS_SEVERITY,
 )
 from src.perception_stack.csv_writer        import CSV_FIELDS, write_csv, StreamingCSVWriter
-from src.perception_stack.fact_sheet_builder import (
-    load_perception_csv, build_fact_sheets,
-)
 
 _LAZY = {
     "YoloTracker": "src.perception_stack.yolo_tracker",
@@ -46,8 +43,6 @@ __all__ = [
     "YoloTracker",
     # csv
     "CSV_FIELDS", "write_csv", "StreamingCSVWriter",
-    # fact sheets
-    "load_perception_csv", "build_fact_sheets",
     # orchestrator
     "run_perception", "run_perception_stream",
 ]

@@ -76,7 +76,7 @@ def main():
             writer.write_rows(frame_rows)
 
     print(f"\n✅  Stage 1 done — {writer.rows_written} detections → {out_path}")
-    print(f"    Inspect the CSV, then run: python tools/run_fact_sheets.py --csv {out_path}")
+    print(f"    Inspect the CSV, then route it: python tools/build_threat_events.py --csv {out_path} --out {out_path.with_suffix('.events.jsonl')}")
 
 
 if __name__ == "__main__":
