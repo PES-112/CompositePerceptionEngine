@@ -2,12 +2,12 @@
 templates.py
 ============
 Deterministic, template-based narrator — "phase 1" of SLM-2 per
-docs/architecture.md §11.3: turn a NarratorEvent into a short warning with zero
+docs/architecture.md §6.6: turn a NarratorEvent into a short warning with zero
 model inference, so the narration layer has a safe, fast, always-available
 fallback before any SLM narration is added on top of it.
 
 No ML dependency. This is the layer critical-path alerts should always be able
-to fall back to, per the orchestration lanes in architecture.md §11.6 — it must
+to fall back to, per the orchestration lanes in architecture.md §6.6 — it must
 stay fast and dependency-free so it can never become the reason an alert is late.
 """
 
@@ -61,7 +61,7 @@ def narrate(event: NarratorEvent) -> str:
 
 def _demo() -> None:
     """Runnable self-check: python -m src.narration.templates --self-check"""
-    # The exact example from docs/architecture.md §2.7.
+    # The exact example from docs/architecture.md §6.6.
     fast_left = NarratorEvent(
         track_id="t1", object_class="motorcycle", distance_m=6.0,
         closing_velocity_ms=8.0, bearing_deg=-30.0, reason="fast closing", is_override=False,

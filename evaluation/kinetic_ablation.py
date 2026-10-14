@@ -2,7 +2,7 @@
 kinetic_ablation.py
 ===================
 Ablate the terms of K0 over Stage-1 CSVs and score every variant with metrics
-that need no labels (docs/kinetic_score_opinion.md §5, §6).
+that need no labels (docs/methodology.md §4.5, §4.6).
 
 Nothing here grades a formula against another formula's output — the two things
 it compares against are the *measured* future (§6) and the formula's own

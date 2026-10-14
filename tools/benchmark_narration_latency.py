@@ -3,14 +3,13 @@ benchmark_narration_latency.py
 ===============================
 Standalone latency benchmark for the narration/translation/TTS layer
 (src/narration/) — needs no SANPO data, no GPU, just a downloaded Piper voice.
-Confirms the orchestration-lane rule (architecture.md §11.6) holds in practice:
+Confirms the orchestration-lane rule (architecture.md §6.6) holds in practice:
 the critical lane must stay near-instant and dependency-free; the narration
 lane may be slower since it never gates a reflex alert.
 
-Note: no formal TTS latency budget is documented anywhere in docs/ today —
-hardware_targets.md defines the 50ms reflex and 500ms cognitive budgets but
-nothing for narration TTS specifically. This script reports raw numbers and
-flags that gap rather than inventing a budget to grade against.
+Note: v2 (docs/architecture.md §7) plays pre-rendered clips, so the narration
+budget is ~0 ms; the Piper rows measure live synthesis, which v2 does not use
+on the phone. This script reports raw numbers rather than grading them.
 
 Usage
 -----
@@ -107,10 +106,8 @@ def main() -> None:
         "",
         "No SANPO data or GPU required. Measures src/narration/ in isolation.",
         "",
-        "**Documentation gap found while writing this benchmark:** no formal TTS latency "
-        "budget is defined anywhere in docs/ — hardware_targets.md has the 50ms reflex and "
-        "500ms cognitive budgets, nothing for narration TTS. Recommend adding one once real "
-        "numbers exist (see raw rows below for a starting point).",
+        "**Budget:** v2 plays pre-rendered clips (docs/architecture.md §7), so the narration "
+        "budget is ~0 ms. The Piper rows measure live synthesis, which v2 does not use on the phone.",
         "",
         "| Stage | Case | Latency (ms) | Output |",
         "|---|---|---:|---|",

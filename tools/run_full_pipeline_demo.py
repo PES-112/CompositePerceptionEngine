@@ -22,7 +22,7 @@ numbers — see the comment above build_scenario()) over 6 frames until it
 crosses the TTC override threshold, while a pothole sits at near-static
 hazard range the entire time — exercising ignore -> cognitive -> reflex
 escalation for one object and a simultaneous reflex+cognitive frame
-(architecture.md §2.3: "Both tracks can fire simultaneously for different
+(v1 architecture.md §2.3 (git a6e37a7): "Both tracks can fire simultaneously for different
 objects").
 
 Usage
@@ -114,7 +114,7 @@ def main() -> None:
     else:
         narration_tts = CachedClipTTS(fallback=b"(no cached clip, no Piper voice found)")  # placeholder audio
         print(f"No Piper voice at {args.piper_voice} — narration lane will use "
-              f"CachedClipTTS fallback only. See docs/architecture.md §11.5.\n")
+              f"CachedClipTTS fallback only. See docs/architecture.md §6.6.\n")
 
     pipeline = NarrationPipeline(
         translator=translator,
@@ -145,7 +145,7 @@ def main() -> None:
         critical_rows = [r for r in results if r.narration and r.narration.lane == "critical"]
         if critical_rows and critical_rows[0].narration.translated_text == critical_rows[0].narration.text:
             print(f"Note: the override frame stayed in English even with --lang {args.lang} — that's "
-                  f"the critical lane's translation bypass (architecture.md §11.6) working as designed, "
+                  f"the critical lane's translation bypass (architecture.md §6.6) working as designed, "
                   f"not a missing phrase-table entry (one exists for it and was intentionally not used).")
 
 

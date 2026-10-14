@@ -2,10 +2,10 @@
 
 Consolidated, paper-ready record of the methods used so far and the reasoning behind each one. This
 is the distilled "Methods section" reference — each subsection below can be adapted close to
-verbatim for a paper draft. It draws on and cross-references the fuller working documents
-(`kinetic_score_opinion.md`, `ablation_guide.md`, `architecture.md`), which remain
-the place to find the full reasoning trail and open questions; this document states only what was
-**decided and done**, not the alternatives considered.
+verbatim for a paper draft. It cross-references `architecture.md` (the v2 design) and
+`ablation_guide.md` (run steps); this document states only what was **decided and done**, not the
+alternatives considered. The full reasoning trail behind the K0 evaluation strategy was in
+`kinetic_score_opinion.md`, removed 2026-10-14 and retrievable from git history (commit `a6e37a7`).
 
 For LLM-assisted drafting prompts built from this same evidence, see the Appendix at the end of this
 document.
@@ -14,15 +14,24 @@ document.
 
 ## 1. System overview
 
-The Composite Perception Engine (CPE) is an asynchronous, physics-semantic dual-track architecture
-for real-time hazard alerting: a deterministic perception/physics path guarantees a hard latency
-bound on critical threats, while an advisory semantic path (not yet implemented — see
-`pending_work.md`) is designed to add contextual richness without ever gating the safety path. Full
-component diagram and contracts: `architecture.md`.
+The Composite Perception Engine (CPE) is a phone-based hazard alert for blind pedestrians (v2
+design, adopted 2026-10-14; `architecture.md`). Perception (YOLO26n + ByteTrack + metric depth)
+feeds a threat engine that ranks objects by **when** they will reach the walker (a learned GRU
+arrival predictor), **how bad** a collision would be (mass-derived class severity), and **what** the
+scene says about them (walkable-surface segmentation, planned). The ranking sits inside a
+deterministic **physics safety envelope**: an object with time-to-collision ≤ 1 s in the walking path
+always triggers an alert, whatever the learned components say. Alerts are scripted phrases played
+from pre-rendered audio. There is no language model at runtime; the v1 design's SLM cognitive and
+narrator layers were dropped.
 
-This document covers the methodology for the two components that are implemented and measured:
-the **YOLO26n hazard detector** and the **kinetic score threat-ranking formula**, plus the
-**edge-latency simulation methodology** used to argue real-time feasibility.
+The target device is an iPhone 17 Pro Max. All results come from **replaying SANPO-Real sessions**,
+with depth read from the dataset rather than from the phone's LiDAR (`architecture.md` §4); no live
+deployment or user study is run.
+
+This document covers the methodology for the parts that are implemented and measured: the
+**YOLO26n hazard detector** (§3), the **K0 kinetic-score ablation** that motivated the v2 design (§4.1–4.9),
+the **learned arrival predictors** that replace K0 as the ranking (§4.10), and the **latency
+methodology** (§5).
 
 ---
 
@@ -38,6 +47,13 @@ branch is what a phone-mounted camera setup can approximate and because
 taken directly from the dataset rather than predicted, so the kinetic-score inputs are grounded, not
 estimated — a deliberate choice to decouple "is the formula right" from "is the depth network right"
 during formula development. Full bucket layout and per-session sizes: `sanpo_dataset.md`.
+
+**Camera parameters (open correctness issue).** SANPO-Real `description.json` reports 15 FPS and a
+58.4° horizontal FOV (checked on one curated session). Stage 1 currently assumes 30 FPS
+(`tools/stream_sanpo_perception.py --fps`) and a 70° FOV (`physics.compute_bearing`). If the CSVs
+were built at 30 FPS, closing speeds are 2× too high and the 20-frame horizon spans 4 s, not 2 s.
+Relative comparisons between methods on the same CSVs are unaffected; absolute physical units are.
+Resolve before reporting (`pending_work.md` P0).
 
 **Sampling protocol.** `valid_streams.json` curates 462 real-session IDs. For the kinetic-score
 ablation, a **30% sample (139 sessions)** was drawn by sorting the session list and seeding the
@@ -116,10 +132,10 @@ Reported metrics (§ current numbers): `yolo_training.md`, `evaluation/benchmark
 
 ## 4. Kinetic score formulation and ablation methodology
 
-This is the primary research contribution and the most methodologically load-bearing part of the
-project — full reasoning trail lives in `kinetic_score_opinion.md` (§10 has the formal problem
-statement and options analysis); this section
-states the finished method.
+K0 was the v1 threat ranking. The ablation below, plus the arrival-prediction results in §4.10
+(K0 AUROC 0.57 as an arrival predictor), are why v2 keeps only K0's **severity** term ("how bad") and
+takes arrival from a learned model. The evaluation machinery built here — label-free metrics,
+formula-free encounter labels, session bootstrap, blinded referee — is reused unchanged for v2.
 
 ### 4.1 Formula
 
@@ -163,7 +179,7 @@ multi-formula comparison.
 
 No ground-truth "this object was the true top threat" label exists for arbitrary video. Rather than
 manufacture one, the evaluation is split into three independent tiers, each answering a question the
-others cannot (full option analysis: `kinetic_score_opinion.md` §10):
+others cannot:
 
 - **Automatic, formula-free "encounter" labels** (§4.6) — necessary-condition test only, at full
   corpus scale, zero human effort.
@@ -201,7 +217,7 @@ Computed from formula output alone, no annotation required:
 | Rank stability | Kendall τ between the clean ranking and the ranking under synthetic depth perturbation (σ ∈ {2%, 5%, 10%}) | Robustness to the noisiest input (depth) |
 | Temporal smoothness | Mean `\|K(t) − K(t−1)\| / mean(K)` per track | Distinguishes "jumpy" from "changes its mind" (flicker alone conflates these) |
 | Tie rate | Fraction of frames where the top two objects are within 5% of each other | Whether the score actually discriminates a top threat |
-| Complementarity with SLM-1 | Disagreement rate between `argmax K` and the cognitive layer's pick | The literal architectural claim that K is a backstop, not a duplicate signal — measurable with zero labels once SLM-1 exists |
+| Complementarity with SLM-1 *(v1 only; SLM-1 dropped 2026-10-14, never computed)* | Disagreement rate between `argmax K` and the cognitive layer's pick | Whether K was a backstop rather than a duplicate signal |
 | Future self-consistency | Does `argmax K` at frame T match `argmax K` at T+H once the scene has resolved? | Self-supervised stability check requiring no external oracle |
 
 ### 4.6 Automatic "encounter" ground truth
@@ -259,13 +275,14 @@ reported in the paper as a stated limitation, not a measured result.
 ### 4.9 Results obtained to date
 
 139 sessions, 19,402 scored frames (≥ 2 objects/frame), run 2026-08-26. `no-velocity` and `ttc` lose
-decisively (rank stability collapses to 0.26–0.52 without velocity; plain TTC has 60% higher flicker
-and 4× worse encounter recall than K0) — these two verdicts are solid regardless of the caveats below.
+decisively on the label-free metrics (rank stability collapses to 0.26–0.52 without velocity; plain
+TTC has 60% higher flicker than K0). Their encounter-recall gaps (e.g. TTC "4× worse") do **not**
+survive caveat 2 below and must not be cited.
 `linear`, `no-severity`, and `size` **tie** with K0 on every corpus-wide label-free metric — meaning,
 on this corpus, kinematics (velocity/distance) dominate most reorderings. Full table and per-arm
 verdicts: `ablation_guide.md` §6.
 
-**One open caveat before treating the tie verdicts as settled**, tracked in `pending_work.md` §1:
+**One open caveat before treating the tie verdicts as settled**, tracked in `pending_work.md` ("Carried over from v1"):
 
 1. **A corpus-wide tie cannot distinguish "the term never matters" from "the term matters only in a
    minority of frames diluted into 19,402."** `evaluation/kinetic_ablation_stratified.py` isolates just
@@ -406,21 +423,28 @@ their READMEs.
 
 ---
 
-## 5. Edge-latency simulation methodology
+## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate
 
-Two latency numbers exist in the repo and must not be conflated in a paper:
+Three kinds of latency number exist and must never be conflated in a paper:
 
-- **Native measurement**: PyTorch/CUDA on the NVIDIA GB10 training host — a real, measured number,
-  but not the deployment target.
-- **Simulated edge estimate**: an analytical Jetson Orin Nano 8GB proxy that scales the *measured*
-  GB10 compute latency by a fixed factor (4.0×) and adds a fixed sensor/memory overhead (3.0 ms) per
-  processed frame. This is a conservative screening heuristic, not an emulator — it cannot predict
-  thermal throttling, TensorRT kernel behavior, or camera-copy overhead on real hardware.
+- **Server measurement:** PyTorch/CUDA on the NVIDIA GB10 development host. Real, but not the target
+  device. The 10-session SANPO result is avg p95 7.83 ms, worst session 9.74 ms.
+- **Legacy analytical proxy (retired 2026-10-14):** the Jetson Orin Nano 8GB profile scaled GB10
+  latency by 4.0× and added 3.0 ms (avg p95 34.31 ms). It was a screening heuristic for a target that
+  is no longer planned, so don't report it as edge evidence.
+- **On-device measurement (planned):** each runtime model is exported to Core ML and timed on the
+  target iPhone 17 Pro Max over SANPO frames. Report median and p95, warm-up separately, and a
+  sustained run of several minutes to expose thermal throttling. This is the only number that
+  supports a "runs on the phone" claim (`pending_work.md` P3).
 
-Every reported edge number in this project is one or the other, labeled as such; no result currently
-in the repo is a physical-device measurement (`hardware_targets.md`).
+**Latency-aware replay.** The SANPO replay is open-loop, so latency cannot change what the walker
+does. It does change *when* an alert would have fired. System metrics (warning lead time, missed
+arrivals) are therefore computed after delaying each alert by the measured on-device latency.
+
+The GB10 development host: NVIDIA GB10, ARM64, 20 CPU cores, ~119 GiB unified memory, Ubuntu 24.04,
+PyTorch 2.13 + CUDA 13.0, Ultralytics 8.4.95 (observed 2026-07-22).
 
 ### 5.2 Benchmark protocol
 
@@ -433,7 +457,7 @@ number, because on-disk PNG decode was found to dominate replay-mode latency (~3
 in an early test) and is a dataset-pipeline artifact, not a property of a live camera feed. Evaluated
 on a seeded 10-session SANPO-Real subset, 30 frames/session (300 frames total), selected as the
 smallest-download streams from the first 80 scanned valid streams. Current results:
-`hardware_targets.md`, `sanpo_dataset.md`.
+`sanpo_dataset.md`, `evaluation/benchmarks/sanpo_edge_realtime/`.
 
 ---
 
@@ -469,21 +493,25 @@ section of this document (§1–6 above) as additional grounding context first.
 
 ### A.1 Abstract & Introduction
 
-> "I am writing a research paper on an edge-optimized AI system designed to provide real-time,
-> semantically rich hazard alerts for the visually impaired. The system, called the Composite
-> Perception Engine (CPE), uses a hybrid architecture. It combines a lightweight object detector
-> (YOLO26n fine-tuned on street hazards), egocentric depth estimation, and a Knowledge-Distilled
-> Small Language Model (SLM) for semantic scene narration. It uses a deterministic 'Physics
-> Verification' layer to arbitrate between neural network outputs and raw kinetic physics
-> (Time-to-Collision) to prevent hallucinations and guarantee <50ms response times for critical
-> threats.
+> "I am writing a research paper on a phone-based hazard alert system for blind pedestrians, called
+> the Composite Perception Engine (CPE). A YOLO26n detector fine-tuned on 17 street-hazard classes,
+> with ByteTrack and metric depth, feeds a threat engine that ranks objects by three separate
+> questions: *when* will it reach the walker (a small GRU arrival predictor over 0.8 s of track
+> history), *how bad* would a collision be (class severity derived from real-world mass), and *what*
+> does the scene say about it (walkable-surface segmentation). Every learned decision sits inside a
+> deterministic physics safety envelope: an object with time-to-collision under 1 s in the walking
+> path always triggers an alert. Alerts are scripted phrases from pre-rendered audio; there is no
+> language model at runtime. The target device is an iPhone 17 Pro Max; evaluation replays the
+> SANPO egocentric dataset with dataset depth standing in for phone LiDAR, and no human ground-truth
+> labels are needed except a small calibration set for a blinded referee.
 >
-> Please write a compelling Academic Abstract (250 words max) and a comprehensive Introduction. The
-> Introduction should highlight the limitations of current assistive technologies (either too
-> computationally heavy for edge devices, or lacking semantic context) and clearly state our
-> contributions: (1) N-frame skip with depth interpolation for 67% compute reduction, (2) Edge-YOLO
-> fine-tuned on domain-specific hazards, and (3) SLM Knowledge Distillation from a massive offline
-> teacher model."
+> Please write an Academic Abstract (250 words max) and an Introduction. The Introduction should
+> cover the limitations of current assistive technologies (too heavy for phones, too slow, or
+> detecting objects without prioritising them) and state our contributions: (1) evidence that a
+> classic kinetic threat score is not an arrival predictor (AUROC 0.57) while a 30k-parameter GRU
+> reaches 0.89, (2) a when / how-bad / what decomposition of threat inside a physics safety
+> envelope, and (3) a label-free, latency-aware replay evaluation on SANPO. Do not claim a live
+> deployment or a user study."
 
 ### A.2 Related Work
 
@@ -494,10 +522,10 @@ section of this document (§1–6 above) as additional grounding context first.
 > 2. Cloud-based LLM/VLM assistive tech (e.g., Be My Eyes, GPT-4V) which suffer from high latency and
 >    require constant network connectivity, making them unsafe for real-time hazard avoidance.
 > 3. Embedded CNN-based obstacle detectors (standard YOLO on mobile) which identify objects but fail
->    to prioritize physical threats (like a fast-moving bicycle vs a parked car) or provide natural
->    language context.
-> Emphasize how our hybrid approach (deterministic physics + knowledge-distilled SLM) bridges the gap
-> between semantic richness and edge-critical latency."
+>    to prioritize physical threats (like a fast-moving bicycle vs a parked car).
+> Emphasize how our approach — small learned predictors for arrival and scene context, combined
+> with physics severity inside a deterministic safety envelope — prioritises threats on a phone
+> without a language model in the loop. Use only citations from docs/related_work.md."
 
 ### A.3 Methodology: Perception Stack & N-Frame Skip
 
@@ -516,13 +544,12 @@ section of this document (§1–6 above) as additional grounding context first.
 >   deferred validation), then validate all classes and compare retained COCO-class precision/recall
 >   against base YOLO26n with explicit class-name remapping. This repaired the v2 retained-class
 >   regression while preserving custom hazard improvements.
-> - We implement an N-frame detection skip (e.g., every 3rd frame). Between detection frames, we rely
->   on depth-guided tracking and interpolation, reducing compute load by ~67% while maintaining high
->   safety margins.
-> - We use the depth map to extract precise distance (d) at the bounding box centroid. Object bearing
->   is computed directly from the YOLO bounding box centroid pixel coordinate:
->   `bearing_deg = ((cx_px − frame_width/2) / (frame_width/2)) × (hfov_deg/2)`, requiring no
->   additional hardware beyond the phone camera.
+> - We process every 3rd source frame. Between processed frames, tracks are carried by the tracker.
+> - Depth comes from the SANPO dataset in our replay; on the target iPhone 17 Pro Max it would come
+>   from the LiDAR scene depth via ARKit. State this substitution explicitly. Distance (d) is the
+>   median depth in the central patch of each box, masking closer overlapping objects. Object bearing
+>   is computed from the box centroid pixel and the camera's horizontal field of view:
+>   `bearing_deg = ((cx_px − frame_width/2) / (frame_width/2)) × (hfov_deg/2)`.
 > - We compute a 'Kinetic Score' K = f(class_severity, velocity, distance). An earlier design
 >   considered six candidate formulas (K0–K5) but a rank-correlation check showed K1, K2, and K5 are
 >   exactly rank-identical to 1/TTC within a class and K3 is 0.9998-correlated — they were not
@@ -539,46 +566,41 @@ section of this document (§1–6 above) as additional grounding context first.
 >   configurations (from immediate hazards to far-range path planning), compiles comparison metrics,
 >   and logs hard examples in structured JSON files for downstream annotation workflows."
 
-### A.4 Methodology: Knowledge Distillation & SLM
+### A.4 Methodology: Threat Engine (when × how bad × what)
 
-> "Write the Methodology subsection detailing our 'Cognitive Layer and SLM Knowledge Distillation'.
-> Explain the following pipeline:
-> - Because running large Vision-Language Models on edge devices is impossible, we use a
->   Teacher-Student distillation approach.
-> - Offline, we use a massive Teacher model (e.g., Grounding DINO / GPT-4V) on street-view datasets
->   to generate high-quality pseudo-labels and rich semantic descriptions of hazards (e.g., 'pothole
->   at foot level').
-> - We use this generated dataset to fine-tune a Small Language Model (SLM), with Qwen3-1.7B
->   non-thinking mode as the primary cognitive candidate and Qwen2.5-1.5B as fallback.
-> - At runtime, the SLM receives a structured 'Symbolic Fact Sheet' — a JSON object containing only
->   fields derivable from a phone camera: track ID, object class, bearing (computed from pixel
->   centroid), distance, closing velocity, TTC, kinetic score, and the routing decision. Intent
->   labels (from HEADSUP dataset) appear only in the SFT training data to help the SLM learn to infer
->   intent from scene context, not as runtime inputs.
-> - The SLM-1 response is also structured JSON: primary_threat_id, reason (one sentence), scene_state,
->   confidence, and future_confirmed (K₊₂ ground-truth validation flag). This structured output
->   enables deterministic reward computation in the Physics Verification RL loop.
+> "Write the Methodology subsection on the 'Threat Engine'. Explain that:
+> - The engine replaces an earlier design in which a small language model picked the main threat;
+>   it was dropped because a language model is slow (~500 ms), large (~1 GB) and unverifiable in a
+>   safety loop.
+> - Threat is decomposed into three questions answered by separate components: *when* (a GRU
+>   arrival predictor reading each track's last 8 processed frames of distance, closing speed,
+>   bearing, their per-step changes, confidence, box size, track age and class — never the kinetic
+>   score — and outputting a distribution over arrival-time slices), *how bad* (class severity from
+>   real-world mass, `behaviour(c) · (mass(c)/70 kg)^0.5`), and *what* (walkable-surface
+>   segmentation trained on SANPO labels, giving whether the object is on the walker's path, on the
+>   road, or near a curb).
+> - The fused priority is `P(arrives within horizon) × severity × context`, ties broken by expected
+>   arrival time; fusion parameters are tuned on training sessions only.
+> - Tracks are first fused per object with a Kalman filter in ground-plane coordinates, with the
+>   walker's own head motion removed using camera pose, so the learned models see object motion
+>   rather than head turns.
 >
-> **Note when drafting:** the Cognitive Layer (SLM-1) has not been implemented yet as of this
-> writing — write this subsection as planned methodology, not as a reported result, until
-> `pending_work.md` §2 is complete."
+> **Note when drafting:** the GRU is trained and evaluated (§4.10); sensor fusion, segmentation and
+> the fused score are planned (`pending_work.md` P1). Write those parts as method, not results,
+> until they are run."
 
-### A.5 Methodology: Physics Verification (The Judge)
+### A.5 Methodology: Physics Safety Envelope
 
-> "Write the Methodology subsection on the 'Physics Verification Layer'. This is the safety-critical
-> core of the architecture. Explain that:
-> - The system converts each YOLO+tracking+depth row into a formal `ThreatEvent` with distance,
->   closing velocity, bearing, Kinetic Score, TTC, route (`ignore`, `cognitive`, or `reflex`),
->   priority, and reason.
-> - The SLM runs in soft real-time (~500ms) only for cognitive-route events, but language models can
->   hallucinate.
-> - The implemented Reflex Layer consumes reflex-route `ThreatEvent`s, converts them into
->   deterministic `ReflexResult`s, bypasses all SLM/TTS models, and hands immediate override or
->   high-K physics fallback candidates to Physics Verification in hard real-time (<50ms).
-> - The Physics Verification acts as an adjudicator: If TTC < 1.0s, it completely bypasses the SLM
->   and triggers an immediate 'Reflex' alarm. If the SLM hallucinates a safe scene but the Kinetic
->   Score is high, the Physics Verification overrides the SLM. This guarantees that critical physical
->   threats are never missed due to neural network latency or hallucination."
+> "Write the Methodology subsection on the 'Physics Safety Envelope'. Explain that:
+> - Each tracked object becomes a formal `ThreatEvent` with distance, closing velocity, bearing,
+>   time-to-collision (TTC) and severity.
+> - If an object's TTC is at most 1.0 s and it is inside the forward walking cone, the system
+>   raises an immediate override alert from a cached audio clip. This path contains no learned
+>   component and cannot be suppressed or delayed by one.
+> - Learned components only reorder the objects that are not in the envelope, so the system is
+>   never less safe than its physics rule alone.
+> - Override alerts bypass translation and any speech synthesis by construction (enforced in code,
+>   not convention)."
 
 ### A.6 Methodology: Kinetic Score Formulation and Its Evaluation
 
@@ -609,25 +631,27 @@ section of this document (§1–6 above) as additional grounding context first.
 >   either way.
 > - Evaluation avoids circularity: no formula is graded against another formula's output. Report
 >   (a) the ablation of K0's own terms — gamma=1, severity removed, velocity removed, apparent size
->   added, and plain time-to-hazard as an external reference; (b) six label-free metrics (flicker
+>   added, and plain time-to-hazard as an external reference; (b) five label-free metrics (flicker
 >   rate, rank stability under 2/5/10% depth perturbation, temporal smoothness, tie rate,
->   complementarity with SLM-1, future self-consistency); (c) automatic encounter labels derived only
+>   future self-consistency); (c) automatic encounter labels derived only
 >   from *measured* future distance and bearing, used to eliminate variants rather than to select one.
 > - All confidence intervals come from a **session-level** bootstrap, because frames within a walking
 >   session are autocorrelated and frame-level intervals would be dishonestly narrow. State the
 >   sample: a seeded 30% sample (139 of 462) of the SANPO-Real valid streams, 19,402 scored frames.
-> - Report the actual 2026-08-26 result: `no-velocity` and `ttc` lose decisively (sanity check
->   passes; K0 clearly beats plain time-to-hazard); `linear`, `no-severity`, `size`, and both lambda
->   arms tie with K0 on every label-free metric. State plainly that this means kinematics dominate
->   every reordering on this corpus and that the tied terms are retained as declared design choices,
->   not proven necessities — this is a defensible, reportable finding, not a null result to hide.
+> - Report the actual 2026-08-26 result: `no-velocity` loses decisively (rank stability collapses
+>   to 0.26–0.52), so velocity matters; `ttc` has higher flicker than K0, but its encounter-recall
+>   deficit is an artifact of untracked ground blobs (§4.9 caveat 2) and must not be reported as a
+>   win for K0. `linear`, `no-severity` and `size` tie with K0 on every label-free metric; the two
+>   lambda arms are struck as not reproducible from current code. State plainly that kinematics
+>   dominate every reordering on this corpus and that the tied terms are declared design choices,
+>   not proven necessities.
 > - The one irreducibly human question — whether gamma and the severity weights are *right* — is
 >   settled by a **blinded forced-choice referee** restricted to the frames where two variants pick
 >   different top objects (~5% of frames, which is what makes labelling affordable). Three VLM
 >   referees from three model families, run locally, estimate labelling noise, not truth; report
 >   pairwise Cohen's kappa between them and, critically, kappa against a human-labelled calibration
 >   subset. State plainly that if human kappa is poor, the VLM numbers are not evidence. **Note when
->   drafting:** this referee step has not been run yet as of this writing (`pending_work.md` §1) — the
+>   drafting:** this referee step has not been run yet as of this writing (`pending_work.md` P2.4) — the
 >   219 disagreement frames are exported and waiting.
 > - If the learned-predictor experiment (§4.10) has been run, add a paragraph comparing K0 against two
 >   learned encounter predictors trained on the same formula-free labels: a per-object GRU over 0.8 s
@@ -645,13 +669,14 @@ section of this document (§1–6 above) as additional grounding context first.
 ### A.7 Results, Discussion & Conclusion
 
 > "Using only the supplied measured results, write the Results, Discussion, and Conclusion sections.
-> Distinguish native NVIDIA GB10 measurements from the analytical Jetson Orin Nano 8GB proxy (4.0x
-> compute-latency scaling plus 3.0 ms overhead). Report the 10-session SANPO result as simulated
-> evidence: average p95 34.31 ms, worst-session p95 41.96 ms, with all simulated sessions below the
-> 50 ms reflex budget. Report the YOLO26n detector result (v3: mAP50 0.641, mAP50-95 0.459) and the
-> v2→v3 training-protocol finding (restarting from the base checkpoint repaired catastrophic
-> forgetting of retained COCO classes that continuing from v1 caused). Report the kinetic-score
-> ablation result from §A.6. Do not claim physical edge-device FPS, high-kinetic recall under real
-> depth noise, or stale-SLM filtering until those experiments have actually been run
-> (`pending_work.md` §1.4, §2, §6). Discuss the expected trade-offs between semantic richness, compute
-> latency, and future battery-powered deployment."
+> Report latency only as measured, naming the device: the GB10 server result (10 SANPO sessions,
+> avg p95 7.83 ms) is not a phone result; report iPhone 17 Pro Max numbers only if they have been
+> measured on the device (`pending_work.md` P3). Report the YOLO26n detector result (v3: mAP50 0.641,
+> mAP50-95 0.459) and the v2→v3 training-protocol finding. Report the kinetic-score ablation (§A.6)
+> and the arrival-prediction result: on 462 SANPO sessions the GRU reaches AUROC 0.887 vs. K0 0.571
+> and TTC 0.656, ties the nearest-in-cone rule on arrival order, and has a steadier top pick (flicker
+> 0.59 vs. 0.73); the stacked ensemble reaches AUROC 0.894. Discuss that the ceiling is set by the
+> input features, motivating head-motion removal and scene context. State the limitations: open-loop
+> replay, dataset depth standing in for phone LiDAR, no user study, declared severity parameters. Do
+> not claim a live deployment, phone FPS that was not measured, or results for components that have
+> not been run."

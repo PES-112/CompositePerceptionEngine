@@ -1,131 +1,118 @@
 # Composite Perception Engine (CPE)
 
-Simulation-based implementation of the Neuro-Symbolic navigation system for blind pedestrians.
-**Architecture Type:** Asynchronous Physics-Semantic Dual-Track with Verification Layer.
+A phone-based hazard alert for blind pedestrians. It ranks nearby objects by **when** they will reach
+the walker, **how bad** a collision would be, and **what** the scene says about them. Every learned
+decision sits inside a deterministic physics safety envelope. The target device is an iPhone 17 Pro
+Max; evaluation replays the SANPO egocentric dataset.
 
-## Corrected Pipeline
+**Design:** [`docs/architecture.md`](docs/architecture.md) · **Status:**
+[`docs/progress.md`](docs/progress.md) · **Backlog:** [`docs/pending_work.md`](docs/pending_work.md)
+
+## Pipeline (v2)
 
 ```
-Input Layer (Camera + Depth Dataset + Gyro)
-    → Sensor Fusion
-    → Perception Stack (YOLO26 Nano + ByteTrack + Depth)
-    → Threat Prioritizer
-         ├── Low Risk  → Ignore
-         ├── High Risk → Reflex Layer (TTC, <50ms) ──────────┐
-         └── Context   → Cognitive Layer (SLM-1, ~500ms) ───→ Physics Verification (Judge)
-                                                              → Narrator SLM-2
-                                                              → [Optional] Indic Translation
-                                                              → Audio Output (cached clips / local TTS)
-System Heartbeat → Audio Output (independent, ambient)
+SANPO replay: RGB + dataset depth + camera pose      (on the phone: camera + LiDAR + ARKit pose)
+  → Perception        YOLO26n v3 + ByteTrack + depth per box                         ✅
+  → Sensor fusion     Kalman track per object, ground plane, head motion removed      ⬜
+  → Scene context     walkable-surface segmentation (road / curb / sidewalk), 2–5 Hz  ⬜
+  → Threat engine
+       safety envelope   TTC ≤ 1 s in the walking path → immediate alert             ✅
+       when              GRU arrival predictor                                       🟡 offline
+       how bad           class severity (mass law)                                   ✅
+       what              segmentation context                                        ⬜
+       fusion            priority = P(arrive) × severity × context                   ⬜
+  → Announcement manager  cooldown, hysteresis, override preempts                     ⬜
+  → Narration         scripted phrases → pre-rendered audio clips                     ✅ templates
 ```
 
-Run this chain end-to-end on synthetic data right now with `python tools/run_full_pipeline_demo.py`
-(SLM-1 is a rule-based stub — see `docs/pending_work.md` for what's real vs. placeholder in each stage).
+✅ built · 🟡 built offline, not in the runtime yet · ⬜ planned. There is no language model at
+runtime; the v1 SLM cognitive and narrator layers were dropped on 2026-10-14.
+
+Run the current runtime chain on synthetic frames: `python tools/run_full_pipeline_demo.py` (the
+ranking step is still a rule-based stub until the fused score lands).
 
 ## Project Structure
 
 ```text
 CompositePerceptionEngine/
-├── .agents/                         # Agent instructions for required docs/changelog upkeep
-├── docs/                            # Canonical project documentation (see docs/README.md for the full map)
-│   ├── README.md                    # Documentation ownership map and artifact conventions
-│   ├── progress.md                  # Living checklist and immediate next steps
-│   ├── progress_presentation.md     # Presentation-ready progress summary and key results
-│   ├── pending_work.md              # Prioritized backlog of everything not yet done
-│   ├── methodology.md               # Paper-ready methods reference + LLM paper-drafting prompts (dataset, detector, kinetic score, edge latency)
-│   ├── architecture.md              # Runtime architecture, contracts, safety behavior, technology audit, and historical implementation plan
-│   ├── hardware_targets.md          # GB10 specs, edge target, budgets, and evidence status
-│   ├── yolo_training.md             # Current YOLO26n v3 dataset/checkpoint/evaluation guide
-│   ├── sanpo_dataset.md             # SANPO layout, intake, edge benchmark evidence, and gap analysis workflow
-│   ├── ablation_guide.md            # Kinetic-score ablation + verification run guide and latest results
-│   ├── kinetic_score_opinion.md     # Full reasoning trail + decision record for the kinetic-score evaluation strategy
-│   ├── related_work.md              # Verified external paper citations, by CPE component
-│   └── CHANGELOG.md                 # Date-stamped project changes
+├── .agents/AGENTS.md                # Required docs/changelog upkeep for agents
+├── docs/                            # See docs/README.md for the full map
+│   ├── architecture.md              # v2 system design: components, simulation vs. iPhone, budgets, evaluation, limitations
+│   ├── progress.md                  # Status, key results with numbers, slide order, Q&A numbers
+│   ├── pending_work.md              # Prioritized backlog (P0 data correctness → P5 paper)
+│   ├── methodology.md               # Paper-ready methods + LLM paper-drafting prompts
+│   ├── ablation_guide.md            # Stage-1 streaming, K0 ablation, VLM referee + human calibration run guide
+│   ├── related_work.md              # Verified citations by component
+│   ├── sanpo_dataset.md             # SANPO layout, camera facts, intake, server latency benchmark, gap analysis
+│   ├── yolo_training.md             # Detector datasets, checkpoints, commands, metrics
+│   └── CHANGELOG.md                 # Dated record of changes
 ├── src/
-│   ├── shared/                      # Shared schemas and data contracts
-│   ├── perception_stack/            # YOLO26n + ByteTrack + depth post-processing
-│   ├── threat_prioritizer/          # ThreatEvent contract and Ignore / Reflex / Cognitive routing
-│   ├── reflex_layer/                # Deterministic reflex bridge from ThreatEvent to Physics Verification
-│   ├── physics_verification/        # Judge layer for SLM-vs-physics arbitration
-│   ├── narration/                   # Template narrator, translation, and TTS adapters (templates.py, translation.py, tts.py, pipeline.py)
-│   ├── cognitive_layer/             # stub.py — rule-based SemanticEval placeholder for SLM-1
-│   └── pipeline/                    # orchestrator.py — composes prioritizer→cognitive→verification→narration per frame
-├── simulation/
-│   └── datasets/
-│       └── sanpo/valid_streams.json # Curated SANPO stream IDs for the CPE use case
-├── training/
-│   ├── scripts/                     # YOLO download, training, export, evaluation, comparison scripts
-│   └── rl_agent/                    # PPO/LoRA training entry points for SLM-1
+│   ├── perception_stack/            # YOLO26n + ByteTrack + depth sampling, physics (severity, bearing, K0)
+│   ├── threat_prioritizer/          # ThreatEvent contract and routing
+│   ├── reflex_layer/                # Safety-envelope path (TTC override)
+│   ├── physics_verification/        # Override rule (v1 SLM arbitration rules to be retired)
+│   ├── cognitive_layer/             # stub.py — placeholder, to be replaced by the fused ranker
+│   ├── pipeline/                    # orchestrator.py — per-frame composition through narration
+│   ├── narration/                   # Scripted templates, phrase-table translation, cached-clip/Piper TTS
+│   └── shared/                      # fact_sheet.py (v1 SLM prompt format; to retire)
 ├── models/
-│   ├── GRU/                         # Learned encounter predictors + shared data/train/evaluate (see models/GRU/README.md)
-│   │   ├── GRU/                     # Architecture 1: per-object GRU (no scene context)
-│   │   └── GRU_attention/           # Architecture 2: per-object GRU + attention across objects in the frame
-│   ├── Ensemble/                    # ensemble.py: rank-average / out-of-fold stacked arrival ensemble (README.md)
-│   ├── yolo/
-│   │   ├── base_yolo26n/            # Local base YOLO26n checkpoint registry entry
-│   │   └── cpe_yolo26n_hazards_v3_from_base/ # Preferred detector export registry
-│   ├── slm1/                        # Qwen/Phi-style SLM-1 artifacts
-│   ├── slm2/                        # Narrator SLM artifacts
-│   ├── indic/                       # IndicTrans2 artifacts
-│   └── tts/
-│       └── piper/                   # Downloaded Piper ONNX voices (e.g. en_US-lessac-low)
-├── dataset/                         # Model-ready datasets built from Stage-1 CSVs (see dataset/README.md)
-│   └── GRU/                         # samples.py + build.py; one built dataset shared by both GRU architectures
-├── tools/
-│   ├── benchmark_edge_realtime.py   # RGB/depth real-time benchmark with edge profiles
-│   ├── benchmark_narration_latency.py # Standalone narration/TTS latency benchmark (no SANPO data needed)
-│   ├── build_threat_events.py       # Stage 1 perception CSV → ThreatEvent JSONL bridge
-│   ├── download_sanpo_valid_streams.py # Bounded downloader for valid SANPO sessions
-│   ├── gap_analysis_experiments.py  # SANPO depth-vs-YOLO perception gap analysis
-│   ├── manual_score_inspector.py    # Generates interactive HTML for manual K-score verification
-│   ├── run_full_pipeline_demo.py    # Full runtime chain on synthetic data — perception → prioritizer → cognitive → verification → narration
-│   ├── run_perception.py            # Stage 1 perception runner
-│   ├── stream_sanpo_perception.py   # Stage 1 over a 30% GCS-streamed SANPO sample (no local dataset)
-│   └── visualize_stage1.py          # Perception CSV visualization helper
+│   ├── GRU/                         # "When": arrival predictors (GRU/, GRU_attention/), train/evaluate/summarize
+│   ├── Ensemble/                    # Rank-average and out-of-fold stacked arrival ensemble
+│   ├── yolo/                        # Detector registry: base_yolo26n, cpe_yolo26n_hazards_v1, ..._v3_from_base
+│   └── tts/piper/                   # Piper ONNX voice (live-synthesis benchmark)
+├── dataset/
+│   └── GRU/                         # samples.py + build.py; built .npz datasets shared by both GRU architectures
 ├── evaluation/
-│   ├── kinetic_ablation.py          # K0 term ablation + label-free metrics + disagreement export
-│   ├── kinetic_ablation_stratified.py # Severity-discriminating-frame-only re-run of the ablation metrics
-│   ├── encounter_blob_check.py      # Re-runs encounter_top1 with/without untracked obs_* depth blobs
-│   ├── vlm_referee.py               # Blinded 3-VLM referee (local servers) over disagreement frames
-│   ├── topk_threat_validation.py    # Per-scene K0 top-3 threats, validated by 3 blinded local VLMs
-│   ├── generate_report_figures.py   # Regenerates all plots/tables in benchmarks/figures/ from current results
-│   ├── benchmarks/
-│   │   ├── sanpo_edge_realtime/     # SANPO latency and edge-simulation metrics
-│   │   ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention comparisons
-│   │   ├── kinetic_score_eval/      # K0 ablation runs: label-free metrics, referee ballots, reports
-│   │   ├── gru_encounter_eval/      # GRU vs. GRU+attention encounter/arrival-time runs (one report.md per run)
-│   │   ├── ensemble_eval/           # models/Ensemble results: report.md, paired differences, stacker weights
-│   │   ├── narration_latency/       # Narration/TTS latency benchmark output (report.md, latency.json)
-│   │   └── figures/                 # Generated PNG plots + results_summary.md (output only)
-│   └── logs/
-├── notebooks/                       # EDA and SANPO/YOLO prototyping notebooks
-├── tests/                           # Unit/integration tests for threat routing, reflex bridge, and GRU models
-├── data/                            # Local datasets/downloads (gitignored)
-└── README.md
+│   ├── kinetic_ablation.py          # K0 term ablation, label-free metrics, encounter labels (reused for v2)
+│   ├── kinetic_ablation_stratified.py # Ablation restricted to severity-discriminating frames
+│   ├── encounter_blob_check.py      # encounter_top1 with/without untracked depth blobs
+│   ├── vlm_referee.py               # Blinded 3-VLM referee (local servers) + human calibration
+│   ├── topk_threat_validation.py    # K0 top-3 vs. blinded VLMs (v1 check)
+│   ├── generate_report_figures.py   # Regenerates evaluation/benchmarks/figures/
+│   └── benchmarks/
+│       ├── gru_encounter_eval/      # GRU runs, one report.md per run
+│       ├── ensemble_eval/           # Ensemble reports, paired differences, stacker weights
+│       ├── kinetic_score_eval/      # K0 ablation run (2026-08-26)
+│       ├── yolo26n_hazards_v1/      # v1 detector evaluation
+│       ├── yolo26n_version_comparison/ # v1/v2/v3 accuracy and retention
+│       ├── sanpo_edge_realtime/     # Server latency on SANPO (+ retired Jetson proxy)
+│       ├── narration_latency/       # Template / Piper latency
+│       └── figures/                 # Generated plots + results_summary.md
+├── tools/
+│   ├── stream_sanpo_perception.py   # Stage 1 over SANPO streamed from the public bucket
+│   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler
+│   ├── run_perception.py            # Stage 1 on local frames
+│   ├── build_threat_events.py       # Stage-1 CSV → ThreatEvent JSONL
+│   ├── run_full_pipeline_demo.py    # Runtime chain on synthetic frames
+│   ├── benchmark_edge_realtime.py   # Detector/tracker/depth latency on SANPO
+│   ├── benchmark_narration_latency.py # Narration/TTS latency
+│   ├── gap_analysis_experiments.py  # Depth-vs-YOLO gap analysis
+│   ├── visualize_stage1.py          # Stage-1 CSV visualisation
+│   └── run_fact_sheets.py           # v1 SLM fact sheets (to retire)
+├── training/
+│   ├── scripts/                     # YOLO download, rebalance, train, evaluate, retention compare, export
+│   ├── configs/                     # 17-class taxonomy, Roboflow source manifest
+│   └── runs/                        # Ultralytics runs and checkpoints (v1, v2, v3)
+├── notebooks/                       # sanpo_yolo_gap_analysis.ipynb + gap_analysis_output/
+├── simulation/datasets/sanpo/valid_streams.json # The 462 curated SANPO-Real sessions
+├── tests/                           # Threat routing, safety envelope, GRU models, ensemble
+├── data/                            # Local datasets (gitignored)
+└── requirements.txt
 ```
 
-## SLM Stack
-
-| Component | Model | Size | Runtime |
-|---|---|---|---|
-| SLM-1 (Cognitive) | Qwen3-1.7B non-thinking mode | INT4 target | Strict JSON over perception fact sheets |
-| SLM-1 fallback | Qwen2.5-1.5B-Instruct | INT4 target | Use if Qwen3 runtime/quantization is blocked |
-| Narration | Template-first critical warnings (`src/narration/templates.py`, done); Phi-4-mini optional for non-critical narration (not started) | INT4/ONNX target | Critical alerts stay deterministic |
-| Indic Translation | Phrase table + English fallback (done); IndicTrans2 distilled adapter coded, not yet run against real weights | 200M-class target | Phrase table for critical alerts, model for non-critical narration |
-| TTS | Cached clips (done) / Piper-ONNX (done, measured 30-68ms/utterance CPU) / FastSpeech2 fallback (not started) | On-device | Must not block reflex alerts |
-
-## Training
+## Common commands
 
 ```bash
-# Phase 1: Supervised warm-up
-python training/rl_agent/warmup.py --model qwen2.5-1.5b --steps 500
+# Stage 1 over SANPO, streamed (see docs/ablation_guide.md §2; check --fps against the session's FPS)
+python tools/stream_sanpo_perception.py --help
 
-# Phase 2: PPO from Physics Verification reward
-python training/rl_agent/train_ppo.py --lora-rank 16 --steps 10000
+# Build the GRU dataset and train (see models/GRU/README.md)
+python -m dataset.GRU.build --csv-dir data/processed/sanpo_real_462 --tracked-only --hazard-m 3 --folds 5
+python -m models.GRU.train --arch gru --dataset dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_f5_s0 --time-bins 4 --seeds 0 1 2
 
-# Detector export/runtime baseline
-.venv/bin/python training/scripts/export_yolo26n_edge.py \
-  --formats onnx \
-  --quantize 16 \
-  --device 0
+# Tests
+python -m unittest discover tests
+
+# Detector export (Core ML for the iPhone is pending_work.md P3)
+python training/scripts/export_yolo26n_edge.py --help
 ```

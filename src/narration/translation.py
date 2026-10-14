@@ -1,7 +1,7 @@
 """
 translation.py
 ===============
-Translation layer per docs/architecture.md §11.4: critical alerts must use a
+Translation layer per docs/architecture.md §6.6: critical alerts must use a
 pre-translated phrase table (never blocked on a model), non-critical narration
 may use IndicTrans2, and English-only is the fallback if translation exceeds
 the latency budget.
@@ -30,7 +30,7 @@ class Translator(ABC):
 
 class EnglishFallbackTranslator(Translator):
     """Identity passthrough. Zero latency, zero dependencies, never fails —
-    the fallback named explicitly in architecture.md §11.4."""
+    the fallback named explicitly in v1 architecture.md §11.4 (git a6e37a7)."""
 
     def translate(self, text: str, target_lang: str) -> str:
         return text
@@ -61,7 +61,7 @@ class PhraseTableTranslator(Translator):
 
 class IndicTrans2Translator(Translator):
     """
-    Real model backend for non-critical narration (architecture.md §11.4).
+    Real model backend for non-critical narration (v1 architecture.md §11.4; optional in v2).
     Lazy-loads on first use so importing this module never requires torch/
     transformers/IndicTransToolkit unless this class is actually instantiated.
 
@@ -70,7 +70,7 @@ class IndicTrans2Translator(Translator):
       "ai4bharat/indictrans2-en-indic-1B"         — higher quality, heavier
     """
 
-    # architecture.md §2.7: "+75ms latency, acceptable for narration path" —
+    # v1 architecture.md §2.7 (git a6e37a7): "+75ms latency, acceptable for narration path" —
     # this is the number a live run should be checked against.
     LATENCY_BUDGET_MS = 75.0
 

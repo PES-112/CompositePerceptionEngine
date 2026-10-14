@@ -4,7 +4,11 @@ End-to-end procedure for defending the kinetic score `K = severity(c) · v^γ / 
 Everything below runs on your own hardware: SANPO streams from a public bucket, the referees are
 local VLMs. No API keys, no dataset copy, no data leaving the box.
 
-Read `docs/kinetic_score_opinion.md` first if you want the *why*. This file is the *what to type*.
+Read `docs/methodology.md` §4 first if you want the *why*. This file is the *what to type*.
+
+> **v2 note (2026-10-14).** K0 no longer ranks threats in the v2 design (`docs/architecture.md`).
+> The Stage-1 streaming (§2) and referee + human calibration (§4) procedures are reused to evaluate
+> v2's announcement order; the K0 arms and the 219 K0 disagreement frames are historical.
 
 ---
 
@@ -334,7 +338,7 @@ This restricts the same metrics to only the frames where a severity-differentiat
 pair of objects actually exists — the scenario severity was designed for — and reports what fraction of
 the corpus that even is. A tie there is much stronger evidence than a corpus-wide tie. Then run the VLM
 referees (§4) on the disagreement frames to determine whether their picks reveal a qualitative
-difference a human would care about. See `pending_work.md` §1 for the full ordered list. The
+difference a human would care about. See `pending_work.md` for the current ordered list. The
 `lam=0.25`/`lam=1.0` inconsistency itself is resolved (struck above, root-caused, raw numbers
 committed) — what's still open is running the referees on the frames that actually tied.
 

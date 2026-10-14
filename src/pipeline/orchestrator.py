@@ -14,7 +14,7 @@ previously produced no PhysicsVerification call and no narrator event at all,
 regardless of what a Cognitive Layer might have said. This module is that
 missing composition: it builds the physics ranking from every non-ignore
 object in the frame (reflex- and cognitive-route alike, matching
-architecture.md §2.6's "Compares SLM-1 semantic eval vs Raw Kinetic Score"),
+v1 architecture.md §2.6's (git a6e37a7) "Compares SLM-1 semantic eval vs Raw Kinetic Score"),
 gets a SemanticEval from the Cognitive Layer (stub for now — see
 src/cognitive_layer/stub.py) only when the frame has cognitive-route events,
 and adjudicates exactly once per frame.

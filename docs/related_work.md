@@ -11,6 +11,11 @@ and cite from here.
 Do not add an entry to this file from memory alone. If you need a new citation, verify it against a
 live search first — a wrong arXiv ID or misattributed author is worse than no citation.
 
+**Section references.** `architecture.md §N` references in this file were written against the v1
+design and point to v1 `architecture.md` (git `a6e37a7`). The v2 design (2026-10-14) still needs
+citations for its new parts: Kalman tracking with ego-motion compensation, walkable-surface
+segmentation (e.g. SegFormer), and GRU sequence models. Verify and add them before drafting.
+
 ---
 
 ## 1. Positioning: comparable assistive-navigation systems
@@ -80,7 +85,7 @@ The direct comparison class for CPE's Introduction/Related Work section (`method
 ## 4. Kinetic score design: grounding the formula in traffic-safety literature
 
 CPE's `K = severity(c) · v² / d` currently justifies `v²` and `mass^λ` from internal reasoning only
-(`kinetic_score_opinion.md` §7 — "a value judgment"). These two papers are real traffic-safety
+(a value judgment, `methodology.md` §4.7). These two papers are real traffic-safety
 literature that independently supports the same functional form, and are worth citing in the paper's
 Methodology to show the design isn't arbitrary, even though the specific λ compromise still is.
 
@@ -89,14 +94,14 @@ Methodology to show the design isn't arbitrary, even though the specific λ comp
   Derives an empirical pedestrian fatality-risk curve as a function of impact speed from the largest
   in-depth pedestrian accident study at the time. **Use:** direct empirical support for velocity
   (not just proximity) being the dominant driver of collision *consequence* — the same argument
-  `kinetic_score_opinion.md` makes for keeping `v²` over a proximity/TTC-only score, now backed by
+  `methodology.md` §4.1 makes for keeping `v²` over a proximity/TTC-only score, now backed by
   real accident data rather than only the internal architectural argument.
 - **Rosén, E., Stigson, H., & Sander, U. (2011). "Literature review of pedestrian fatality risk as a
   function of car impact speed."** *Accident Analysis & Prevention*, 43(1), 25–33.
   Follow-up literature review reaffirming the monotonic risk-vs.-speed relationship while correcting
   for sampling bias in earlier studies. **Use:** citable caveat — earlier risk curves overestimated
   risk from severity-biased sampling, a methodological parallel worth a footnote given CPE's own
-  ablation corpus-composition concerns (`pending_work.md` §1.3).
+  ablation corpus-composition concerns (`pending_work.md`, stratified severity check).
 - Kinetic-energy-as-injury-mechanism is also the stated basis of the **Vision Zero** road-safety
   framework (kinetic energy must stay below the threshold of human biomechanical tolerance) —
   referenced across the traffic-safety literature search results but without one single originating
@@ -105,29 +110,33 @@ Methodology to show the design isn't arbitrary, even though the specific λ comp
 
 ## 5. Evaluation methodology: ranking and agreement without ground truth
 
-Directly grounds the ablation and referee design (`methodology.md` §4, `kinetic_score_opinion.md`).
+Directly grounds the ablation and referee design (`methodology.md` §4).
 
 - **Bradley, R. A. & Terry, M. E. (1952). "Rank Analysis of Incomplete Block Designs: I. The Method
   of Paired Comparisons."** *Biometrika*, 39(3-4), 324–345. DOI: 10.1093/biomet/39.3-4.324.
-  The original forced-choice pairwise-comparison ranking model. **Use:** `kinetic_score_opinion.md`
-  §3 explicitly invokes "the same machinery behind Bradley-Terry / Elo leaderboards" for the blinded
+  The original forced-choice pairwise-comparison ranking model. **Use:** `methodology.md` §4.7
+  explicitly invokes "the same machinery behind Bradley-Terry / Elo leaderboards" for the blinded
   referee's win-rate methodology — this is the primary citation for that claim, currently missing one.
 - **Cohen, J. (1960). "A Coefficient of Agreement for Nominal Scales."** *Educational and
   Psychological Measurement*, 20(1), 37–46.
   Chance-corrected inter-rater agreement statistic. **Use:** the human-calibration step
-  (`pending_work.md` §1.5) reports Cohen's κ between each VLM referee and the human gold set — cite
+  (`pending_work.md` P2.4) reports Cohen's κ between each VLM referee and the human gold set — cite
   the original paper, not just the statistic by name.
 - **Zheng, L., et al. (2023). "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena."** NeurIPS
   2023 Datasets & Benchmarks. arXiv:2306.05685.
   Systematic study showing strong LLM judges can match human preference agreement (~80%), but also
   documents judge biases (position, verbosity, self-preference) that motivate calibration before
   trusting judge output. **Use:** directly grounds the "VLM as blinded referee, calibrated against a
-  human gold set before any number is trusted" design (`kinetic_score_opinion.md` §4) — also the
+  human gold set before any number is trusted" design (`methodology.md` §4.7) — also the
   source of the biases CPE should explicitly check for (e.g. does object presentation order bias a
   VLM referee's pick, given `collect_disagreements()` already randomizes object order for exactly
   this reason).
 
 ## 6. Cognitive Layer (SLM-1) and knowledge distillation
+
+> **v1 only.** The SLM layers were dropped in the v2 design (2026-10-14, `architecture.md` §3).
+> Kept for the paper's "why not a language model" discussion; section references below point to v1
+> `architecture.md` (git `a6e37a7`).
 
 - **Hinton, G., Vinyals, O., & Dean, J. (2015). "Distilling the Knowledge in a Neural Network."**
   arXiv:1503.02531.
@@ -145,6 +154,10 @@ Directly grounds the ablation and referee design (`methodology.md` §4, `kinetic
   for the SLM-2 narration-layer candidate (`architecture.md` §11.3).
 
 ## 7. Physics-Verification-as-reward and RL training
+
+> **v1 only.** The SLM layers were dropped in the v2 design (2026-10-14, `architecture.md` §3).
+> Kept for the paper's "why not a language model" discussion; section references below point to v1
+> `architecture.md` (git `a6e37a7`).
 
 - **Schulman, J., Wolski, F., Dhariwal, P., Radford, A., & Klimov, O. (2017). "Proximal Policy
   Optimization Algorithms."** arXiv:1707.06347.

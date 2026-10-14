@@ -1,7 +1,7 @@
 """
 tts.py
 ======
-Text-to-speech layer per docs/architecture.md §11.5's two-tier strategy:
+Text-to-speech layer per the two-tier strategy in v1 architecture.md §11.5 (git a6e37a7):
 critical path = cached clips / beep-haptic (must not block), non-critical
 narration = a real local model, benchmarked before it's allowed near the
 real-time path.
@@ -10,7 +10,7 @@ Status (2026-08-27): `CachedClipTTS` is real and dependency-free. `PiperTTS` is
 real and has been smoke-tested end-to-end in this environment — see
 docs/pending_work.md / CHANGELOG for the measured numbers
 (tools/benchmark_narration_latency.py reproduces them). FastSpeech2 and the
-AI4Bharat Indic voices from architecture.md §11.5 are documented but not
+AI4Bharat Indic voices from v1 architecture.md §11.5 are documented but not
 implemented here — they are heavier and explicitly gated on latency testing
 first; add them the same way PiperTTS is added, once that testing happens.
 """

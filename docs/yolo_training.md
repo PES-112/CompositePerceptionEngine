@@ -59,7 +59,7 @@ cd /home/student-4/Projects/CompositePerceptionEngine
   --name cpe_yolo26n_hazards_v3_from_base
 ```
 
-The script defaults are tuned for the GB10 server documented in [`hardware_targets.md`](./hardware_targets.md):
+The script defaults are tuned for the GB10 development server (specs in [`methodology.md`](./methodology.md) §5.1):
 
 - `cache=ram`
 - `batch=-1` AutoBatch

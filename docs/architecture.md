@@ -1,550 +1,292 @@
-# Composite Perception Engine Architecture
+# CPE System Design (v2)
 
-> [!NOTE]
-> Corrected to match the diagram provided. Physics Verification is **downstream of SLM-1** — it judges SLM-1's semantic output against the Reflex Layer's raw kinetic score, then selects events to narrate.
+**Status:** adopted 2026-10-14. This replaces the v1 design, in which an SLM-1 cognitive layer
+was arbitrated by a physics judge and narrated by SLM-2. v1 is preserved in git history (this file at
+commit `a6e37a7`).
 
----
-
-## 1. Corrected System Architecture
-
-```
-┌──────────────────────────────────────┐
-│             INPUT LAYER              │
-│  Primary Camera                      │
-│  Egocentric Depth Data (from dataset)│
-│  Gyroscope / 360 Camera              │
-└──────────────┬───────────────────────┘
-               │
-               ▼
-       ┌───────────────┐
-       │  Sensor Fusion │
-       └───────┬────────┘
-               │
-               ▼
-  ┌────────────────────────────┐
-  │      Perception Stack      │
-  │  YOLO26 Nano + Tracking    │
-  │  + Egocentric Depth Map    │
-  └────────────┬───────────────┘
-               │
-               ▼
-       ┌───────────────┐
-       │    Threat      │
-       │  Prioritizer   │  ← Computes raw TTC + Kinetic Scores
-       └──┬─────────┬──┘
-          │         │
-       Low Risk   High Risk / Contextual
-          │         │
-          ▼         ├──────────────────────────┐
-  ┌───────────┐     │                          │
-  │  Ignore   │     ▼                          ▼
-  │ Objects   │ ┌──────────────┐   ┌─────────────────────────┐
-  └───────────┘ │ Reflex Layer │   │     Cognitive Layer      │
-                │ Deterministic│   │ SLM-1 (Qwen3/Qwen2.5) │
-                │ Physics      │   │   Semantic Evaluation    │
-                │ TTC < 1.0s   │   │   of Scene Context       │
-                └──────┬───────┘   └────────────┬────────────┘
-                       │                        │
-                OVERRIDE SIGNAL          Normal Flow
-                       │                        │
-                       └──────────┬─────────────┘
-                                  ▼
-                     ┌────────────────────────┐
-                     │   Physics Verification  │
-                     │      (The Judge)        │
-                     │                         │
-                     │  Compares:              │
-                     │  SLM-1 semantic eval    │
-                     │  vs Raw Kinetic Score   │
-                     │                         │
-                     │  → Selects NarratorEvent│
-                     └────────────┬────────────┘
-                                  │
-                                  ▼
-                        ┌─────────────────┐
-                        │  Narrator SLM-2  │
-                        └────────┬────────┘
-                                 │
-                         ┌───────┴────────┐
-                         │   (Optional)   │
-                         ▼               ▼
-              ┌──────────────────┐  ┌───────────────┐
-              │ Indic Language   │  │  Audio Output │
-              │ Translation      │  │ Cached/local │
-              └──────────┬───────┘  └───────┬───────┘
-                         └──────────────────┘
-                                  ▲
-                     ┌────────────┘
-                     │
-              ┌──────────────┐
-              │   System     │
-              │  Heartbeat   │  ← Periodic ambient updates
-              └──────────────┘
-```
-
-**Key correction:** Physics Verification is *downstream* of SLM-1. It arbitrates between two independent intelligence streams.
+Legend used throughout: ✅ built and tested · 🟡 built offline, not yet in the runtime pipeline ·
+⬜ planned.
 
 ---
 
-## 2. Component Validation
+## 1. One-line pitch
 
-### 2.1 Input Layer & Dataset Strategy
+A phone-based hazard alert for blind pedestrians. It ranks nearby objects by **when** they will
+reach the walker, **how bad** a collision would be, and **what** the scene says about them. It keeps
+every learned decision inside a **deterministic physics safety envelope**, and it is evaluated
+end-to-end by replaying the SANPO dataset.
 
-The system relies on three primary datasets for simulation and training:
+## 2. Design principles
 
-| Dataset | Role in CPE |
-|---|---|
-| **SANPO / KITTI** | Provides **ground-truth egocentric depth**. The simulation extracts distance `d` directly from the dataset rather than predicting it via a neural network. This ensures the Physics Verification layer has perfect deterministic grounding. |
-| **UASOL** | Provides "chaos" real-world unstructured sidewalk footage to stress-test the optical flow stability checks. |
-| **HEADSUP** | Provides pedestrian intent labels (e.g., "looking at phone", "distracted") which feed into the cognitive layer's semantic context engine. |
+1. **Physics is the safety floor.** An object about to arrive (TTC ≤ 1 s, in the walking path)
+   always triggers an alert, whatever the learned models say. The models can only reorder what
+   comes after that.
+2. **Each component answers a different question.**
+   - **When:** the GRU arrival predictor.
+   - **How bad:** physics class severity.
+   - **What:** walkable-surface segmentation.
 
-> [!NOTE]
-> Training relies heavily on the depth extraction from datasets. The depth `d` is used to calculate the raw Kinetic Score, which serves as the **unbiased reward signal teacher** for the SLM-1 agent during PPO training.
+   Components that answer the same question add little. Our ensemble results show this: combining
+   four arrival predictors gained only +0.023 AUROC.
+3. **No language model at runtime.** Every runtime model is small, fast and testable. Narration is
+   scripted.
+4. **Target device: iPhone 17 Pro Max.** It's evaluated by **replaying SANPO**, not by a live
+   deployment (§4).
+5. **No human ground truth required.** Labels come from the walker's measured future (did the object
+   actually come close?). The one judgement call, "which object should be announced first", is
+   judged by a blinded referee calibrated against a small human set (§8).
 
----
+## 3. What changed from v1
 
-### 2.2 Perception Stack
+| v1 component | v2 replacement | Why |
+|---|---|---|
+| SLM-1 cognitive layer (Qwen3-1.7B, ~500 ms, ~1 GB) | GRU arrival predictor + segmentation context + fused priority score | An LLM is slow, large and unverifiable in a safety loop. Learned arrival models beat K0 by +0.32 AUROC |
+| K0 kinetic score (`severity · v² / d`) as the ranking | K0's **severity** term kept as "how bad"; **arrival** comes from the GRU | As an arrival predictor K0 scores AUROC 0.57, barely above chance |
+| Routing by K0 thresholds (ignore / cognitive / reflex) | TTC override + one fused priority ranking | One ranking replaces two lanes that both ranked the same objects |
+| Physics Verification "judge" (SLM vs physics, PPO reward) | **Safety envelope**: keeps the TTC override rule; SLM arbitration and RL reward retired | Nothing left to arbitrate once there is no SLM |
+| Narrator SLM-2 (Phi-4-mini) | Scripted templates + pre-rendered audio clips | Deterministic, zero latency, easy to translate |
+| "Sensor fusion" box (never implemented) | Per-track Kalman filter on the ground plane, head motion removed using camera pose | Head turns currently look like object motion to every model |
+| Depth-column obstacle sweep (no ground removal) | Same sweep, with walkable ground masked out by segmentation | 99.7% of encounter labels were the ground ahead of the walker |
+| Jetson Orin Nano 8GB target (4× analytical proxy) | iPhone 17 Pro Max; models measured on the phone itself | The phone is the actual target, and measuring it costs nothing |
 
-YOLO26 Nano + ByteTrack + Depth Map overlay. Outputs per object:
-- `track_id`, `class`, `bbox`
-- Metric distance `d` (**extracted from dataset depth map at bbox centroid**)
-- Velocity `v = Δd / Δt` across frames
+## 4. Simulation vs. deployment
 
-**Edge Optimization (YOLO Fine-Tuning):**
-The YOLO26n model is fine-tuned on a domain-specific hazard dataset (potholes, bollards, stairs, crosswalks, poles, puddles, dogs, and benches) rather than standard COCO classes. This provides critical semantic labels for navigation hazards at the edge.
+All results come from replaying SANPO-Real sessions. We **do not** run a depth model and **do not**
+run a live instance. Depth is read from SANPO. The right-hand column states how each input would be
+obtained on the phone; none of it is implemented.
 
-The fine-tuning entry point is `training/scripts/train_yolo26n_hazards.py`, backed by `training/configs/cpe_hazard_classes.yaml` and documented in `docs/yolo_training.md`. It keeps the YOLO26n nano backbone as the student model, reduces the detector head from COCO's broad 80-class taxonomy to 17 CPE navigation classes, freezes early layers by default, and supports deferred edge export via `training/scripts/export_yolo26n_edge.py` using modern Ultralytics `quantize=16` or `quantize=8` arguments. This retains navigation-relevant COCO classes such as `dog` and `bench`, and adds non-COCO hazards such as `pole`, `bollard`, `stairs`, `crosswalk`, `pothole`, and `puddle` without moving to a larger model family.
+| Input | In the simulation (what we run) | On iPhone 17 Pro Max (stated, not built) |
+|---|---|---|
+| RGB video | SANPO `camera_head/left` frames, 2208×1242 | Rear wide camera (AVFoundation / ARKit) |
+| Metric depth | SANPO `depth_maps/` (dataset stereo depth) | LiDAR scene depth via ARKit: low resolution (~256×192), reliable to ~5 m |
+| Ego-motion | SANPO `camera_poses.csv` | ARKit camera pose / Core Motion gyroscope |
+| Camera intrinsics | SANPO `description.json` (e.g. 58.4° horizontal FOV) | ARKit camera intrinsics, per frame |
+| Model execution | PyTorch on the development host | Core ML on the Apple Neural Engine; **latency measured on the device** (§7) |
+| Audio | Synthesised bytes, logged | Pre-rendered clips played locally |
 
-The current preferred detector is the v3-from-base checkpoint. v2 continued from the prior CPE checkpoint and improved several custom hazards but caused retained-class degradation, especially `truck`; v3 restarted from base `models/yolo/base_yolo26n/yolo26n.pt`, reused the cleaned 17-class dataset, and repaired most retention issues while improving mAP50-95. Evaluation now includes all-class held-out mAP plus retained COCO-class comparison against base YOLO using class-name remapping to avoid COCO-ID/CPE-ID mismatches.
+**Statement for the paper.** Depth comes from the dataset, so results are an upper bound on what
+phone depth would allow. The LiDAR's shorter range (~5 m vs. SANPO's tens of metres) is the main gap.
+It can be bounded by re-running the evaluation with SANPO depth truncated at 5 m and downsampled
+(optional experiment, `pending_work.md`).
 
-**Compute Reduction (N-Frame Skip):**
-To achieve 30+ FPS on edge devices, the system employs an N-frame skip (e.g., every 3rd frame). Between detections, the system relies on depth-guided ByteTrack interpolation, yielding a ~67% compute reduction without sacrificing safety.
+## 5. Architecture
 
-Real-time readiness should be validated with `tools/benchmark_edge_realtime.py`, which measures streaming YOLO26n + ByteTrack latency, optional depth loading, depth post-processing, and effective FPS under the same `frame_step` setting used by the perception loop. The current v3 detector-only GB10 benchmark has p95 total latency of `9.65 ms` per processed frame at `frame_step=3`, below both the `100 ms` processed-frame budget for 30 FPS input and the `<50 ms` reflex-path budget for detector/tracker work. A SANPO-Real smoke test on valid stream `0xCqEk5hjEvrygxu26MZkieSv45D_gaJ` measured p95 `9.04 ms` in preloaded RGB+depth mode, while raw dataset replay measured p95 `51.54 ms` because PNG disk read/decode dominated; live edge testing should use sensor/in-memory frames or preloaded mode rather than treating compressed-dataset I/O as detector latency.
-
-**Error Analysis & Dataset Gap Analysis Workflow:**
-To identify blind spots in the YOLO detection stack and prioritize fine-tuning efforts, the engine includes a dedicated gap analysis workflow (`notebooks/sanpo_yolo_gap_analysis.ipynb`) and a batch evaluation utility (`tools/gap_analysis_experiments.py`):
-- **Depth-only Candidate Region Detection:** It identifies regions in the depth map within customizable navigation ranges that have no corresponding YOLO detections.
-- **Whitelist-agnostic Analysis:** The system can evaluate gaps across all 80 standard COCO classes (rather than a constrained subset) to check for general perception failures.
-- **Multi-Range Evaluation:** Supports running parallel comparisons across multiple depth ranges (e.g., Immediate 0.5m-2.0m, Mid-range 0.5m-4.0m, Standard 0.5m-6.0m, and Far-range 2.0m-6.0m) to optimize the system configuration.
-- **Hard Example Logging:** Instead of exporting heavy images to disk, it flags challenging frames and saves their metadata (`session_id` and list of `frame_id`s) to range-specific JSON files (`hard_examples.json`) for downstream annotation workflows.
-- **Comparison & Recommendations:** Compiles frame stats, candidate regions, and generates a structured comparison report (`distance_metric_comparison.md`) to guide target dataset curation.
-
----
-
-### 2.3 Threat Prioritizer
-
-Routes objects based on the runtime `ThreatEvent` contract in `src/threat_prioritizer/events.py`. Stage 1 perception rows already contain YOLO class, track ID, confidence, bounding box, depth-derived distance, closing velocity, and bearing. The threat prioritizer enriches each row with TTC and kinetic score, then emits one route per object.
-
-```
-Tracked perception row
-  → PerceivedObject(distance, velocity, bearing, K, TTC)
-  → ThreatEvent(route=ignore|cognitive|reflex, priority, reason)
-
-K = Class_severity × v^γ / max(d,ε)   ← K0; γ and severity under ablation
-TTC = d / V_closing, when V_closing > 0
-
-TTC <= 1.0s or K >= HIGH_THRESHOLD → Reflex Layer (<50ms)
-K >= LOW_THRESHOLD                  → Cognitive Layer (~500ms)
-near static hazard                  → Cognitive Layer
-else                                → Ignore
-```
-
-Offline SANPO/perception CSVs can be converted into this event stream with `tools/build_threat_events.py`, which writes non-ignore `ThreatEvent` JSONL plus a route/class summary.
-
-> [!NOTE]
-> K0 (`sev × v² / max(d,ε)`) is the production kinetic score and the only research-derived
-> formula. The former K1–K5 candidates were dummies and have been removed: measurement showed
-> K1/K2/K5 are *exactly* rank-identical to 1/TTC within a class (ρ = 1.0000) and K3 is ρ = 0.9998,
-> so they were five labels for two behaviours. The earlier claim that "K4 is the leading candidate"
-> had no benchmark behind it and has been withdrawn. K0 is to be defended by **ablation** of its own
-> terms and by **complementarity with SLM-1**, not by a contest against strawmen — see
-> `docs/kinetic_score_opinion.md` for the evaluation strategy and
-> `docs/kinetic_score_opinion.md` §10 for the ground-truth decision record.
->
-> **Class severity is derived, not hand-tuned (2026-08-19).** `severity(c) = behaviour(c) ×
-> (mass(c)/70 kg)^λ` with `λ = 0.5`, because collision consequence scales with delivered energy.
-> λ = 0.5 (severity ∝ √mass) keeps a real destructive bias — car 4.6× a person, bus 13×, bus 2.8× a
-> car — without λ = 1's 171× runaway, which lets a distant bus outrank an imminent pedestrian.
-> λ is **frozen at 0.5** (2026-08-25) and no longer swept: with Tier-B blinded human labelling dropped, nothing in the evaluation plan can adjudicate between λ values, so λ and the behaviour multipliers are declared design choices reported as a limitation, not measured results. A sparse behaviour multiplier covers hazards mass cannot see (erratic motion,
-> trip height, head-height mounting), and four massless trip hazards (stairs, pothole, puddle,
-> crosswalk) keep explicit weights outside the mass law. Bounding-box size enters `kinetic_score()`
-> as an optional `size_exponent` term on apparent size `A_px/d`, **disabled by default**: box area
-> is ~99% predictable from class + depth by projective geometry, so it is redundant for labelled
-> objects and is carried as an ablation arm rather than a production term.
-
-> [!IMPORTANT]
-> Both tracks can fire simultaneously for different objects. A speeding car goes Reflex; a jaywalker goes Cognitive. Physics Verification merges both.
-
----
-
-### 2.4 Reflex Layer (< 50ms, Deterministic)
-
-The Reflex Layer bridge is implemented in `src/reflex_layer/reflex.py`. It consumes `ThreatFrame` objects, selects only `ThreatEvent(route="reflex")`, converts them to `ReflexResult`, and calls `PhysicsVerification` without waiting for SLM-1.
-
-- Computes TTC precisely for high-K or fast-closing objects
-- `IF TTC <= 1.0s` → fires **OVERRIDE SIGNAL** to Physics Verification
-- `IF K >= HIGH_THRESHOLD` but TTC is above override threshold → uses physics fallback as a reflex-path warning candidate
-- Bypasses SLM-1 entirely for hard real-time behavior
-- No neural network in this path
-- Covered by `tests/test_reflex_layer.py` for override, non-reflex suppression, and physics fallback behavior
-
----
-
-### 2.5 Cognitive Layer — SLM-1
-
-**Inputs:** Symbolic Fact Sheet (structured JSON) from the Threat Prioritizer
-
-The Fact Sheet is the sole runtime input to SLM-1. All fields are derivable from a phone camera at inference time:
-
-```json
-{
-  "frame_id": 142,
-  "scene_stable": true,
-  "objects": [
-    {
-      "track_id":      "t_07",
-      "object_class":  "car",
-      "bearing":       "ahead",
-      "bearing_deg":   2.1,
-      "distance_m":    8.5,
-      "velocity_ms":   4.2,
-      "ttc_s":         2.02,
-      "kinetic_score": 8.74,
-      "route":         "cognitive"
-    }
-  ]
-}
+```text
+ SANPO replay (sim)  /  iPhone sensors (deployment)
+ ┌───────────────────────────────────────────────────────────────┐
+ │ RGB frames  ·  metric depth  ·  camera pose / IMU  ·  intrinsics│
+ └──────┬───────────────┬──────────────────┬─────────────────────┘
+        │               │                  │
+        ▼               │                  │
+ ┌──────────────┐       │                  │
+ │ 1 PERCEPTION │ ✅    │                  │
+ │ YOLO26n v3   │       │                  │
+ │ + ByteTrack  │◄──────┘ depth sampled    │
+ └──────┬───────┘   in each box            │
+        ▼                                  ▼
+ ┌──────────────────────────────────────────────┐      ┌──────────────────────┐
+ │ 2 SENSOR FUSION & TRACKING  ⬜               │      │ 3 SCENE CONTEXT  ⬜   │
+ │ Kalman filter per track, ground-plane (x, z) │◄─────│ walkable-surface     │
+ │ head motion removed using camera pose        │ mask │ segmentation, 2–5 Hz │
+ │ → position, velocity, uncertainty            │      │ road / curb / sidewalk│
+ └──────┬───────────────────────────────────────┘      └──────────┬───────────┘
+        ▼                                                         │
+ ┌───────────────────────────────────────────────────────────────▼──────────┐
+ │ 4 THREAT ENGINE                                                           │
+ │  SAFETY ENVELOPE ✅  TTC ≤ 1 s in the walking path → OVERRIDE (bypasses all)│
+ │  WHEN     🟡  GRU arrival predictor → P(arrives ≤ horizon), expected time   │
+ │  HOW BAD  ✅  class severity (mass law, physics.py)                         │
+ │  WHAT     ⬜  context: on my path? on the road? near the curb?               │
+ │  FUSION   ⬜  priority = P(arrive) × severity × context → threat ranking     │
+ └──────┬────────────────────────────────────────────────────────────────────┘
+        ▼
+ ┌──────────────────────────────┐    ┌──────────────────────────────────────┐
+ │ 5 ANNOUNCEMENT MANAGER  ⬜    │───►│ 6 NARRATION & AUDIO                   │
+ │ cooldown, hysteresis,        │    │ scripted templates ✅                 │
+ │ override preempts, drop stale│    │ pre-rendered clip library ⬜          │
+ └──────────────────────────────┘    │ critical lane: English + cached clip ✅│
+                                     └──────────────────────────────────────┘
 ```
 
-**Excluded from runtime FactSheet (training-data only):**
-- `intent_label` — from HEADSUP dataset; not available from phone camera at inference. Used only to enrich SFT training examples so the SLM learns to infer intent from scene context.
-- `hallucination_filtered` — internal pipeline flag; not a semantic input.
+## 6. Components
 
-**Bearing derivation:** `bearing_deg = ((cx_px - frame_width/2) / (frame_width/2)) × (hfov_deg/2)`. No extra hardware needed — computed from YOLO bbox centroid pixel alone. Phone HFoV default: 70°.
+### 6.1 Perception ✅
 
-**Task:** Produce a semantic evaluation of the scene:
+- **Model.** YOLO26n v3, fine-tuned to a 17-class hazard taxonomy: mAP50 0.641, mAP50-95 0.459.
+- **Tracking.** ByteTrack assigns persistent track IDs.
+- **Depth.** Sampled from the central patch of each box, masking out closer objects that overlap it.
+- **Depth checks.** Detections are re-scored for size and plausibility against depth.
+- **Unlabelled obstacles.** A depth sweep of the lower frame catches obstacles YOLO missed.
 
-```json
-{
-  "primary_threat_id": "t_07",
-  "reason": "Car 8.5m ahead closing at 4.2m/s — highest kinetic risk on direct path.",
-  "scene_state": "vehicle_approaching",
-  "confidence": 0.92,
-  "future_confirmed": true
-}
-```
+Code: `src/perception_stack/`. Training and data: `yolo_training.md`.
 
-SLM-1 reasons about **trajectory, proximity urgency, and semantic context** — not just kinetic score. This is what makes it complementary to the physics layer.
+v2 change: the obstacle sweep will ignore pixels that segmentation labels as walkable ground (§6.3).
+This removes the "ground ahead" pseudo-objects that dominated the encounter labels.
 
----
-
-### 2.6 Physics Verification — The Judge ✅
-
-Arbitrates SLM-1 semantic vs. Reflex kinetic score. Selects the [NarratorEvent](file:///e:/capstone/code/src/physics_verification/physics_verification.py#39-59).
-
-```
-Adjudication rules:
-  1. OVERRIDE active (TTC < 1.0s)
-       → Bypass SLM-1. Direct alarm to Narrator.
-
-  2. SLM-1 primary_threat == highest-K object
-       → High confidence. Send with full context.
-
-  3. SLM-1 diverges from highest-K object
-       → Conflict: weight by (K_score × semantic_confidence)
-       → Log divergence → RL reward signal.
-
-  4. SLM-1 says safe, K_score is high
-       → Hallucination detected. Override with physics.
-```
-
-This prevents both SLM hallucinations **and** physics false positives (e.g. fast car in adjacent lane, no actual crossing risk).
-
----
-
-### 2.7 Narrator SLM — SLM-2
-
-**Input:** [NarratorEvent](file:///e:/capstone/code/src/physics_verification/physics_verification.py#39-59) JSON from Physics Verification
-**Output:** Short, clear natural language warning
-
-```
-{class: motorcycle, dist: 6m, bearing: left, v: 8m/s}
-→ "Motorcycle fast from your left."
-```
-
-**Optional:** Indic Language Translation via IndicTrans2 (~+75ms latency, acceptable for narration path).
-
----
-
-### 2.8 System Heartbeat
-
-Fires every 5–8 seconds when no threat is detected. Feeds Audio Output directly — does NOT pass through Physics Verification. Prevents dead silence in low-risk environments.
-
----
-
-## 3. RL Reward Loop
-
-Physics Verification grades SLM-1 at every cycle:
-
-```
-+100  : SLM-1 primary_threat == highest-K object
-+50   : SLM-1 catches semantic threat missed by kinetics
--200  : SLM-1 misses object with K > HIGH_THRESHOLD
--500  : SLM-1 says safe while OVERRIDE is active
-```
-
-Physics layer is the teacher. No human annotation needed.
-
----
-
-## 4. Strengths
+### 6.2 Sensor fusion & tracking ⬜
 
 | | |
 |---|---|
-| Depth from dataset | Grounded, error-free physics |
-| Threat Prioritizer routing | SLM-1 never processes irrelevant objects |
-| Physics-Semantic arbitration | Neither intelligence stream acts alone |
-| Override path | Hard safety guarantee, SLM-latency independent |
-| Heartbeat | No dead silence; ambient awareness |
-| Indic Translation | First-class accessibility feature |
+| Input | Per track: depth and box bearing; per frame: camera pose (SANPO) or ARKit pose / gyroscope (phone) |
+| Method | Constant-velocity Kalman filter per track in ground-plane coordinates (x sideways, z forward); before each update, rotate tracks by the camera's own motion |
+| Output | Smoothed position, velocity (signed, so retreat is visible) and an uncertainty, per track |
+| Replaces | Least-squares closing speed over 5 depth samples (`physics.compute_velocity`); the unimplemented `scene_stable` flag |
+| Why | Head turns currently look like every object moving sideways. Velocity is differentiated depth and is noisy. The fused priority can down-weight uncertain tracks |
+| Cost | Under 1 ms per frame |
 
----
+### 6.3 Scene context: walkable-surface segmentation ⬜
 
-## 5. Open Questions
+- **Model.** A small segmentation network (SegFormer-B0 class or a YOLO segmentation variant).
+- **Rate.** Runs asynchronously at 2–5 Hz, because ground layout changes slowly.
+- **Training data.** SANPO's own labels (`labelmap.json`): `road`, `curb`, `sidewalk`,
+  `crosswalk`, `stairs`, `paved trail`, `other walkable surface`, `inaccessible surface`. No new
+  annotation is needed.
 
-| Question | Recommendation |
+| Output | Level | Used by |
+|---|---|---|
+| surface under the object (road / sidewalk / crosswalk / other) | per track | fusion context, GRU input |
+| in walking path (inside the walkable corridor ahead) | per track | fusion context |
+| near a boundary (close to curb or road edge) | per track | fusion context (about to cross) |
+| distance to the nearest walkable edge ahead (curb, stairs, drop-off) | per scene | its own scripted alert |
+| walkable-ground mask | per frame | obstacle sweep (§6.1) |
+
+### 6.4 Threat engine
+
+**Safety envelope ✅ (rule exists; cone restriction ⬜).** If an object's time-to-collision is
+≤ 1.0 s **and** it is inside the forward walking cone, the result is an immediate override alert. No
+learned component can suppress or delay it. Today's rule (`src/physics_verification/`,
+`src/threat_prioritizer/events.py`) does not yet check the cone, and its velocity is unsmoothed.
+v2 adds both, using the fused tracks from §6.2.
+
+**When 🟡.** The GRU arrival predictor (`models/GRU/`) reads each track's last 8 processed frames:
+- distance, closing speed and bearing, plus their per-step changes;
+- detection confidence, box size and track age;
+- class.
+
+It outputs a distribution over arrival-time slices, which gives P(arrives within the horizon) and an
+expected arrival time. K0 is deliberately **not** an input. The stacked ensemble (`models/Ensemble/`)
+combines both GRUs with the nearest-in-cone and TTC rules.
+
+**How bad ✅.** Class severity from `physics.py`, derived from real-world mass:
+`behaviour(c) · (mass(c)/70 kg)^0.5`, with explicit weights for trip hazards (stairs, pothole, puddle,
+crosswalk). λ = 0.5 and the behaviour multipliers are declared design choices, not measured results.
+
+**What ⬜.** A context multiplier computed from §6.3. It goes up for "in my path" and "crossing the
+boundary"; it goes down for "on the road while I'm on the sidewalk".
+
+**Fusion ⬜.**
+
+```text
+priority(object) = P(arrives within horizon) × severity(class) × context(surface, in path, boundary)
+ties broken by expected arrival time (sooner first)
+below a priority threshold → ignored
+```
+
+This is "Level 2" in `models/Ensemble/README.md`. The fusion weights are fitted or tuned on SANPO
+**training** sessions only.
+
+### 6.5 Announcement manager ⬜
+
+Decides **whether** to speak, separately from **what** is most dangerous:
+- **Cooldown per track:** don't repeat the same object within N seconds unless its priority rises
+  sharply.
+- **Hysteresis:** switch the announced object only if the new one beats it by a margin. This is
+  where the GRU's lower flicker (0.59 vs. 0.73) pays off.
+- **Override preempts:** a safety-envelope alert interrupts any narration in progress.
+- **Drop stale:** a message that can't play within its time budget is discarded, not queued.
+
+### 6.6 Narration & audio
+
+| Part | Status | Notes |
+|---|---|---|
+| Scripted templates (`src/narration/templates.py`) | ✅ | "Motorcycle fast from your left." Deterministic, ~0 ms |
+| Critical lane: override → English + cached clip only, never translation or model speech | ✅ | Enforced in code (`src/narration/pipeline.py`) |
+| Pre-rendered clip library | ⬜ | About 17 classes × 5 directions × 3–4 urgency levels per language, rendered **offline** with a high-quality voice. Zero runtime speech synthesis on the phone |
+| Distance buckets ("close", "2 meters", "5 meters") | ⬜ | Keeps the clip set finite |
+| Segmentation phrases ("Curb ahead.", "Crosswalk ahead.") | ⬜ | Needs §6.3 |
+| Translation | ✅ phrase table · optional | Pre-translated phrases; no runtime translation model |
+| Spatial audio (pan the clip toward the object) | ⬜ optional | Free on iOS |
+
+## 7. Latency budget (iPhone 17 Pro Max)
+
+| Path | Rate | Budget | Evidence today |
+|---|---|---|---|
+| Perception → safety envelope → cached clip | every processed frame | **p95 < 50 ms** | GB10 native p95 7.83 ms (measured). The legacy Jetson analytical proxy gave 34.31 ms (simulated, retired). **Not yet measured on the iPhone** |
+| Sensor fusion (Kalman) | every frame | < 1 ms | Estimate (a few matrix operations per track) |
+| GRU + fusion score | every frame | < 2 ms | Estimate (~30–65k parameters) |
+| Segmentation | 2–5 Hz, async | must not delay perception | Not measured |
+| Narration | per announcement | ~0 ms (template + pre-rendered clip) | Template measured at ~0 ms |
+
+On-device numbers come from exporting each model to Core ML and running it on the iPhone 17 Pro Max,
+on SANPO frames. The replay then delays each alert by the measured latency ("latency-aware replay"),
+so the reported timeline matches the device. Neither step has been done yet (`pending_work.md`).
+
+## 8. Evaluation design
+
+- **Data.** SANPO-Real, 462 curated sessions (`simulation/datasets/sanpo/valid_streams.json`),
+  split **by session** into train and test.
+  - Everything is tuned on train only: GRU, segmentation, fusion weights, thresholds and
+    announcement parameters.
+  - The test set is scored once.
+- **Open-loop.** The recorded walker never reacts to our alerts. We can measure whether a warning
+  *would have* come in time, not whether anyone avoided anything.
+- **Labels without humans.** An object "arrives" if it later comes within the hazard distance inside
+  the forward cone, taken from measured future depth.
+
+| Level | Metrics | Baselines |
+|---|---|---|
+| Arrival ranking | AUROC, arrival_order, soonest_top1, flicker rate (session-bootstrap 95% CIs) | K0, TTC, cone-restricted TTC, nearest object, nearest-in-cone |
+| System (replay) | warning lead time before arrival, missed arrivals, alerts per minute, announcement switches per minute, all with on-device latency added | K0-routed v1 pipeline |
+| Announcement order | blinded referee win rate on frames where v2 and a baseline disagree; 3 local VLM referees calibrated against a human-labelled subset (Cohen's κ) | K0, nearest-in-cone |
+| Ablations | segmentation context on/off; ego-motion removal on/off; history length 8/16/20 | the full v2 engine |
+
+Statistical procedure, metric definitions and referee protocol: `methodology.md`.
+
+## 9. Known data issues (must be resolved before final numbers)
+
+1. **Frame rate.** SANPO-Real reports **15 FPS** (checked on one session; verify all 462).
+   - `tools/stream_sanpo_perception.py` defaults to `--fps 30`.
+   - If the CSVs were built at 30, every closing speed is 2× too high, and the "2 s" horizon is 4 s.
+2. **Field of view.** SANPO reports a **58.4°** horizontal FOV. `compute_bearing()` assumes 70°, so
+   every bearing is ~20% too wide. Use per-session intrinsics instead.
+3. **Ground pseudo-objects.** The obstacle sweep has no ground removal, so 99.7% of the original
+   encounter labels were ground. Current GRU results use tracked objects only. Segmentation masking
+   (§6.3) is the real fix.
+4. **Labels and inputs share one depth source.** "Predicts arrival" means "predicts what the depth
+   will measure". Optionally, use SANPO's real-time `zed_depth_maps/` as the model input and the
+   offline `depth_maps/` for labels.
+
+## 10. Limitations to state in the paper
+
+- **Replay, not deployment.** Evaluation is open-loop. No user study was run, and no live device
+  was used.
+- **Depth.** Depth comes from SANPO, not phone LiDAR (§4). Results are an upper bound for the
+  LiDAR's range and resolution.
+- **Declared choices.** λ and the behaviour multipliers are declared design choices.
+- **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
+  the chest; SANPO's `camera_chest/` stream exists but is unused.
+
+## 11. Code map: current modules in v2
+
+| Module | v2 role |
 |---|---|
-| `LOW_THRESHOLD` value? | Start `K < 0.5` (static/far); calibrate from dataset |
-| `HIGH_THRESHOLD` value? | `TTC < 1.5s` OR `K > 5.0`; tune via simulation |
-| SLM-1 context length? | 2-sec buffer ≈ ~60 frames; keep JSON compact |
-| Indic model? | **IndicTrans2** (AI4Bharat) — 200M params, 22 languages, edge-ready |
-| Heartbeat interval? | 5–8s when `K_max < LOW_THRESHOLD` across all objects |
+| `src/perception_stack/` | Perception (§6.1). Keep. Velocity moves to the Kalman tracker; bearing should use real intrinsics |
+| `src/threat_prioritizer/events.py` | `ThreatEvent` contract. Keep; routing becomes override + fused priority |
+| `src/reflex_layer/reflex.py` | Safety envelope path. Keep |
+| `src/physics_verification/physics_verification.py` | Rule 1 (override) becomes the safety envelope. Rules 2–3 and the PPO reward constants are SLM-only; retire when the fused ranker lands |
+| `src/cognitive_layer/stub.py` | Placeholder. **Replace** with the fused ranker; `src/pipeline/orchestrator.py` call site stays |
+| `src/pipeline/orchestrator.py` | Per-frame composition. Keep |
+| `src/narration/` | Narration (§6.6). Keep; add the clip library |
+| `src/shared/fact_sheet.py`, `src/perception_stack/fact_sheet_builder.py`, `tools/run_fact_sheets.py` | SLM-1 prompt format; no v2 consumer. Retire once nothing imports them |
+| `models/GRU/`, `models/Ensemble/`, `dataset/GRU/` | "When" component (§6.4) |
+| `evaluation/kinetic_ablation.py`, `evaluation/vlm_referee.py` | Metric definitions and the referee, reused for v2 evaluation |
 
----
+## 12. Open decisions
 
-## 6. Hardware and Deployment Constraints
-
-The canonical training-host specifications, edge-target status, simulation assumptions, and latency budgets are maintained in [`hardware_targets.md`](./hardware_targets.md). The repository currently has measurements from the NVIDIA GB10 training host and an analytical Jetson Orin Nano 8GB proxy; it does not yet have measurements from physical edge hardware.
-
-The architecture therefore treats runtime formats as target-dependent:
-
-| Component | Current development runtime | Intended edge runtime |
-|---|---|---|
-| YOLO26n v3 | PyTorch CUDA on GB10 | TensorRT or ONNX FP16/INT8 |
-| Reflex and Physics Verification | Python reference implementation | Native or optimized local runtime |
-| Cognitive SLM-1 | Not integrated | Quantized local runtime after profiling |
-| Critical audio | Not integrated | Deterministic templates and cached clips |
-
----
-
-## 7. SLM Recommendations (Mobile Edge)
-
-| Role | Model | Params | INT4 Size | Why |
-|---|---|---|---|---|
-| **SLM-1** (Cognitive) | **Qwen3-1.7B non-thinking mode** | 1.7B | INT4 target | Newer default; strict JSON output without thinking-mode latency |
-| **SLM-1 fallback** | Qwen2.5-1.5B-Instruct | 1.5B | INT4 target | Use if Qwen3 runtime or quantization is blocked |
-| **Narration** | Template-first critical warnings; Phi-4-mini optional | 0-4B | runtime-dependent | Deterministic for safety-critical alerts; richer SLM narration only off the reflex path |
-| **Indic Translation** | IndicTrans2 distilled + phrase table | ~200M | ~200MB | Phrase table for critical alerts; model translation for non-critical narration |
-
-**Memory note:** keep only the detector and reflex/audio critical path resident by default; load SLM narration and translation only if the target edge profile has measured headroom.
-
----
-
-## 8. Extracting RL Rewards from Datasets (PPO Workflow)
-
-The most elegant part of CPE is how it uses datasets to **train SLM-1 without human labeling**. Here is exactly how PPO (Proximal Policy Optimization) applies to your architecture:
-
-### 1. The RL Environment (Simulation)
-- **State ($S_t$):** A frame from SANPO/UASOL processed by YOLO + Depth Dataset into a structured JSON Fact Sheet (list of objects, distances, velocities, intents).
-- **Action ($A_t$):** SLM-1 outputs a `primary_threat_id` and a `reason`.
-- **Teacher (The Judge):** The Python [PhysicsVerification](file:///e:/capstone/code/src/physics_verification/physics_verification.py#68-162) script deterministically calculates the raw Kinetic Score ($K$) for every object using the dataset depth.
-
-### 2. The Reward Signal ($R_t$)
-At every frame, the Physics Judge compares the SLM-1 chosen action ($A_t$) against the raw physics reality:
-- **+100 Reward:** SLM-1's chosen target perfectly matches the object with the highest $K$ score.
-- **-500 Penalty (Fatal):** SLM-1 claims the scene is safe, but the Physics Judge calculates $TTC < 1.0s$ for an approaching vehicle.
-- **+50 Semantic Bonus:** SLM-1 picks a pedestrian looking at a phone (from HEADSUP labels) heading into the path, overriding a faster but non-colliding background car.
-
-### 3. PPO Update Step
-```python
-ppo_trainer.step(
-    queries=[fact_sheet_json],    # The scene state
-    responses=[slm_output],       # SLM-1's action
-    scores=[calculated_reward]    # Awarded by the Physics Judge
-)
-```
-This loop runs thousands of times across the SANPO and UASOL video frames. **SLM-1 gradually learns the laws of physics** (e.g., that high velocity + low distance = danger) simply by trying to maximize the reward given by the deterministic judge.
-
----
-
-## 9. Offline Training & Knowledge Distillation (Teacher-Student)
-
-To bridge the gap between rich semantic understanding and edge-device constraints (battery, memory, latency), the system uses a **Knowledge Distillation** pipeline for SLM-1.
-
-### 1. Offline Generation (The Teacher)
-Massive VLM models (e.g., Grounding DINO, GPT-4V, YOLOv10x) process thousands of street-view images offline. These slow, heavy models generate perfect pseudo-labels, bounding boxes, and rich natural-language descriptions of the scene (e.g., "Deep pothole immediately ahead at foot level, requiring a full stop").
-
-### 2. Edge Fine-Tuning (The Student)
-The edge-deployed **SLM-1 (primary: Qwen3-1.7B non-thinking mode; fallback: Qwen2.5-1.5B)** is fine-tuned on this generated dataset. It learns to map the extremely lightweight, edge-generated "Fact Sheet" (YOLO class + Depth + Kinetic Score) to the rich semantic understanding demonstrated by the Teacher model.
-
-This allows the edge system to mimic the reasoning capabilities of a 100B+ parameter model while executing in ~500ms on a mobile NPU.
-
----
-
-## 10. Minor Architecture Recommendations
-
-To refine the architecture without making major structural changes:
-
-1. **Depth Extrapolation Smoothing:** Since dataset depth points can sometimes be sparse or noisy at bounding box edges, apply a **Kalman Filter** to the `d` values extracted from the dataset before calculating `v = Δd / Δt`. This prevents jitter in the Kinetic Score from causing false reflex overrides.
-2. **Dynamic Heartbeat:** Instead of a fixed 5-second interval, let the System Heartbeat scale inversely with scene complexity. (e.g., empty room = 10s, crowded but safe sidewalk = 4s).
-3. **Intent-Gating:** Only pass HEADSUP intent labels to SLM-1 for objects within a 15-meter radius. Processing intent for distant background pedestrians wastes SLM token context window.
-
----
-
-## 11. Technology Audit: Model and Runtime Choices
-
-The rationale behind the model choices in §7's table, plus the tracking-stack and orchestration
-decisions. Formerly a standalone `roadmap.md`; merged here since it is elaborating on the same
-components this file already specifies. Current implementation status of each component:
-`progress.md`; backlog: `pending_work.md`.
-
-### 11.1 Perception: YOLO26n v3 + depth-guided tracking — keep
-
-YOLO26n is the right detector family because the system is edge-latency constrained, not
-leaderboard-mAP constrained (§2.2). The v3 checkpoint already passes the simulated Jetson
-detector/reflex budget across 10 SANPO valid streams (`hardware_targets.md`). Moving to a larger
-detector now would likely increase latency and integration risk before proving the current model is
-inadequate. The next optimization should be deployment format, not model size: export v3 to ONNX
-FP16/INT8, then TensorRT FP16/INT8 on actual Jetson/NVIDIA hardware, and compare PyTorch vs.
-ONNX/TensorRT latency and accuracy on the same SANPO 10-session set. Use Ultralytics `quantize=16` /
-`quantize=8` — the legacy `half=True` / `int8=True` flags are deprecated aliases. For INT8, use
-representative calibration data from `training/configs/cpe_hazard_classes.yaml` or SANPO-derived
-frames.
-
-**Tracking:** the Ultralytics tracking path uses ByteTrack. Keep it for prototype stability; evaluate
-TrackTrack or BoT-SORT only after baseline end-to-end metrics exist — switching trackers before an
-end-to-end baseline would confound any latency or accuracy comparison.
-
-### 11.2 SLM-1 Cognitive Layer — Qwen3-1.7B non-thinking, Qwen2.5-1.5B fallback
-
-Qwen3-1.7B over Qwen2.5-1.5B as primary: newer, Apache-2.0, multilingual, 32K context window, and
-supports explicit thinking/non-thinking modes. For real-time CPE cognition, use **non-thinking mode**
-to avoid unnecessary chain-of-thought latency. Qwen2.5-1.5B remains the fallback if Qwen3 runtime
-support or quantization causes deployment friction.
-
-```text
-SLM-1 primary: Qwen3-1.7B, quantized GGUF/ONNX where practical, non-thinking mode
-SLM-1 fallback: Qwen2.5-1.5B-Instruct, INT4/GGUF
-Output: strict JSON semantic assessment over the perception fact sheet
-Latency budget: soft real-time, <=500 ms
-```
-
-Do not let SLM-1 sit in the hard safety path — its output is advisory and must be arbitrated by
-Physics Verification (§2.6).
-
-### 11.3 SLM-2 Narration Layer — template-first, Phi-4-mini optional
-
-Phi-3 Mini is acceptable but no longer the best default; prefer Phi-4-mini-instruct for narration if
-memory permits, otherwise template-first narration for the prototype. Phi-4-mini-instruct is newer
-than Phi-3 Mini with stronger multilingual/reasoning support, but at ~3.8B/4B class it may be too
-heavy if SLM-1, translation, and TTS are also resident. The narrator has a constrained job — turn a
-verified event into a short warning — where a deterministic template layer may outperform an SLM on
-latency, safety, and consistency for the first demo.
-
-> [!NOTE]
-> **Phase 1 implemented (2026-08-27):** `src/narration/templates.py` — pure Python, no ML
-> dependency, consumes `NarratorEvent` directly and reproduces the worked example above exactly
-> (`"Motorcycle fast from your left."`). Phase 2 (Phi-4-mini) is still not started.
-
-```text
-SLM-2 phase 1: deterministic/template narrator for critical warnings
-SLM-2 phase 2: Phi-4-mini-instruct only for non-critical richer narration
-SLM-2 fallback: Phi-3-mini-4k-instruct ONNX/GGUF if Phi-4 runtime is too heavy
-```
-
-This keeps the demo safe: critical alerts should be short, deterministic, and immediate.
-
-### 11.4 Translation — IndicTrans2 distilled
-
-Keep IndicTrans2 distilled models for the prototype; revisit IndicTrans3 only after local
-availability/runtime is validated. IndicTrans2 supports the 22 scheduled Indic languages with
-distilled 200M/320M variants suitable for edge-style testing — the 1B variants may improve quality
-but are harder to fit alongside detector + SLMs + TTS. Translation must not block critical reflex
-alerts; critical alerts should use pre-translated phrase templates where possible.
-
-```text
-Critical path: pre-translated alert phrase table
-Non-critical narration: IndicTrans2 distilled En-Indic model
-Fallback: English-only output if translation exceeds latency budget
-```
-
-> [!NOTE]
-> **Partially implemented (2026-08-27):** `src/narration/translation.py` has real, tested
-> `PhraseTableTranslator` (critical path) and `EnglishFallbackTranslator` implementations, plus a
-> correct-API `IndicTrans2Translator` adapter that has **not** been run against real model weights
-> yet (`IndicTransToolkit`/`transformers` are installed and importable; the
-> `ai4bharat/indictrans2-en-indic-dist-200M` checkpoint itself was not downloaded in this session —
-> see the module docstring for the smoke-test command to run once it is).
-
-### 11.5 TTS / Audio — two-tier strategy
-
-Do not lock the prototype to FastSpeech2 only. FastSpeech2 is older but still viable if a working
-local voice is already available; for edge deployment, Piper-style ONNX voices are attractive where
-language coverage is acceptable because they are fast and designed for local inference; for Indic
-naturalness, AI4Bharat models such as IndicF5 / Indic Parler TTS may produce better quality but are
-heavier and should be benchmarked before entering the real-time path.
-
-```text
-Critical path: beep/haptic + cached short spoken clips
-Fast local TTS candidate: Piper/ONNX if target language voice exists
-Indic quality candidate: AI4Bharat IndicF5 or Indic Parler TTS for non-critical narration only after latency testing
-Fallback: FastSpeech2 if it is already integrated and meets latency
-```
-
-> [!NOTE]
-> **Implemented and measured (2026-08-27):** `src/narration/tts.py` has a real, tested
-> `CachedClipTTS` (critical path — a cache miss falls back to a beep in ~0ms, never blocks on a
-> model) and a real, tested `PiperTTS` backend. Measured on this dev machine (CPU only, no GPU),
-> voice `en_US-lessac-low`: one-time model load ~444 ms, per-utterance synthesis 30–68 ms for the
-> four representative `NarratorEvent` phrasings (`tools/benchmark_narration_latency.py`,
-> `evaluation/benchmarks/narration_latency/report.md`). No formal TTS latency budget exists yet
-> anywhere in `docs/` to grade this against — that benchmark script flags the gap; add one to
-> `hardware_targets.md` once a target device measurement exists. FastSpeech2 and the Indic voices
-> (IndicF5 / Indic Parler-TTS) remain unimplemented, per the "benchmark before entering the
-> real-time path" guidance above.
-
-### 11.6 Orchestration architecture — explicit queues and budgets
-
-Keep the asynchronous dual-track architecture, but implement it with explicit queues and budgets
-rather than vague asyncio glue:
-
-| Lane | Budget | Components | Behavior |
-|---|---:|---|---|
-| Perception/reflex | `<50 ms p95` detector/reflex budget | YOLO26n v3, tracker, depth, TTC/K-score | Never waits for SLM/translation/TTS |
-| Cognitive | `<=500 ms` soft budget | SLM-1 semantic assessment | Advisory only |
-| Narration | best effort, interruptible | template/SLM-2, translation, TTS | Dropped or shortened if stale |
-| Audio emergency | immediate | beep/haptic/cached clips | Preempts all other audio |
-
-Structured event queues: `PerceptionFrame -> TrackedObjects -> ThreatEvent -> VerifiedEvent ->
-AudioCommand`. The Physics Verification layer is the arbitration boundary; it must reject stale or
-hallucinated semantic output.
-
----
-
-## 12. Historical Implementation Plan (superseded)
-
-A 14-day day-by-day plan was drafted after YOLO26n v3 training and SANPO edge benchmarking, before
-work diverged (after roughly Day 4) to prioritize the kinetic-score defense (`methodology.md` §4,
-`ablation_guide.md`) ahead of the Cognitive Layer. Kept here as a historical record of intent; the
-current backlog is `pending_work.md`, not this plan.
-
-| Days | Focus | Status at time of divergence |
-|---|---|---|
-| 1–2 | Detector export (ONNX/TensorRT) and runtime baseline comparison | Not run; export script exists (`training/scripts/export_yolo26n_edge.py`) but no exported artifact is committed |
-| 3–4 | Perception-to-Physics event contract (`ThreatEvent` schema, builder, unit tests) | Done — `src/threat_prioritizer/events.py`, `tools/build_threat_events.py` |
-| 5–6 | Reflex Layer + audio emergency path | Reflex Layer done first-pass (`src/reflex_layer/reflex.py`); audio emergency command layer still pending |
-| 7–8 | SLM-1 Cognitive prototype | Not started — work diverged here into the kinetic-score ablation instead |
-| 9–10 | Physics Verification arbitration rules + divergence logging | Partial — judge logic exists and is unit-tested against the Reflex Layer only |
-| 11–12 | Narration, translation, TTS | Not started |
-| 13–14 | Full pipeline edge simulation + demo packaging | Not started — no full SANPO replay has been run yet |
+1. **Segmentation model:** SegFormer-B0 class vs. a YOLO segmentation variant. Decide by on-iPhone
+   latency and mIoU on SANPO masks.
+2. **Fusion form:** the fixed product above vs. a small fitted model. The product is easier to
+   explain and test.
+3. **Prediction horizon and hazard distance** after the FPS fix. Currently 20 frames and 3 m for
+   tracked objects.
+4. **Head vs. chest camera** for the paper's main results.

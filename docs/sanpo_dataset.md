@@ -31,6 +31,26 @@ gs://gresearch/sanpo_dataset/v0/
 
 `labeltype.json` marks whether each class is semantic-only or panoptic. CPE-relevant panoptic labels include `crosswalk`, `pedestrian`, `rider`, `animal`, `stairs`, `obstacle`, `vehicle`, `traffic sign`, `traffic light`, `pole`, `bus stop`, `bike rack`, and `tree`.
 
+## Camera Facts and Label Map (checked 2026-10-14)
+
+From `description.json` of curated session `-5OCPnbrwJdu3jH70ieU7pUiFsOJQoeG` (not yet verified across
+all 462):
+
+| Field | Value | Pipeline assumption |
+|---|---|---|
+| Camera | ZED 2i, head-mounted | — |
+| Frame rate | **15 FPS** | `tools/stream_sanpo_perception.py --fps` defaults to **30** |
+| Image size | 2208 × 1242 | same |
+| Horizontal FOV | **58.4°** (fx = 1973.7 px) | `compute_bearing()` assumes **70°**; `yolo_tracker.FOCAL_PX` = 960 |
+
+Resolving the mismatch is `pending_work.md` P0.1–P0.2.
+
+`labelmap.json` (31 classes) includes the surface classes the v2 segmentation model needs
+(`architecture.md` §6.3): `road`, `curb`, `sidewalk`, `crosswalk`, `paved trail`, `stairs`,
+`other walkable surface`, `inaccessible surface`, alongside object classes (`pedestrian`, `rider`,
+`vehicle`, `pole`, `obstacle`, ...). How many real sessions ship `segmentation_masks/` is still to be
+counted (`pending_work.md` P0.4).
+
 ## SANPO-Real Layout
 
 `valid_streams.json` currently contains 462 relevant stream IDs. The entries sampled so far all resolve under `sanpo-real`, not `sanpo-synthetic`, and have this shape:
@@ -192,7 +212,7 @@ Interpretation: replay mode is useful for dataset-pipeline throughput, but live 
 
 `tools/benchmark_edge_realtime.py` supports `--edge-profile` for pass/fail reporting. The default native profile reports measured GB10 latency; `jetson_orin_nano_8gb` is an analytical proxy that scales measured compute latency and adds sensor/memory overhead.
 
-The canonical profile parameters, hardware status, and physical-device validation requirements are in [`hardware_targets.md`](./hardware_targets.md). Results in this document remain dataset- and benchmark-specific.
+> **Retired 2026-10-14.** The deployment target is now an iPhone 17 Pro Max, measured on the device (`architecture.md` §7). The Jetson proxy numbers below are kept as a historical record only; do not cite them as edge evidence.
 
 Command used for the first SANPO edge simulation:
 

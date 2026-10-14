@@ -8,7 +8,7 @@ Results from evaluating the production kinetic score **K0** (`sev × v² / max(d
 > discriminating metric was saturated, passing five of six candidates. K1–K5 were dummies and are
 > gone from `src/perception_stack/physics.py`.
 >
-> See **`docs/kinetic_score_opinion.md`** for the replacement strategy.
+> See **`docs/methodology.md`** §4 for the replacement strategy.
 
 ## What replaces it
 

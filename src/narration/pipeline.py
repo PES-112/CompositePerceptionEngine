@@ -2,7 +2,7 @@
 pipeline.py
 ===========
 Wires template narration + translation + TTS together, enforcing the
-orchestration-lane rule from docs/architecture.md §11.6 in code rather than
+orchestration-lane rule from docs/architecture.md §6.6 in code rather than
 only in documentation: an override event must never route through translation
 or a heavy TTS model — only the deterministic template plus a cached/beep clip.
 Everything else may use the fuller translation/TTS stack, best-effort.

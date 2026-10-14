@@ -90,8 +90,8 @@ def is_severity_discriminating(
     differs by >= severity_ratio but v/d (the kinematic term K0 shares with every
     arm) is within kinematic_tol of each other — i.e. a pair that kinematics alone
     would call a near-tie, so severity is the only thing available to break it.
-    This is the literal scenario severity's design intent (kinetic_score_opinion.md
-    §"K0's v² is a bet...") targets: a bus and a pedestrian arriving in a
+    This is the literal scenario severity's design intent (docs/methodology.md §4.1)
+    targets: a bus and a pedestrian arriving in a
     comparable window should not be scored as equal threats.
     """
     sev = g["class"].map(_severity).to_numpy(dtype=float)

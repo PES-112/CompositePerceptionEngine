@@ -164,7 +164,7 @@ def compute_velocity(
         return max(0.0, raw_v)   # clamp: don't report negative (retreating) velocities
 
     # ponytail: least-squares slope, not a Kalman filter. Upgrade to a constant-velocity
-    # Kalman (architecture.md §10.1) if residual jitter still causes false reflex overrides.
+    # Kalman (architecture.md §6.2) if residual jitter still causes false reflex overrides.
     times     = [f / fps for f, _ in depth_history]
     distances = [d for _, d in depth_history]
     n = len(times)
@@ -339,7 +339,7 @@ def _demo() -> None:
     small = kinetic_score(4.0, 2.0, "car", bbox_area_px=10_000, size_exponent=0.5)
     assert big > small
 
-    # Static objects score zero — see docs/kinetic_score_opinion.md §7.
+    # Static objects score zero: K0 has no velocity term to give them.
     assert kinetic_score(1.0, 0.0, "stairs") == 0.0
 
     # EPSILON guards division at zero distance.

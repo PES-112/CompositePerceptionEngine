@@ -2,6 +2,72 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-14] - v2 Architecture Adopted; Docs Consolidated; Dead Code Removed
+
+The team adopted a v2 design. The SLM-1 cognitive layer and the narrator SLM-2 are dropped. Threat is
+now ranked by **when** (GRU arrival predictor), **how bad** (class severity) and **what**
+(walkable-surface segmentation, planned), inside a deterministic TTC safety envelope. Narration is
+scripted and pre-rendered. The target device is an iPhone 17 Pro Max. Evaluation is SANPO replay
+only, with SANPO depth standing in for phone LiDAR; no depth model, no live deployment.
+
+### Changed
+- `docs/architecture.md` rewritten as the v2 design doc. It covers:
+  - components and diagram;
+  - simulation vs. iPhone deployment;
+  - latency budget and evaluation design;
+  - known data issues, limitations, and a code map from v1 modules to v2 roles.
+
+  v1 is at commit `a6e37a7`.
+- `docs/progress.md` rewritten as a presentation-ready status doc (absorbs
+  `progress_presentation.md`). Corrected two stale claims:
+  - the λ arms are struck, not tied;
+  - TTC's "4× worse encounter recall" was a depth-blob artifact.
+- `docs/pending_work.md` rewritten around v2 (P0 data correctness → P5 paper), with a "dropped with
+  the v2 pivot" table.
+- `docs/methodology.md`:
+  - §1 reframed for v2;
+  - §2.1 adds the FPS / FOV caveat;
+  - §4 intro explains K0's demotion to the severity term;
+  - §4.9 no longer cites TTC's blob-driven encounter result;
+  - §5 replaces the Jetson proxy with on-device measurement plus latency-aware replay;
+  - Appendix A.1, A.2, A.3, A.4, A.5, A.6, A.7 updated for v2 (A.4/A.5 are now the threat engine and
+    the safety envelope).
+- `docs/README.md`, `README.md`: v2 pipeline, maps and project tree.
+- `docs/sanpo_dataset.md`: new "Camera Facts and Label Map" section; Jetson profile marked retired.
+- `docs/related_work.md`, `docs/ablation_guide.md`, `docs/yolo_training.md`: references repointed;
+  SLM/RL citation sections marked v1-only.
+- Code comments only, no behaviour change: references to removed docs and old `architecture.md`
+  sections repointed in:
+  - `src/narration/*`, `src/pipeline/orchestrator.py`, `src/cognitive_layer/stub.py`,
+    `src/perception_stack/physics.py`;
+  - `evaluation/kinetic_ablation*.py`, `evaluation/vlm_referee.py`;
+  - `tools/benchmark_narration_latency.py`, `tools/run_full_pipeline_demo.py`.
+
+  `evaluation/benchmarks/narration_latency/report.md` and `kinetic_score_eval/README.md` were
+  updated to match.
+
+### Found
+- SANPO-Real `description.json` reports **15 FPS** and a **58.4°** horizontal FOV (one session
+  checked). The pipeline assumes 30 FPS and 70°. Logged as `pending_work.md` P0.
+- SANPO `labelmap.json` includes `road`, `curb`, `sidewalk`, `crosswalk`, `stairs` and walkable /
+  inaccessible surface classes, so the segmentation plan needs no new annotation.
+
+### Removed
+- **Docs**, content merged (all retrievable from git history at `a6e37a7`):
+  - `docs/progress_presentation.md` → `progress.md`;
+  - `docs/hardware_targets.md` → `architecture.md` §7 and `methodology.md` §5.1;
+  - `docs/kinetic_score_opinion.md` → condensed in `methodology.md` §4.
+- **Dead code:**
+  - `training/rewards/reward_function.py`: SLM-1 PPO reward, referenced fact-sheet fields that no
+    longer exist;
+  - `training/rl_agent/__init__.py`: empty; the PPO scripts were never written;
+  - `tools/manual_score_inspector.py`: built on the deleted K1–K5 formulas;
+  - `tools/download_sample_data.py` and `tools/prepare_sample_data.py`: superseded by
+    `stream_sanpo_perception.py`;
+  - `notebooks/CPE_Preprocessing.ipynb`: unreferenced;
+  - `colab/sanpo_kinetic_replay_colab/` and `notebooks/sanpo_kinetic_replay_colab.ipynb`: old JSONL
+    replay; the two copies had already diverged.
+
 ## [2026-09-29] - Full 462-Session Run of the Arrival GRUs and Ensemble
 
 The download of all 462 curated SANPO-Real sessions finished, and the arrival-time experiment and

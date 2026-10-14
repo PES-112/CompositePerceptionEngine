@@ -8,7 +8,7 @@ The referees are **not** given a formula, a score, or a variant name. They see
 the RGB frame with neutrally-labelled boxes plus a neutral object list, and
 answer one question: *which object is the top threat?* The formula whose argmax
 matches wins that frame. That makes the VLM an oracle rather than a contestant —
-see docs/kinetic_score_opinion.md §3–§4.
+see docs/methodology.md §4.7.
 
 Three referees from three model *families*, because agreement between models
 that share training data is a shared prior, not truth. Even so, three agreeing

@@ -2,7 +2,7 @@
 
 No SANPO data or GPU required. Measures src/narration/ in isolation.
 
-**Documentation gap found while writing this benchmark:** no formal TTS latency budget is defined anywhere in docs/ — hardware_targets.md has the 50ms reflex and 500ms cognitive budgets, nothing for narration TTS. Recommend adding one once real numbers exist (see raw rows below for a starting point).
+**Budget:** v2 plays pre-rendered clips (docs/architecture.md §7), so the narration budget is ~0 ms. The Piper rows measure live synthesis, which v2 does not use on the phone.
 
 | Stage | Case | Latency (ms) | Output |
 |---|---|---:|---|

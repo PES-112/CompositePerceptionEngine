@@ -3,7 +3,7 @@ stub.py
 =======
 Rule-based stand-in for SLM-1, used to prove the full runtime pipeline composes
 end-to-end (docs/pending_work.md §5) before a trained model exists. This is
-explicitly NOT the Cognitive Layer described in architecture.md §2.5 — it does
+explicitly NOT the Cognitive Layer described in v1 architecture.md §2.5 (git a6e37a7) — it does
 no semantic reasoning, no trajectory/intent inference, and reads only the same
 kinetic_score the physics side already computes, so it should track the
 physics ranking closely by construction. Its purpose is to be a correctly-typed
