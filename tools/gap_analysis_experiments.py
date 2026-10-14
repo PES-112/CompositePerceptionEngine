@@ -20,7 +20,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 # Central Configuration
-YOLO_MODEL_PATH = str(REPO_ROOT / "models" / "yolo" / "base_yolo26n" / "yolo26n.pt")
+# The finetuned 17-class CPE detector (v3), the same one Stage 1 runs. The original
+# 2026 gap analysis in docs/sanpo_dataset.md was run with base yolo26n.pt.
+YOLO_MODEL_PATH = str(REPO_ROOT / "training" / "runs" / "cpe_yolo26n_hazards_v3_from_base" / "weights" / "best.pt")
 CONF_THRESH = 0.30
 IOU_THRESH = 0.50
 IMG_SIZE = (1280, 720)

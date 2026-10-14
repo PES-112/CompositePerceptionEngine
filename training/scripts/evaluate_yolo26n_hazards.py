@@ -23,7 +23,8 @@ from ultralytics import YOLO
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_WEIGHTS = PROJECT_ROOT / "training" / "runs" / "cpe_yolo26n_hazards" / "weights" / "best.pt"
+# The current detector: v3, 17 CPE hazard classes (models/yolo/cpe_yolo26n_hazards_v3_from_base/README.md).
+DEFAULT_WEIGHTS = PROJECT_ROOT / "training" / "runs" / "cpe_yolo26n_hazards_v3_from_base" / "weights" / "best.pt"
 DEFAULT_DATA = PROJECT_ROOT / "training" / "configs" / "cpe_hazard_classes.yaml"
 DEFAULT_PROJECT = PROJECT_ROOT / "training" / "runs"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}

@@ -122,6 +122,7 @@ def run_perception_stream(
     source:     str = "sanpo",
     frame_step: int = 1,
     model_path: str | None = None,
+    focal_px:   float | None = None,
 ) -> Generator[list[dict], None, None]:
     """
     Stage 1 streaming perception — yields a list of row dicts per processed frame.
@@ -134,8 +135,12 @@ def run_perception_stream(
         frame_step:  Process every Nth frame (default 1 = all frames).
                      Set to 3 for SANPO preprocessing to cut compute by ~67%.
         model_path:  YOLO checkpoint to detect with. Defaults to
-                     YoloTracker's DEFAULT_MODEL (base checkpoint) when None —
-                     pass the finetuned CPE checkpoint explicitly to use it.
+                     YoloTracker's DEFAULT_MODEL (the finetuned 17-class v3
+                     CPE checkpoint) when None.
+        focal_px:    Camera fx in pixels at the frames' resolution (SANPO:
+                     description.json). Used for pinhole bearings and the
+                     detector's size check; None falls back to a 70° HFOV and
+                     yolo_tracker.FOCAL_PX.
 
     Yields:
         List of flat row dicts for each processed frame.
@@ -147,7 +152,8 @@ def run_perception_stream(
     if not frame_paths:
         raise FileNotFoundError(f"No image frames found in {rgb_dir}")
 
-    tracker = YoloTracker(model_path=model_path) if model_path else YoloTracker()
+    tracker_kwargs = {"focal_px": focal_px} if focal_px else {}
+    tracker = YoloTracker(model_path=model_path, **tracker_kwargs) if model_path else YoloTracker(**tracker_kwargs)
 
     # Per-track rolling depth history for velocity estimation
     depth_history: dict = defaultdict(lambda: deque(maxlen=VELOCITY_WINDOW + 1))
@@ -216,7 +222,7 @@ def run_perception_stream(
                 velocity_ms = compute_velocity(list(depth_history[tid]), fps)
 
             # ── Bearing ──
-            bearing = compute_bearing(det["cx"], w)
+            bearing = compute_bearing(det["cx"], w, focal_px=focal_px)
 
             frame_rows.append({
                 "frame_idx":   frame_idx,
@@ -246,6 +252,7 @@ def run_perception(
     source:     str = "sanpo",
     frame_step: int = 1,
     model_path: str | None = None,
+    focal_px:   float | None = None,
 ) -> list[dict]:
     """
     Stage 1 perception — returns all rows as a flat list (backward compatible).
@@ -254,6 +261,6 @@ def run_perception(
     See run_perception_stream() for argument docs.
     """
     rows: list[dict] = []
-    for frame_rows in run_perception_stream(rgb_dir, depth_dir, fps, source, frame_step, model_path):
+    for frame_rows in run_perception_stream(rgb_dir, depth_dir, fps, source, frame_step, model_path, focal_px):
         rows.extend(frame_rows)
     return rows

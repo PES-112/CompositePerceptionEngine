@@ -46,6 +46,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.perception_stack import run_perception_stream, StreamingCSVWriter
+from tools.audit_sanpo_sessions import fetch, object_url
 from tools.download_sanpo_valid_streams import (
     BASE_PREFIX,
     DEFAULT_SAMPLE_SEED,
@@ -83,8 +84,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-frames", type=int, default=300,
                    help="Frames kept per session AFTER striding (300 @ stride 3 ≈ 30 s of video).")
     p.add_argument("--frame-stride", type=int, default=3,
-                   help="Keep every Nth source frame. 3 = 10 Hz from 30 fps source.")
-    p.add_argument("--fps", type=float, default=30.0, help="Source framerate.")
+                   help="Keep every Nth source frame. 3 = 5 Hz from SANPO's 15 fps source.")
+    p.add_argument("--fps", type=float, default=None,
+                   help="Source framerate. Default: read per session from SANPO's description.json "
+                        "(15 for every curated SANPO-Real session). Only set this to override it.")
     p.add_argument("--download-workers", type=int, default=8,
                    help="Parallel frame downloads. Raise on a fast link, lower if GCS throttles.")
     p.add_argument("--depth-kind", default="depth_maps", choices=["depth_maps", "zed_depth_maps"])
@@ -95,6 +98,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--overwrite", action="store_true", help="Reprocess sessions that already have a CSV.")
     p.add_argument("--dry-run", action="store_true", help="Print the sampled session list and exit.")
     return p.parse_args()
+
+
+def session_camera(entry: dict) -> dict:
+    """fps, fx and image width for one session's camera/view, from SANPO's description.json."""
+    desc = json.loads(fetch(object_url(f"{BASE_PREFIX}/{entry['session_id']}/description.json")))
+    cam = (desc.get("session_camera_details") or [{}])[0]
+    params = cam.get(f"{entry.get('view', 'left')}_camera_params", {})
+    return {"fps": cam.get("fps"), "fx": params.get("fx"), "image_width": params.get("image_width"),
+            "h_fov": params.get("h_fov")}
 
 
 def fetch_session_frames(entry: dict, scratch: Path, args: argparse.Namespace) -> tuple[Path, Path, list[str]]:
@@ -146,13 +158,15 @@ def main() -> None:
     # Frames are strided at download time, so the pipeline sees consecutive
     # indices for what were every-Nth source frames. Velocity divides a frame
     # delta by fps, so the effective rate must be scaled down to match or every
-    # closing speed comes out `stride` times too fast.
-    effective_fps = args.fps / max(args.frame_stride, 1)
+    # closing speed comes out `stride` times too fast. The source fps comes from
+    # each session's description.json: CSVs built before 2026-10-14 assumed 30
+    # fps for 15 fps sessions, so their speeds are 2x too high.
+    stride = max(args.frame_stride, 1)
 
     print(f"Model: {args.model}")
     print(f"Sampled {len(sessions)}/{len(manifest)} sessions "
           f"(fraction={args.session_fraction}, seed={args.seed})")
-    print(f"Stride {args.frame_stride} -> effective {effective_fps:.2f} fps, "
+    print(f"Stride {stride}, fps {'from description.json' if args.fps is None else args.fps}, "
           f"≤{args.max_frames} frames/session")
     if args.dry_run:
         print(json.dumps([e["session_id"] for e in sessions], indent=2))
@@ -172,6 +186,11 @@ def main() -> None:
         started = time.time()
         print(f"\n[{i}/{len(sessions)}] {sid}", flush=True)
         try:
+            camera = session_camera(entry)
+            source_fps = args.fps or camera["fps"]
+            if not source_fps:
+                raise ValueError("description.json has no fps; pass --fps")
+            effective_fps = source_fps / stride
             rgb_dir, depth_dir, rgb_objects = fetch_session_frames(entry, scratch, args)
             if not rgb_objects:
                 print("  no matched RGB/depth frames — skipping", flush=True)
@@ -182,7 +201,7 @@ def main() -> None:
             with StreamingCSVWriter(tmp_csv) as writer:
                 for frame_rows in run_perception_stream(
                     rgb_dir, depth_dir, effective_fps, source="sanpo", frame_step=1,
-                    model_path=str(args.model),
+                    model_path=str(args.model), focal_px=camera["fx"],
                 ):
                     writer.write_rows(frame_rows)
             # Rename only on success: a partial file must never look like a
@@ -192,8 +211,11 @@ def main() -> None:
                 "session_id": sid,
                 "camera": entry.get("camera", "head"),
                 "view": entry.get("view", "left"),
-                "frame_stride": args.frame_stride,
+                "frame_stride": stride,
+                "source_fps": source_fps,
                 "effective_fps": effective_fps,
+                "fx": camera["fx"],
+                "h_fov": camera["h_fov"],
                 # index in this list == frame_idx in the CSV
                 "rgb_objects": rgb_objects,
             }, indent=2) + "\n")

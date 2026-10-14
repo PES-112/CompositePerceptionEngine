@@ -42,7 +42,8 @@ ALLOWED_CLASSES = {
 
 # ── Expected pixel height at 1m for size sanity check ─────────────────────────
 # pixel_height ≈ (real_height_m / distance_m) * focal_length_px
-# For SANPO chest cam at 1280px wide, ~70° HFOV → focal ≈ 960px
+# Fallback for a 1280 px wide ~70° HFOV phone frame. SANPO's ZED 2i is
+# fx ≈ 1910-1990 px at 2208 px wide; pass the real value as YoloTracker(focal_px=...).
 FOCAL_PX = 960.0
 CLASS_REAL_HEIGHT_M = {
     "person":        1.7,
@@ -86,13 +87,14 @@ def is_valid_detection(det: dict, frame_w: int, frame_h: int) -> bool:
 
 # ── Depth-guided 3-pass post-processing ───────────────────────────────────────
 
-def depth_rescore(detections: list[dict], depth_map: np.ndarray | None, frame_shape: tuple[int, int] | None = None) -> list[dict]:
+def depth_rescore(detections: list[dict], depth_map: np.ndarray | None, frame_shape: tuple[int, int] | None = None,
+                  focal_px: float = FOCAL_PX) -> list[dict]:
     """
     Post-process YOLO detections using the depth map.  Three passes:
 
     Pass 1 — Size sanity check:
         At depth d, an object of real height H should have pixel height
-        ≈ H * FOCAL_PX / d.  If actual is wildly different → drop.
+        ≈ H * focal_px / d.  If actual is wildly different → drop.
 
     Pass 2 — Confidence rescoring:
         Penalise detections whose depth is implausible for their class
@@ -122,7 +124,7 @@ def depth_rescore(detections: list[dict], depth_map: np.ndarray | None, frame_sh
         if d is None or cls not in CLASS_REAL_HEIGHT_M:
             passed.append(det)
             continue
-        expected_px = CLASS_REAL_HEIGHT_M[cls] * FOCAL_PX / d
+        expected_px = CLASS_REAL_HEIGHT_M[cls] * focal_px / d
         actual_px   = det["y2"] - det["y1"]
         ratio = actual_px / max(expected_px, 1.0)
         if (1.0 / SIZE_TOLERANCE) < ratio < SIZE_TOLERANCE:
@@ -220,8 +222,10 @@ class YoloTracker:
         model_path: str = DEFAULT_MODEL,
         conf: float = DEFAULT_CONF,
         tracker: str = DEFAULT_TRACKER,
+        focal_px: float = FOCAL_PX,
     ):
         self.model = YOLO(model_path)
+        self.focal_px = focal_px
         self.model.overrides["conf"]    = conf
         self.model.overrides["tracker"] = tracker
 
@@ -275,6 +279,6 @@ class YoloTracker:
             detections.append(det)
 
         # ── Depth-guided post-processing ──────────────────────────
-        detections = depth_rescore(detections, depth_map, frame.shape[:2])
+        detections = depth_rescore(detections, depth_map, frame.shape[:2], self.focal_px)
 
         return detections
