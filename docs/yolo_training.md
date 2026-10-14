@@ -135,14 +135,14 @@ Detector-only benchmark on held-out test images:
   --rgb-dir data/yolo_finetune_v2_full/images/test \
   --weights training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt \
   --device 0 \
-  --fps 30 \
+  --fps 15 \
   --frame-step 3 \
   --max-frames 200 \
   --out evaluation/benchmarks/yolo26n_version_comparison/v3_edge_realtime_detector_only.json \
   --csv evaluation/benchmarks/yolo26n_version_comparison/v3_edge_realtime_detector_only.csv
 ```
 
-Latest detector-only GB10 result: p95 total latency `9.65 ms` per processed frame, with the 30 FPS / `frame_step=3` real-time budget equal to `100 ms` per processed frame. This passes both the real-time streaming budget and the `<50 ms` reflex-path latency budget for the detector/tracker portion.
+Latest detector-only GB10 result: p95 total latency `9.65 ms` per processed frame, against a real-time budget of `200 ms` per processed frame (SANPO is 15 FPS; `frame_step=3` → 5 Hz; the run's `--fps 30` setting assumed 100 ms, which it also passes). This passes both the real-time streaming budget and the `<50 ms` reflex-path latency budget for the detector/tracker portion.
 
 For a full architecture test, run the same command on prepared SANPO frame folders and include `--depth-dir` so depth loading, obstacle sweep, distance extraction, velocity, and bearing are timed too.
 

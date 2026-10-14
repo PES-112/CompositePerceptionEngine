@@ -5,15 +5,15 @@ first**. A later step would blend that with K0's consequence score to decide wha
 
 | Level | What | Status |
 |---|---|---|
-| 1 | Arrival ensemble (`ensemble.py`) | **Implemented and run**: 387 sessions, then all 462 curated sessions |
-| 2 | Announcement priority (arrival × K0 severity) | Planned |
+| 1 | Arrival ensemble (`ensemble.py`; held-out `heldout.py`) | **Implemented and run**: 5-fold CV on 387 and 462 sessions; held-out on SANPO's official test split |
+| 2 | Announcement priority (arrival × severity^γ × context) | **Implemented** in `src/threat_engine/priority.py`, replay-tested (`tools/replay_threat_engine.py`) |
 
 ## Why
 
 On 387 SANPO sessions (`evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival/`), the
 arrival-time GRU and the "nearest object in the forward cone" rule **tie**. They get there
 differently:
-- The GRU reads 0.8 s of track history and has a steadier top pick.
+- The GRU reads 1.6 s of track history and has a steadier top pick.
 - The rule reacts sharply to the current distance and bearing.
 
 Two equally good predictors with different error patterns are the classic case where combining
@@ -45,7 +45,19 @@ python -m models.Ensemble.ensemble --run-name arrival387_2026_09_29
 It takes about 1 minute on a CPU. No training is needed beyond the GRU runs it reads. Tests:
 `python -m unittest tests.test_ensemble`.
 
-### Results on all 462 sessions (final)
+### Held-out results on SANPO's official test split (quote these)
+
+```bash
+python -m models.Ensemble.heldout --run-name official462_2026_10_14
+# -> evaluation/benchmarks/heldout_official_split/official462_2026_10_14/report.md
+```
+
+GRUs trained on the official train sessions; the stacker is fitted on the **validation** sessions'
+predictions only, so the 71 test sessions are touched once. Neither ensemble significantly beats the
+plain GRU or nearest-in-cone (stack vs GRU: AUROC +0.005 [−0.015, +0.016], arrival_order +0.011
+[−0.051, +0.043]). The cross-validation gains below were small and don't survive the held-out test.
+
+### Results on all 462 sessions (5-fold CV)
 
 Report: `evaluation/benchmarks/ensemble_eval/arrival462_2026_09_29/report.md`. The verdict is the
 same as at 387 sessions below.
@@ -92,16 +104,19 @@ ensemble_stack reaches AUROC 0.894 and arrival_order 0.688; nearest_in_cone scor
 from GRUs whose training data included the scored fold. This is standard cross-validation stacking:
 the stacker never sees the scored fold's labels. It is not a fully nested design.
 
-## Level 2 — announcement priority (planned)
+## Level 2 — announcement priority (implemented)
 
-Blend *when* (the Level-1 ensemble) with *how bad* (K0's severity) into the order the narrator
-speaks in:
+Lives in the runtime, `src/threat_engine/` (`docs/architecture.md` §6.4):
 
-1. **Reflex override first.** TTC < 1 s always wins, as in the existing Physics Verification
-   rule 1.
-2. **Then by priority** = P(arrives within 2 s) × severity(class), with the how-soon score breaking
-   ties.
+1. **Safety envelope first.** TTC ≤ 1 s inside the forward walking cone, on Kalman-fused velocity,
+   always wins (`envelope.py`).
+2. **Then by priority** = P(arrives within 4 s) × severity(class)^γ × context (`priority.py`),
+   expected arrival time breaking ties. γ = 0.25 is declared (a bus counts 1.9× a person, not 13×).
+   It uses the plain GRU, not the stack: the stack adds nothing held-out and needs both GRUs.
+3. **The announcement manager** decides whether to speak at all (`announcer.py`).
 
-There is no ground truth for "what should be announced first", so Level 2 can't be scored the same
-way. Candidate validation is the blinded VLM referee (`evaluation/vlm_referee.py`) on frames where
-the Level-2 order differs from K0's.
+System-level replay (`evaluation/benchmarks/threat_engine_replay/official_2026_10_14/report.md`):
+on the official test sessions, v2 announces 17/min with precision 0.59, against v1's 119/min at 0.24,
+but warns about fewer arrivals (26% vs 65%). There is still no ground truth for "what should be
+announced first"; the blinded VLM referee (`evaluation/vlm_referee.py`) on frames where v2's order
+differs from K0's is the planned check (`docs/pending_work.md` P2.4).

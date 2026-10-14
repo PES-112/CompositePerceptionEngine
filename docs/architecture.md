@@ -59,8 +59,8 @@ obtained on the phone; none of it is implemented.
 |---|---|---|
 | RGB video | SANPO `camera_head/left` frames, 2208×1242 | Rear wide camera (AVFoundation / ARKit) |
 | Metric depth | SANPO `depth_maps/` (dataset stereo depth) | LiDAR scene depth via ARKit: low resolution (~256×192), reliable to ~5 m |
-| Ego-motion | SANPO `camera_poses.csv` | ARKit camera pose / Core Motion gyroscope |
-| Camera intrinsics | SANPO `description.json` (e.g. 58.4° horizontal FOV) | ARKit camera intrinsics, per frame |
+| Ego-motion | SANPO `camera_poses.csv` (implemented; not yet reconciled with box depth, §9) | ARKit camera pose / Core Motion gyroscope |
+| Camera intrinsics | SANPO `description.json`, per session: 15 FPS, fx 1910–1993 px (51–60° HFOV) | ARKit camera intrinsics, per frame |
 | Model execution | PyTorch on the development host | Core ML on the Apple Neural Engine; **latency measured on the device** (§7) |
 | Audio | Synthesised bytes, logged | Pre-rendered clips played locally |
 
@@ -85,7 +85,7 @@ It can be bounded by re-running the evaluation with SANPO depth truncated at 5 m
  └──────┬───────┘   in each box            │
         ▼                                  ▼
  ┌──────────────────────────────────────────────┐      ┌──────────────────────┐
- │ 2 SENSOR FUSION & TRACKING  ⬜               │      │ 3 SCENE CONTEXT  ⬜   │
+ │ 2 SENSOR FUSION & TRACKING  ✅               │      │ 3 SCENE CONTEXT  ⬜   │
  │ Kalman filter per track, ground-plane (x, z) │◄─────│ walkable-surface     │
  │ head motion removed using camera pose        │ mask │ segmentation, 2–5 Hz │
  │ → position, velocity, uncertainty            │      │ road / curb / sidewalk│
@@ -93,17 +93,17 @@ It can be bounded by re-running the evaluation with SANPO depth truncated at 5 m
         ▼                                                         │
  ┌───────────────────────────────────────────────────────────────▼──────────┐
  │ 4 THREAT ENGINE                                                           │
- │  SAFETY ENVELOPE ✅  TTC ≤ 1 s in the walking path → OVERRIDE (bypasses all)│
- │  WHEN     🟡  GRU arrival predictor → P(arrives ≤ horizon), expected time   │
- │  HOW BAD  ✅  class severity (mass law, physics.py)                         │
- │  WHAT     ⬜  context: on my path? on the road? near the curb?               │
- │  FUSION   ⬜  priority = P(arrive) × severity × context → threat ranking     │
+ │  SAFETY ENVELOPE ✅  TTC ≤ 1 s in the walking cone → OVERRIDE (bypasses all)│
+ │  WHEN     ✅  GRU arrival predictor → P(arrives ≤ 4 s), expected time       │
+ │  HOW BAD  ✅  class severity (mass law, physics.py), compressed by γ        │
+ │  WHAT     ⬜  context: on my path? on the road? near the curb? (interface ✅)│
+ │  FUSION   ✅  priority = P(arrive) × severity^γ × context → threat ranking   │
  └──────┬────────────────────────────────────────────────────────────────────┘
         ▼
  ┌──────────────────────────────┐    ┌──────────────────────────────────────┐
- │ 5 ANNOUNCEMENT MANAGER  ⬜    │───►│ 6 NARRATION & AUDIO                   │
+ │ 5 ANNOUNCEMENT MANAGER  ✅    │───►│ 6 NARRATION & AUDIO                   │
  │ cooldown, hysteresis,        │    │ scripted templates ✅                 │
- │ override preempts, drop stale│    │ pre-rendered clip library ⬜          │
+ │ override preempts, drop stale│    │ clip list ✅ · rendered clips ⬜       │
  └──────────────────────────────┘    │ critical lane: English + cached clip ✅│
                                      └──────────────────────────────────────┘
 ```
@@ -123,7 +123,7 @@ Code: `src/perception_stack/`. Training and data: `yolo_training.md`.
 v2 change: the obstacle sweep will ignore pixels that segmentation labels as walkable ground (§6.3).
 This removes the "ground ahead" pseudo-objects that dominated the encounter labels.
 
-### 6.2 Sensor fusion & tracking ⬜
+### 6.2 Sensor fusion & tracking ✅ (ego-motion on SANPO unvalidated)
 
 | | |
 |---|---|
@@ -133,6 +133,8 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Replaces | Least-squares closing speed over 5 depth samples (`physics.compute_velocity`); the unimplemented `scene_stable` flag |
 | Why | Head turns currently look like every object moving sideways. Velocity is differentiated depth and is noisy. The fused priority can down-weight uncertain tracks |
 | Cost | Under 1 ms per frame |
+| Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
+| Status | Built and unit-tested. On SANPO the camera poses don't yet reconcile with box depth (§9), so the replay reports ego-motion removal as an ablation (`v2_*_nopose`) |
 
 ### 6.3 Scene context: walkable-surface segmentation ⬜
 
@@ -152,40 +154,48 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 
 ### 6.4 Threat engine
 
-**Safety envelope ✅ (rule exists; cone restriction ⬜).** If an object's time-to-collision is
-≤ 1.0 s **and** it is inside the forward walking cone, the result is an immediate override alert. No
-learned component can suppress or delay it. Today's rule (`src/physics_verification/`,
-`src/threat_prioritizer/events.py`) does not yet check the cone, and its velocity is unsmoothed.
-v2 adds both, using the fused tracks from §6.2.
+**Safety envelope ✅.** If an object's time-to-collision is ≤ 1.0 s **and** it is inside the forward
+walking cone (±30°), the result is an immediate override alert. No learned component can suppress
+or delay it. It runs on fused (Kalman-smoothed, signed) velocity from §6.2 and only on confirmed
+tracks; a track may still fire for 2 predicted frames while its depth is missing. Code:
+`src/threat_engine/envelope.py`; the edge cases (threshold ties, zero/negative closing speed,
+missing depth, unconfirmed tracks) are unit-tested.
 
-**When 🟡.** The GRU arrival predictor (`models/GRU/`) reads each track's last 8 processed frames:
+**When ✅.** The GRU arrival predictor (`models/GRU/`) reads each track's last 8 processed frames:
 - distance, closing speed and bearing, plus their per-step changes;
 - detection confidence, box size and track age;
 - class.
 
-It outputs a distribution over arrival-time slices, which gives P(arrives within the horizon) and an
-expected arrival time. K0 is deliberately **not** an input. The stacked ensemble (`models/Ensemble/`)
-combines both GRUs with the nearest-in-cone and TTC rules.
+It outputs a distribution over arrival-time slices, which gives P(arrives within the 4 s horizon)
+and an expected arrival time. K0 is deliberately **not** an input. At runtime,
+`GRUArrivalPredictor` (`src/threat_engine/priority.py`) encodes each track with the same function
+the dataset uses (`dataset.GRU.samples.history_features`; parity is unit-tested). Without a
+checkpoint, `PhysicsArrivalPredictor` (time until the fused relative path enters the zone inside the
+cone) takes its place. The plain GRU is used, not the stacked ensemble: held-out, the stack adds
+nothing significant and needs both GRUs.
 
 **How bad ✅.** Class severity from `physics.py`, derived from real-world mass:
 `behaviour(c) · (mass(c)/70 kg)^0.5`, with explicit weights for trip hazards (stairs, pothole, puddle,
 crosswalk). λ = 0.5 and the behaviour multipliers are declared design choices, not measured results.
 
-**What ⬜.** A context multiplier computed from §6.3. It goes up for "in my path" and "crossing the
-boundary"; it goes down for "on the road while I'm on the sidewalk".
+**What ⬜ (interface ✅).** A context multiplier computed from §6.3: ×1.5 "in my path", ×1.25 "near a
+boundary", ×0.5 "on another surface" (a car on the road while I'm on the sidewalk). The
+`SceneContext` interface and multipliers exist; the segmentation model that fills them doesn't.
 
-**Fusion ⬜.**
+**Fusion ✅.**
 
 ```text
-priority(object) = P(arrives within horizon) × severity(class) × context(surface, in path, boundary)
+priority(object) = P(arrives within 4 s) × severity(class)^γ × context(surface, in path, boundary)
 ties broken by expected arrival time (sooner first)
-below a priority threshold → ignored
+below the ignore threshold → not announced
 ```
 
-This is "Level 2" in `models/Ensemble/README.md`. The fusion weights are fitted or tuned on SANPO
-**training** sessions only.
+γ = 0.25 (declared) keeps "how bad" from swamping "when": a bus counts 1.9× a person instead of
+13×. The ignore threshold is chosen on SANPO's official **validation** sessions by
+`tools/replay_threat_engine.py`, then applied once to test. This is "Level 2" in
+`models/Ensemble/README.md`.
 
-### 6.5 Announcement manager ⬜
+### 6.5 Announcement manager ✅
 
 Decides **whether** to speak, separately from **what** is most dangerous:
 - **Cooldown per track:** don't repeat the same object within N seconds unless its priority rises
@@ -195,14 +205,18 @@ Decides **whether** to speak, separately from **what** is most dangerous:
 - **Override preempts:** a safety-envelope alert interrupts any narration in progress.
 - **Drop stale:** a message that can't play within its time budget is discarded, not queued.
 
+Code: `src/threat_engine/announcer.py` (cooldown 4 s, escalation ×1.5, switch margin ×1.25,
+override repeat 2 s, stale after 0.6 s; declared values). `src/threat_engine/engine.py` composes
+§6.2–6.5 per frame, and `src/pipeline/orchestrator.V2Pipeline` adds narration.
+
 ### 6.6 Narration & audio
 
 | Part | Status | Notes |
 |---|---|---|
 | Scripted templates (`src/narration/templates.py`) | ✅ | "Motorcycle fast from your left." Deterministic, ~0 ms |
 | Critical lane: override → English + cached clip only, never translation or model speech | ✅ | Enforced in code (`src/narration/pipeline.py`) |
-| Pre-rendered clip library | ⬜ | About 17 classes × 5 directions × 3–4 urgency levels per language, rendered **offline** with a high-quality voice. Zero runtime speech synthesis on the phone |
-| Distance buckets ("close", "2 meters", "5 meters") | ⬜ | Keeps the clip set finite |
+| Pre-rendered clip library | list ✅ · audio ⬜ | `templates.all_phrases()` enumerates every phrase (classes × 5 directions × 7 forms); rendering it **offline** with a high-quality voice is pending. Zero runtime speech synthesis on the phone |
+| Distance buckets ("close", "5 meters", "10 meters", "20 meters", "far") | ✅ | Keeps the clip set finite |
 | Segmentation phrases ("Curb ahead.", "Crosswalk ahead.") | ⬜ | Needs §6.3 |
 | Translation | ✅ phrase table · optional | Pre-translated phrases; no runtime translation model |
 | Spatial audio (pan the clip toward the object) | ⬜ optional | Free on iOS |
@@ -224,7 +238,8 @@ so the reported timeline matches the device. Neither step has been done yet (`pe
 ## 8. Evaluation design
 
 - **Data.** SANPO-Real, 462 curated sessions (`simulation/datasets/sanpo/valid_streams.json`),
-  split **by session** into train and test.
+  on **SANPO's official session split**: 374 train / 88 test
+  (`simulation/datasets/sanpo/official_split.json`); validation is carved from train.
   - Everything is tuned on train only: GRU, segmentation, fusion weights, thresholds and
     announcement parameters.
   - The test set is scored once.
@@ -242,17 +257,33 @@ so the reported timeline matches the device. Neither step has been done yet (`pe
 
 Statistical procedure, metric definitions and referee protocol: `methodology.md`.
 
-## 9. Known data issues (must be resolved before final numbers)
+**Results so far (official test split).**
+- Arrival ranking: `evaluation/benchmarks/heldout_official_split/official462_2026_10_14/report.md`.
+- System replay: `evaluation/benchmarks/threat_engine_replay/official_2026_10_14/report.md`.
+- Both are summarised with numbers in `progress.md` §6–7.
 
-1. **Frame rate.** SANPO-Real reports **15 FPS** (checked on one session; verify all 462).
-   - `tools/stream_sanpo_perception.py` defaults to `--fps 30`.
-   - If the CSVs were built at 30, every closing speed is 2× too high, and the "2 s" horizon is 4 s.
-2. **Field of view.** SANPO reports a **58.4°** horizontal FOV. `compute_bearing()` assumes 70°, so
-   every bearing is ~20% too wide. Use per-session intrinsics instead.
-3. **Ground pseudo-objects.** The obstacle sweep has no ground removal, so 99.7% of the original
-   encounter labels were ground. Current GRU results use tracked objects only. Segmentation masking
-   (§6.3) is the real fix.
-4. **Labels and inputs share one depth source.** "Predicts arrival" means "predicts what the depth
+## 9. Known data issues
+
+Resolved 2026-10-14 (`tools/audit_sanpo_sessions.py`, all 462 sessions):
+
+1. **Frame rate ✅.** Every session is 15 FPS; the existing CSVs assumed 30. Stored speeds are exactly
+   2× too high and one processed step is 0.2 s, so the 20-step horizon is **4 s** and the 8-step
+   history **1.6 s**. Rankings and step-based labels are unaffected; Stage 1 now reads the real fps.
+2. **Field of view ✅.** HFOV is 51–60° per session, not 70°. Stage 1 now uses the session's fx for a
+   pinhole bearing; the replay converts old rows. One consequence: with the real FOV, a ±30° cone
+   covers almost the whole image, so the arrival label's cone barely restricts anything. In effect
+   the label is "comes within 3 m while in view".
+3. **Train/test split ✅.** SANPO ships one (`sanpo-real/splits/`): 374 / 88 of our sessions.
+
+Open:
+
+4. **Ground pseudo-objects.** The obstacle sweep has no ground removal, so 99.7% of the original
+   encounter labels were ground. Results use tracked objects only. Segmentation masking (§6.3) is
+   the real fix; 53 sessions have SANPO masks.
+5. **Camera poses vs. box depth.** SANPO's world up axis differs by session and visual tracking drops
+   out in many sessions; both are handled. Still, neither pose file makes static objects stationary
+   in the world frame, so ego-motion removal is unvalidated on SANPO (an ablation in the replay).
+6. **Labels and inputs share one depth source.** "Predicts arrival" means "predicts what the depth
    will measure". Optionally, use SANPO's real-time `zed_depth_maps/` as the model input and the
    offline `depth_maps/` for labels.
 
@@ -270,15 +301,13 @@ Statistical procedure, metric definitions and referee protocol: `methodology.md`
 
 | Module | v2 role |
 |---|---|
-| `src/perception_stack/` | Perception (§6.1). Keep. Velocity moves to the Kalman tracker; bearing should use real intrinsics |
-| `src/threat_prioritizer/events.py` | `ThreatEvent` contract. Keep; routing becomes override + fused priority |
-| `src/reflex_layer/reflex.py` | Safety envelope path. Keep |
-| `src/physics_verification/physics_verification.py` | Rule 1 (override) becomes the safety envelope. Rules 2–3 and the PPO reward constants are SLM-only; retire when the fused ranker lands |
-| `src/cognitive_layer/stub.py` | Placeholder. **Replace** with the fused ranker; `src/pipeline/orchestrator.py` call site stays |
-| `src/pipeline/orchestrator.py` | Per-frame composition. Keep |
+| `src/perception_stack/` | Perception (§6.1). Bearing and the size check use the session's real fx; v2 velocity comes from the Kalman tracker |
+| `src/threat_engine/` | **v2 engine:** fusion (§6.2), safety envelope and fused priority (§6.4), announcement manager (§6.5) |
+| `src/threat_prioritizer/`, `src/cognitive_layer/stub.py`, `src/physics_verification/`, `src/reflex_layer/` | The **v1 chain** (K0 routing → stub → judge), kept as the replay baseline. `NarratorEvent` (physics_verification) is still narration's input type |
+| `src/pipeline/orchestrator.py` | `V2Pipeline` (v2 engine + narration) and `process_frame` (v1 baseline) |
 | `src/narration/` | Narration (§6.6). Keep; add the clip library |
-| `src/shared/fact_sheet.py`, `src/perception_stack/fact_sheet_builder.py`, `tools/run_fact_sheets.py` | SLM-1 prompt format; no v2 consumer. Retire once nothing imports them |
-| `models/GRU/`, `models/Ensemble/`, `dataset/GRU/` | "When" component (§6.4) |
+| `models/GRU/`, `models/Ensemble/`, `dataset/GRU/` | "When" component (§6.4): training, held-out evaluation (`models/Ensemble/heldout.py`), official-split datasets (`dataset/GRU/resplit.py`) |
+| `tools/audit_sanpo_sessions.py`, `tools/replay_threat_engine.py` | Data audit (§9) and the end-to-end replay (§8) |
 | `evaluation/kinetic_ablation.py`, `evaluation/vlm_referee.py` | Metric definitions and the referee, reused for v2 evaluation |
 
 ## 12. Open decisions
@@ -287,6 +316,9 @@ Statistical procedure, metric definitions and referee protocol: `methodology.md`
    latency and mIoU on SANPO masks.
 2. **Fusion form:** the fixed product above vs. a small fitted model. The product is easier to
    explain and test.
-3. **Prediction horizon and hazard distance** after the FPS fix. Currently 20 frames and 3 m for
-   tracked objects.
+3. **Prediction horizon, hazard distance and cone.** Currently 20 steps (4 s) and 3 m. With the real
+   FOV the ±30° cone covers nearly the whole image; a lateral corridor (|x| < ~1 m on the ground
+   plane) would be a more meaningful "in my path" test.
 4. **Head vs. chest camera** for the paper's main results.
+5. **Announcement trade-off.** In the replay, v2 is precise but quiet: it warns about 26% of arrivals
+   at 17 alerts/min. Where to sit on that curve is a product decision; tune it on train/val only.

@@ -14,12 +14,14 @@ models/GRU/
 └── registry.py               # arch name -> class, and where runs are written
 ```
 
-**Latest results:** `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival462/report.md`
-(all 462 curated sessions, arrival-time ranking, 5-fold cross-validation).
-- **vs. K0 and TTC:** both GRUs beat them.
-- **vs. nearest object in the cone:** the GRU slightly beats it at predicting *whether* objects come
-  close, ties it at ranking *who arrives first*, and has a much steadier top pick.
-- **Attention:** adds nothing measurable on full data.
+**Latest results.**
+- **Held-out (quote these):** `evaluation/benchmarks/heldout_official_split/official462_2026_10_14/report.md`.
+  Trained on SANPO's official train sessions, scored once on its 71 official test sessions: GRU
+  AUROC 0.888, beating K0 (+0.32), TTC (+0.23) and cone-restricted TTC (+0.12), tying nearest object
+  in the cone (+0.01, CI spans 0) with a much steadier top pick (flicker 0.56 vs 0.71). Attention is
+  worse than the plain GRU on arrival order (−0.028, CI excludes 0).
+- **Cross-validation (development):** `evaluation/benchmarks/gru_encounter_eval/run_2026_09_29_arrival462/report.md`,
+  the same picture on all 462 sessions in 5 folds.
 
 Read `dataset/README.md` on depth blobs before interpreting any encounter number.
 
@@ -28,17 +30,17 @@ The data both architectures train on lives in [`dataset/GRU/`](../../dataset/REA
 ## The task
 
 For every object in a frame, predict whether it becomes an **encounter**: it comes within the hazard
-distance inside the ±30° forward cone within the next 20 frames (2 s at 10 Hz). At the default
+distance inside the ±30° forward cone within the next 20 frames (4 s: SANPO is 15 FPS, stride 3). At the default
 1.5 m the label is identical to `evaluation/kinetic_ablation.py`'s, so results compare directly with
 K0's `encounter_top1` in the ablation report.
 
 The models have two output modes:
-- **Yes/no (default).** One logit per object: will it arrive within 2 s?
-- **Arrival time (`--time-bins K`).** Probabilities over K slices of the 2 s horizon plus "not within
-  2 s". That gives both P(arrives), which is 1 − P(not within 2 s), and an expected arrival time,
+- **Yes/no (default).** One logit per object: will it arrive within 4 s?
+- **Arrival time (`--time-bins K`).** Probabilities over K slices of the 4 s horizon plus "not within
+  4 s". That gives both P(arrives), which is 1 − P(not within 4 s), and an expected arrival time,
   so objects can be **ranked by how soon they arrive**.
 
-**Input per object:** its last 8 processed frames (0.8 s at the 10 Hz stride), each with:
+**Input per object:** its last 8 processed frames (1.6 s at the 5 Hz processing rate), each with:
 - distance, closing velocity and bearing;
 - per-step change in distance and bearing, which capture retreat and sideways motion that K0 can't see;
 - YOLO confidence, log box area and track age;

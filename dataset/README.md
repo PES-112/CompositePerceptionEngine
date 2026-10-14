@@ -41,7 +41,7 @@ python -m dataset.GRU.build --csv-dir data/processed/sanpo_real_462 --tracked-on
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--history` | 8 | Frames of history per object (0.8 s at the 10 Hz stride) |
+| `--history` | 8 | Frames of history per object (1.6 s: SANPO is 15 FPS, stride 3 = 5 Hz) |
 | `--max-objects` | 32 | Keep the N nearest objects per frame |
 | `--hazard-m` | 1.5 | Encounter distance; the default matches the K0 ablation |
 | `--future-only` | off | Label on frames after T only; the default includes T, matching the K0 ablation |
@@ -54,13 +54,27 @@ contain, so every fold gets a share of the rare sessions with real encounters. F
 set is fold F, validation is fold F+1, and training is the rest. `models/GRU/summarize.py` pools
 the test predictions from all folds, so every session is scored exactly once.
 
+**Units in the existing datasets (built 2026-09).** The Stage-1 CSVs behind them assumed 30 FPS for
+SANPO's 15 FPS video and a 70° linear field of view (`tools/audit_sanpo_sessions.py` checked all
+462 sessions). So the stored `velocity` feature and `ttc` are 2× too fast, one step is 0.2 s (not
+0.1 s), and `bearing` is the 70°-linear angle, not the camera's real one. Every reported metric is a
+ranking, which a uniform speed scale doesn't change, and the labels are defined in steps, so results
+stand; only the time units in older reports ("2 s") were wrong. Stage 1 now reads each session's
+real fps and focal length, so CSVs built from 2026-10-14 on have correct units — don't mix the two
+in one dataset. `tools/replay_threat_engine.py` shows how to convert the old rows.
+
+**SANPO's official split.** `python -m dataset.GRU.resplit --dataset <a --folds dataset>` writes the
+same samples onto SANPO's official train/test sessions (validation carved from train), e.g.
+`sanpo_real_462_tracked_d3_h8_current_m32_official/` (252 / 41 / 71 sessions with tracked objects).
+That is the split every final number uses; cross-validation stays for development.
+
 **What's in a sample.** One sample is one frame. For each object in the frame it holds:
 - the object's history of runtime features (see `FEATURES` in `samples.py`), with no kinetic score;
 - its class;
 - whether it becomes an encounter: within `--hazard-m` inside the ±30° cone within the next 20
-  frames (2 s at 10 Hz). At 1.5 m this is identical to `evaluation/kinetic_ablation.py`'s label,
+  frames (4 s at the true 5 Hz processing rate). At 1.5 m this is identical to `evaluation/kinetic_ablation.py`'s label,
   which is unit-tested.
-- `tte`: frames until it first gets there, or -1 if it doesn't within 2 s. This is what arrival-time
+- `tte`: frames until it first gets there, or -1 if it doesn't within 4 s. This is what arrival-time
   training (`train.py --time-bins`) learns from.
 - the raw distance, bearing, K0 and TTC values, which evaluation uses for the baselines.
 

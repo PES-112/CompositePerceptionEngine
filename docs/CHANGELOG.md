@@ -2,6 +2,67 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-14, later] - Data Audit, Held-Out Results, v2 Threat Engine Built and Replayed
+
+Branch `v2-threat-engine` (from `main` after `contextual_evaluation` was fast-forwarded into it).
+
+### Found
+- **All 462 sessions are 15 FPS; the Stage-1 CSVs assumed 30.** Recovered from the data: stored
+  speed = 10.0 × per-step depth slope (IQR 9.99–10.01). Speeds are 2× too high, one processed step
+  is 0.2 s, the 20-step horizon is 4 s and the 8-step history 1.6 s. Rankings and step-based labels
+  are unaffected, so earlier metrics stand; time units in docs are corrected throughout.
+- **Real HFOV is 51.4–60.1°** (fx 1910–1993 px), not 70°. With it, the ±30° label cone spans almost
+  the whole image.
+- **SANPO ships an official split** (`sanpo-real/splits/`): 374 train / 88 test of our sessions.
+  53 sessions have segmentation masks; all have camera poses.
+- **SANPO camera poses don't reconcile with box depth:** the world up axis varies by session and
+  tracking drops out; even after handling both, static objects move more in the world frame than in
+  the camera frame. Ego-motion removal is reported as an ablation only.
+
+### Added
+- `tools/audit_sanpo_sessions.py` → `simulation/datasets/sanpo/session_audit.json`,
+  `official_split.json`.
+- `dataset/GRU/resplit.py` and dataset `sanpo_real_462_tracked_d3_h8_current_m32_official`.
+- `models/GRU/evaluate.py`: `TTC_in_cone` baseline (in-cone first, then TTC, then distance).
+- `models/Ensemble/heldout.py`; GRU and GRU_attention runs `official462_2026_10_14_seed{0,1,2}`;
+  report `evaluation/benchmarks/heldout_official_split/official462_2026_10_14/`. GRU AUROC 0.888
+  held-out; beats K0 / TTC / cone TTC; ties nearest-in-cone; attention significantly worse on
+  arrival order.
+- `src/threat_engine/`: `fusion.py` (Kalman per track on the ground plane, ego-motion via pose,
+  signed closing speed, time-to-zone, CPA, gating, coasting; `sanpo_session_poses`), `envelope.py`
+  (TTC ≤ 1 s in the walking cone on fused velocity), `priority.py` (P(arrive) × severity^γ × context;
+  `GRUArrivalPredictor`, `PhysicsArrivalPredictor`), `announcer.py` (preemption, hysteresis,
+  cooldown/escalation, stale drop), `engine.py`.
+- `src/pipeline/orchestrator.V2Pipeline`; `tools/run_full_pipeline_demo.py` runs v2 by default
+  (`--v1` for the baseline) and falls back to cached clips without `piper-tts`.
+- `tools/replay_threat_engine.py` and report `evaluation/benchmarks/threat_engine_replay/official_2026_10_14/`:
+  v2 + GRU precision 0.59 vs v1 0.24, 17 vs 119 alerts/min, recall 0.26 vs 0.65.
+- `tests/test_threat_engine.py` (23 tests). Suite: 51 tests, all pass.
+- `src/narration/templates.py`: distance buckets (5 / 10 / 20 m, far) and `all_phrases()` (the clip
+  library to pre-render).
+
+### Changed
+- `tools/stream_sanpo_perception.py` reads fps, fx and HFOV per session from `description.json`
+  (`--fps` now only overrides) and records them in `<session>.frames.json`.
+- `physics.compute_bearing(focal_px=...)` gives a pinhole bearing; `run_perception_stream(focal_px=...)`
+  and `YoloTracker(focal_px=...)` use the real focal length.
+- `evaluate_yolo26n_hazards.py`, `compare_yolo26n_retention.py`, `gap_analysis_experiments.py`
+  default to the finetuned 17-class v3 checkpoint, like the runtime.
+- `export_yolo26n_edge.py`: `--formats coreml` (copies the `.mlpackage` directory).
+- `dataset/GRU/samples.history_features` extracted so the dataset and the runtime GRU share one
+  encoder (output verified byte-identical to the old code).
+- `src/perception_stack/__init__.py` loads `YoloTracker` / `run_perception*` lazily, so the threat
+  engine and its tests import without ultralytics (`test_reflex_layer` runs again).
+- Docs: `architecture.md` (statuses, §9 data issues, code map, open decisions), `progress.md`
+  (rewritten with held-out and replay results), `pending_work.md` (rewritten), `methodology.md`
+  (§2.1 audit and split, new §4.11–4.13, drafting prompts), `sanpo_dataset.md`, `ablation_guide.md`,
+  `yolo_training.md`, `README.md`, `docs/README.md`, `dataset/README.md`, `models/GRU/README.md`,
+  `models/Ensemble/README.md`.
+
+### Removed
+- `src/shared/fact_sheet.py`, `src/perception_stack/fact_sheet_builder.py`,
+  `tools/run_fact_sheets.py` (SLM-1 prompt format; no remaining consumer).
+
 ## [2026-10-14] - v2 Architecture Adopted; Docs Consolidated; Dead Code Removed
 
 The team adopted a v2 design. The SLM-1 cognitive layer and the narrator SLM-2 are dropped. Threat is

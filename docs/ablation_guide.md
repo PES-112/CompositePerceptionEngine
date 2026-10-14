@@ -85,9 +85,11 @@ raise it on a fast link, lower it if GCS starts throttling.
 only on success; a failing session is logged and the run continues. Re-running the same command
 after a dropped SSH session resumes.
 
-**Do not change `--frame-stride` without `--fps`.** Frames are strided at download time, so the
-pipeline's effective rate is `fps / stride`. The script does this for you; a hand-edited stride with
-an unchanged fps inflates every closing velocity by exactly `stride`×.
+**Frame rate.** Frames are strided at download time, so the pipeline's effective rate is
+`fps / stride`. Since 2026-10-14 the script reads each session's real fps (15 for every curated
+session) and focal length from `description.json`; leave `--fps` unset. The CSVs from the
+2026-08-26 run below were built with the old 30 FPS default, so their speeds are 2× too high
+(`sanpo_dataset.md`, "Camera Facts").
 
 Output: `<session_id>.csv` (the ablation input) and `<session_id>.frames.json` (frame_idx → GCS
 object, so the referee can re-fetch the handful of images it needs).

@@ -8,7 +8,7 @@ One sample is one frame. For every object in that frame it holds the object's
 own last `history` frames, its class, whether it becomes an encounter, and how
 many frames until it does. An encounter is the formula-free label from
 evaluation/kinetic_ablation.py: distance < hazard_m inside a ±30° cone within
-20 frames (2 s at 10 Hz). At the default hazard_m = 1.5 m the labels are
+20 frames (4 s: SANPO is 15 FPS, processed at stride 3). At the default hazard_m = 1.5 m the labels are
 identical to kinetic_ablation.encounters() (unit-tested), so GRU scores stay
 directly comparable with K0's encounter_top1.
 
@@ -57,7 +57,7 @@ FEATURES = [
 ]
 N_FEATURES = len(FEATURES)
 
-DEFAULT_HISTORY = 8        # steps per object (0.8 s at the default 10 Hz stride)
+DEFAULT_HISTORY = 8        # steps per object (1.6 s at the 5 Hz processing rate)
 DEFAULT_MAX_OBJECTS = 32   # nearest-N per frame; the same cap applies to every baseline
 SPLITS = ("train", "val", "test")
 

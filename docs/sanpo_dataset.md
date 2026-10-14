@@ -31,25 +31,42 @@ gs://gresearch/sanpo_dataset/v0/
 
 `labeltype.json` marks whether each class is semantic-only or panoptic. CPE-relevant panoptic labels include `crosswalk`, `pedestrian`, `rider`, `animal`, `stairs`, `obstacle`, `vehicle`, `traffic sign`, `traffic light`, `pole`, `bus stop`, `bike rack`, and `tree`.
 
-## Camera Facts and Label Map (checked 2026-10-14)
+## Camera Facts, Official Split and Label Map (all 462 sessions audited 2026-10-14)
 
-From `description.json` of curated session `-5OCPnbrwJdu3jH70ieU7pUiFsOJQoeG` (not yet verified across
-all 462):
+`python tools/audit_sanpo_sessions.py` reads every curated session's `description.json`, SANPO's
+official split files and the folder listings (metadata only). Output:
+`simulation/datasets/sanpo/session_audit.json` (per session) and
+`simulation/datasets/sanpo/official_split.json`.
 
-| Field | Value | Pipeline assumption |
-|---|---|---|
-| Camera | ZED 2i, head-mounted | — |
-| Frame rate | **15 FPS** | `tools/stream_sanpo_perception.py --fps` defaults to **30** |
-| Image size | 2208 × 1242 | same |
-| Horizontal FOV | **58.4°** (fx = 1973.7 px) | `compute_bearing()` assumes **70°**; `yolo_tracker.FOCAL_PX` = 960 |
+| Field | All 462 curated sessions | Pipeline before 2026-10-14 | Now |
+|---|---|---|---|
+| Camera | ZED 2i, head-mounted | — | — |
+| Frame rate | **15 FPS** in every session | assumed 30 (`--fps` default) | read per session from `description.json` |
+| Image size | 2208 × 1242 (392 sessions), 1920 × 1080 (70) | — | — |
+| Horizontal FOV | **51.4–60.1°**, median 58.4° (fx 1910–1993 px) | 70° linear (`compute_bearing`), 960 px (`yolo_tracker`) | pinhole bearing and size check from the session's fx |
+| Ego motion | walking 458, running 4 | — | — |
+| Camera poses | `camera_poses.csv` in all 462 | unused | used by `src/threat_engine/fusion.py` (see below) |
+| Segmentation masks | **53 sessions** (43 train, 10 test) | — | enough to fine-tune/evaluate §6.3 with SANPO-Synthetic |
+| Official split | **374 train / 88 test** (`sanpo-real/splits/`) | none (own 5-fold CV) | every final number uses it |
 
-Resolving the mismatch is `pending_work.md` P0.1–P0.2.
+**Consequence for existing CSVs.** They were built at an assumed 30 FPS with stride 3, so stored
+closing speeds are exactly 2× too high (recovered from the data: stored speed = 10.0 × per-step
+depth slope, IQR 9.99–10.01) and one processed step is 0.2 s, not 0.1 s. Rankings, labels (in steps)
+and therefore all reported metrics are unaffected; time units in older reports are. The replay tool
+converts old rows (`tools/replay_threat_engine.py`).
+
+**Camera poses don't reconcile with box depth yet.** The world "up" axis differs between sessions
+(some y-up, some z-up), and many sessions lose visual tracking for stretches (`NOT_READY`).
+`sanpo_session_poses()` handles both. Even so, with either `camera_poses.csv` or
+`fixed_camera_poses.csv`, near static objects move *more* per step in the world frame than in the
+camera frame, and the walking direction differs from the camera heading by a median ~30°. Until
+that's explained (frame/pose timing, pose drift, head-camera geometry), ego-motion removal is
+reported as an ablation, not a validated component (`pending_work.md` P1.1).
 
 `labelmap.json` (31 classes) includes the surface classes the v2 segmentation model needs
 (`architecture.md` §6.3): `road`, `curb`, `sidewalk`, `crosswalk`, `paved trail`, `stairs`,
 `other walkable surface`, `inaccessible surface`, alongside object classes (`pedestrian`, `rider`,
-`vehicle`, `pole`, `obstacle`, ...). How many real sessions ship `segmentation_masks/` is still to be
-counted (`pending_work.md` P0.4).
+`vehicle`, `pole`, `obstacle`, ...). 53 of the 462 curated real sessions ship `segmentation_masks/`.
 
 ## SANPO-Real Layout
 

@@ -48,12 +48,22 @@ taken directly from the dataset rather than predicted, so the kinetic-score inpu
 estimated — a deliberate choice to decouple "is the formula right" from "is the depth network right"
 during formula development. Full bucket layout and per-session sizes: `sanpo_dataset.md`.
 
-**Camera parameters (open correctness issue).** SANPO-Real `description.json` reports 15 FPS and a
-58.4° horizontal FOV (checked on one curated session). Stage 1 currently assumes 30 FPS
-(`tools/stream_sanpo_perception.py --fps`) and a 70° FOV (`physics.compute_bearing`). If the CSVs
-were built at 30 FPS, closing speeds are 2× too high and the 20-frame horizon spans 4 s, not 2 s.
-Relative comparisons between methods on the same CSVs are unaffected; absolute physical units are.
-Resolve before reporting (`pending_work.md` P0).
+**Camera parameters (audited 2026-10-14, all 462 sessions; `tools/audit_sanpo_sessions.py`).**
+Every curated session is 15 FPS; horizontal FOV is 51.4–60.1° (fx 1910–1993 px). The Stage-1 CSVs
+used so far assumed 30 FPS and a 70° linear FOV. The frame-rate error is recoverable from the data
+itself: the stored closing speed equals 10.0 × the per-step least-squares depth slope (IQR
+9.99–10.01), i.e. 10 Hz was assumed for frames processed at 5 Hz (15 FPS, stride 3). Hence stored
+speeds are exactly 2× too high, one step is 0.2 s, the 20-step horizon is 4 s and the 8-step history
+1.6 s. Labels are defined in steps and every metric we report is a ranking, which a uniform speed
+scale does not change, so the results stand; only the time units in older text were wrong. Stage 1
+now reads fps and fx per session (pinhole bearing `atan(dx / fx)`), and the replay converts old rows
+(speed × 0.5, bearing from fx). With the real FOV, the ±30° label cone spans almost the whole image,
+so the label is effectively "comes within the hazard distance while in view".
+
+**Official split.** SANPO publishes a session-level split (`sanpo-real/splits/`). Of our 462
+sessions, 374 are train and 88 test (`simulation/datasets/sanpo/official_split.json`). All final
+numbers use it: models and every tuned parameter see train (validation carved from train) only, and
+test is scored once. The 5-fold cross-validation below is kept as the development estimate.
 
 **Sampling protocol.** `valid_streams.json` curates 462 real-session IDs. For the kinetic-score
 ablation, a **30% sample (139 sessions)** was drawn by sorting the session list and seeding the
@@ -333,7 +343,7 @@ whether letting objects in a frame see each other ("scene context") adds anythin
 Code: `dataset/GRU/` (samples, labels, split) and `models/GRU/` (models, training, evaluation); see
 their READMEs.
 
-- **Input.** Per object, its last 8 processed frames (0.8 s at the 10 Hz stride) of runtime-derivable
+- **Input.** Per object, its last 8 processed frames (1.6 s at the 5 Hz processing rate) of runtime-derivable
   features: distance, closing velocity, bearing, per-step change in distance and bearing (retreat and
   lateral motion, both invisible to K0), YOLO confidence, log box area, track age, and a learned
   class embedding. `kinetic_score` is deliberately **not** an input, so a model cannot learn to copy K0.
@@ -381,7 +391,7 @@ their READMEs.
   - **Label.** Tracked objects; the hazard distance is relaxed to 3 m to get enough positives
     (263 vs. 45 encounter tracks on 139 sessions). Arrival time = frames until the object first
     enters the zone.
-  - **Output.** The model outputs a distribution over 4 slices of the 2 s horizon plus "not within
+  - **Output.** The model outputs a distribution over 4 slices of the 4 s horizon plus "not within
     it". The how-soon score is minus the expected arrival time.
   - **Metrics.** `arrival_order` (pairwise concordance within a frame) and `soonest_top1`.
     TTC = (d − 3 m)/v joins the baselines as physics' own arrival estimate.
@@ -422,6 +432,74 @@ their READMEs.
     order ties (+0.007 [−0.008, +0.021]).
 
 ---
+
+### 4.11 Held-out evaluation on SANPO's official split (2026-10-14)
+
+- **Data.** `dataset/GRU/resplit.py` re-splits the 462-session arrival dataset onto the official
+  split: 252 train / 41 validation (dealt from official-train sessions, stratified by encounter
+  tracks) / 71 test sessions with tracked objects; 25 test sessions contain arrivals.
+- **Training.** Both GRUs, `--time-bins 4`, 3 seeds, early stopping on validation loss.
+- **Ensembles.** Rank averaging (unfitted) and the softmax stacker, now fitted on the models'
+  **validation** predictions only (`models/Ensemble/heldout.py`), so no test label is used anywhere.
+- **New baseline: TTC in the cone.** Objects inside the ±30° cone rank above those outside; within
+  each group by TTC = (d − 3 m)/v (capped at 10 s), with non-closing objects ordered by distance.
+  It gives TTC the same geometric prior nearest-in-cone has, so the learned-vs-physics comparison
+  is fair.
+- **Statistics.** As §4.8: per-seed metrics averaged over 3 seeds, paired session-bootstrap CIs
+  (1,000 resamples) for differences.
+- **Results** (`evaluation/benchmarks/heldout_official_split/official462_2026_10_14/report.md`):
+  - GRU AUROC 0.888 (CV: 0.887). Beats K0 +0.317 [+0.219, +0.384], TTC +0.227 [+0.154, +0.279],
+    cone TTC +0.123 [+0.075, +0.151]. Ties nearest-in-cone (+0.013 [−0.018, +0.046]; arrival order
+    −0.013 [−0.050, +0.026]).
+  - Flicker 0.561 vs. nearest-in-cone 0.714.
+  - Attention: AUROC +0.004 [−0.018, +0.016] but arrival order −0.028 [−0.044, −0.003] vs. the
+    plain GRU, so scene context via attention is, if anything, harmful held-out.
+  - Stacker vs. GRU: +0.005 [−0.015, +0.016] AUROC; no ensemble gain survives held-out.
+
+### 4.12 End-to-end replay of the runtime engines (2026-10-14)
+
+`tools/replay_threat_engine.py` replays every official validation and test session, frame by frame,
+through each runtime engine, rebuilding Stage-1 rows for tracked objects from the arrival dataset
+(converted to correct units, §2.1).
+
+- **Engines.** v1 as built (K0 routing → stub → Physics Verification; it speaks whenever the judge
+  emits an event); v1 with the v2 announcement manager; and v2 (`src/threat_engine/`) with each
+  arrival predictor: nearest-in-cone, physics (time until the fused relative path enters the zone
+  inside the cone) and the GRU. v2 runs with and without camera poses (ego-motion ablation).
+- **Tuning.** Each v2 engine's ignore threshold is chosen from {0.05, 0.1, 0.15, 0.25, 0.4, 0.6} on
+  the validation sessions by the F1 of "warned" and "precision", then applied once to test.
+  Announcer constants are declared (`announcer.py`) and not tuned.
+- **Metrics.** An *arrival* is a track's first frame inside 3 m in the cone, counted only if the
+  track was seen at least one frame earlier (so a warning was possible).
+  - *Warned:* fraction of arrivals with an announcement about that track in the 4 s before.
+  - *Precision:* fraction of announcements whose object is inside the zone now or within 4 s (the
+    arrival label at that frame).
+  - *Lead time:* median time from the first such announcement to arrival.
+  - *Alerts, overrides and topic switches per minute.*
+  - 95% CIs by resampling whole sessions (1,000 draws).
+- **Results** (`evaluation/benchmarks/threat_engine_replay/official_2026_10_14/report.md`; 71
+  sessions, 88 arrivals): v2 with the GRU reaches precision 0.59 [0.47, 0.69] at 17 alerts/min,
+  against v1's 0.24 [0.12, 0.38] at 119/min, with 12 vs. 61 topic switches/min and 6.5 vs. 39
+  overrides/min. It warns about 0.26 [0.18, 0.49] of arrivals against v1's 0.65 [0.58, 0.81].
+  Lead time is ≈ 0 s for every engine, because objects typically first appear near the 3 m zone.
+- **Caveats.** Open-loop; only tracked objects are replayed; inputs and labels share SANPO depth.
+
+### 4.13 Sensor fusion parameters and the camera-pose check
+
+`src/threat_engine/fusion.py`: constant-velocity Kalman filter per track on the ground plane; white
+acceleration noise σ = 1.5 m/s²; depth noise σ = 0.05 + 0.01·d² m; bearing noise 1°; initial
+velocity σ = 3 m/s; χ² gate 11.62 (2 dof, 99.7%), with a track restarted after 3 consecutive gated
+measurements; tracks dropped after 5 missed frames and confirmed after 3 updates. All are declared
+values, not fitted.
+
+Camera poses come from SANPO `camera_poses.csv` (ZED camera axes: x right, y up, looking along −z,
+confirmed against walking direction; the alternatives are 80–150° off). The world up axis differs
+between sessions, so it is estimated per session as the mean camera-up vector, and frames where
+visual tracking was lost repeat the last good pose. **Validation failed so far:** with either
+`camera_poses.csv` or `fixed_camera_poses.csv`, near (< 8 m) static objects move more per step in
+the world frame (median 0.52 m) than in the camera frame (0.32 m), which should not happen if poses
+and box depth agree. No frame offset or axis sign fixes it. Ego-motion removal is therefore reported
+only as an ablation until this is explained (`pending_work.md` P0.2).
 
 ## 5. Latency methodology
 
@@ -496,7 +574,7 @@ section of this document (§1–6 above) as additional grounding context first.
 > "I am writing a research paper on a phone-based hazard alert system for blind pedestrians, called
 > the Composite Perception Engine (CPE). A YOLO26n detector fine-tuned on 17 street-hazard classes,
 > with ByteTrack and metric depth, feeds a threat engine that ranks objects by three separate
-> questions: *when* will it reach the walker (a small GRU arrival predictor over 0.8 s of track
+> questions: *when* will it reach the walker (a small GRU arrival predictor over 1.6 s of track
 > history), *how bad* would a collision be (class severity derived from real-world mass), and *what*
 > does the scene say about it (walkable-surface segmentation). Every learned decision sits inside a
 > deterministic physics safety envelope: an object with time-to-collision under 1 s in the walking
@@ -579,23 +657,28 @@ section of this document (§1–6 above) as additional grounding context first.
 >   real-world mass, `behaviour(c) · (mass(c)/70 kg)^0.5`), and *what* (walkable-surface
 >   segmentation trained on SANPO labels, giving whether the object is on the walker's path, on the
 >   road, or near a curb).
-> - The fused priority is `P(arrives within horizon) × severity × context`, ties broken by expected
->   arrival time; fusion parameters are tuned on training sessions only.
-> - Tracks are first fused per object with a Kalman filter in ground-plane coordinates, with the
->   walker's own head motion removed using camera pose, so the learned models see object motion
->   rather than head turns.
+> - The fused priority is `P(arrives within 4 s) × severity^γ × context` (γ = 0.25, declared), ties
+>   broken by expected arrival time; the ignore threshold is tuned on validation sessions only.
+> - Tracks are first fused per object with a constant-velocity Kalman filter in ground-plane
+>   coordinates (§4.13), giving signed closing speed, time to the hazard zone and closest approach;
+>   it can remove head motion using camera pose, but that step is not validated on SANPO yet.
+> - An announcement manager decides whether to speak: overrides preempt, a new object must beat the
+>   current one by 25%, the same object is not repeated within 4 s unless its priority rises 50%,
+>   and messages that can't play within 0.6 s are dropped.
 >
-> **Note when drafting:** the GRU is trained and evaluated (§4.10); sensor fusion, segmentation and
-> the fused score are planned (`pending_work.md` P1). Write those parts as method, not results,
-> until they are run."
+> **Note when drafting:** the GRU (§4.10–4.11), fusion, fused score and announcement manager are
+> built and replay-evaluated (§4.12); segmentation ("what") is planned (`pending_work.md` P1). Write
+> segmentation as method, not results, until it is run."
 
 ### A.5 Methodology: Physics Safety Envelope
 
 > "Write the Methodology subsection on the 'Physics Safety Envelope'. Explain that:
-> - Each tracked object becomes a formal `ThreatEvent` with distance, closing velocity, bearing,
->   time-to-collision (TTC) and severity.
-> - If an object's TTC is at most 1.0 s and it is inside the forward walking cone, the system
->   raises an immediate override alert from a cached audio clip. This path contains no learned
+> - Each tracked object is a fused track with distance, signed closing speed, bearing relative to
+>   the walking direction, and a confirmation count.
+> - If a confirmed track's TTC (distance / closing speed) is at most 1.0 s and it is inside the
+>   forward walking cone (±30°), the system raises an immediate override alert from a cached audio
+>   clip. A track keeps that protection for 2 frames of missing depth; zero or negative closing
+>   speed never fires; the edge cases are unit-tested. This path contains no learned
 >   component and cannot be suppressed or delayed by one.
 > - Learned components only reorder the objects that are not in the envelope, so the system is
 >   never less safe than its physics rule alone.
@@ -654,7 +737,7 @@ section of this document (§1–6 above) as additional grounding context first.
 >   drafting:** this referee step has not been run yet as of this writing (`pending_work.md` P2.4) — the
 >   219 disagreement frames are exported and waiting.
 > - If the learned-predictor experiment (§4.10) has been run, add a paragraph comparing K0 against two
->   learned encounter predictors trained on the same formula-free labels: a per-object GRU over 0.8 s
+>   learned encounter predictors trained on the same formula-free labels: a per-object GRU over 1.6 s
 >   of track history, and the same GRU plus one self-attention block across the objects in a frame
 >   (no positional encoding, so object order — which is K-sorted — cannot leak). Report per-object
 >   AUROC/average precision and per-frame encounter_top1/flicker with session-bootstrap CIs, on all
@@ -673,10 +756,13 @@ section of this document (§1–6 above) as additional grounding context first.
 > avg p95 7.83 ms) is not a phone result; report iPhone 17 Pro Max numbers only if they have been
 > measured on the device (`pending_work.md` P3). Report the YOLO26n detector result (v3: mAP50 0.641,
 > mAP50-95 0.459) and the v2→v3 training-protocol finding. Report the kinetic-score ablation (§A.6)
-> and the arrival-prediction result: on 462 SANPO sessions the GRU reaches AUROC 0.887 vs. K0 0.571
-> and TTC 0.656, ties the nearest-in-cone rule on arrival order, and has a steadier top pick (flicker
-> 0.59 vs. 0.73); the stacked ensemble reaches AUROC 0.894. Discuss that the ceiling is set by the
-> input features, motivating head-motion removal and scene context. State the limitations: open-loop
-> replay, dataset depth standing in for phone LiDAR, no user study, declared severity parameters. Do
-> not claim a live deployment, phone FPS that was not measured, or results for components that have
-> not been run."
+> and the arrival-prediction result on SANPO's official test split (71 sessions, §4.11): the GRU
+> reaches AUROC 0.888 (0.887 in 5-fold cross-validation) vs. K0 0.571, TTC 0.661 and cone-restricted
+> TTC 0.765, ties the nearest-in-cone rule (0.875), and has a steadier top pick (flicker 0.56 vs.
+> 0.71); attention and ensembles add nothing significant. Report the system replay (§4.12): v2
+> announces 17 times a minute with precision 0.59 vs. v1's 119 at 0.24, but warns about 26% of
+> arrivals vs. 65%. Discuss that the ceiling is set by the input features, motivating scene context,
+> and that the camera-pose check failed (§4.13), so ego-motion removal is not claimed. State the
+> limitations: open-loop replay, dataset depth standing in for phone LiDAR, head-mounted camera, no
+> user study, declared severity / announcer parameters. Do not claim a live deployment, phone FPS that
+> was not measured, or results for components that have not been run."

@@ -1,10 +1,17 @@
 """
 run_full_pipeline_demo.py
 ==========================
-Runs a synthetic multi-frame scene through every runtime component built so
-far — Perception row -> Threat Prioritizer -> (stub) Cognitive Layer ->
-Physics Verification -> Narration/Translation/TTS — and prints what would
-actually reach the user each frame.
+Runs a synthetic multi-frame scene through a runtime chain and prints what
+would actually reach the user.
+
+Default: the v2 threat engine (docs/architecture.md §5) — Stage-1 rows ->
+Kalman fusion -> safety envelope + fused priority -> announcement manager ->
+Narration/Translation/TTS — on a 5 Hz scene: a car closing in from the left
+while the walker approaches a pothole.
+
+--v1: the v1 chain kept as the replay baseline — Perception row -> Threat
+Prioritizer -> (stub) Cognitive Layer -> Physics Verification -> Narration.
+The rest of this docstring describes that v1 scenario.
 
 This is the milestone docs/pending_work.md §5 calls "the single most valuable
 integration milestone remaining before a demo": proving the runtime contracts
@@ -27,7 +34,8 @@ objects").
 
 Usage
 -----
-    python tools/run_full_pipeline_demo.py
+    python tools/run_full_pipeline_demo.py             # v2 threat engine
+    python tools/run_full_pipeline_demo.py --v1        # v1 baseline chain
     python tools/run_full_pipeline_demo.py --lang hi   # exercise the phrase-table path
     python tools/run_full_pipeline_demo.py --piper-voice models/tts/piper/en_US-lessac-low.onnx
 """
@@ -35,6 +43,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -45,6 +54,7 @@ from src.narration.pipeline import NarrationPipeline  # noqa: E402
 from src.narration.translation import PhraseTableTranslator  # noqa: E402
 from src.narration.tts import CachedClipTTS, PiperTTS, TextToSpeech  # noqa: E402
 from src.pipeline import process_frames  # noqa: E402
+from src.pipeline.orchestrator import V2Pipeline  # noqa: E402
 from src.threat_prioritizer import build_threat_frame  # noqa: E402
 
 # Pre-translated phrases, to exercise PhraseTableTranslator without needing
@@ -54,6 +64,7 @@ from src.threat_prioritizer import build_threat_frame  # noqa: E402
 # having a table entry for it demonstrates that bypass rather than a miss.
 DEMO_PHRASE_TABLE = {
     ("Pothole close, ahead.", "hi"): "गड्ढा पास है, आगे।",
+    ("Car left, 10 meters.", "hi"): "गाड़ी बाईं ओर, 10 मीटर।",
     ("Stop! Car very close left.", "hi"): "रुको! गाड़ी बिल्कुल पास बाईं ओर है।",
 }
 
@@ -98,22 +109,59 @@ def build_scenario() -> list[list[dict]]:
     return frames
 
 
+STEP_S = 0.2   # SANPO processing rate: 15 FPS, stride 3
+
+
+def build_v2_scenario() -> list[list[dict]]:
+    """
+    25 frames at 5 Hz. A car approaches from about 20° left at 3 m/s, starting
+    14 m out; the walker closes on a pothole straight ahead at 1.4 m/s from
+    8 m. Rows carry no pose, so motion is camera-relative, as on a phone
+    without ARKit.
+    """
+    frames = []
+    for k in range(25):
+        rows = [_car_row(k, 14.0 - 3.0 * STEP_S * k, velocity_ms=0.0)]
+        rows[0]["bearing_deg"] = -20.0
+        rows.append({**_pothole_row(k), "distance_m": max(0.3, 8.0 - 1.4 * STEP_S * k), "bearing_deg": 2.0})
+        frames.append(rows)
+    return frames
+
+
+def run_v2(pipeline: NarrationPipeline, lang: str) -> None:
+    v2 = V2Pipeline(pipeline, target_lang=lang)
+    print(f"{'t (s)':>5} | {'Kind':<8} | {'Object':<9} | {'Lane':<9} | Narration")
+    print("-" * 80)
+    spoken = 0
+    for k, rows in enumerate(build_v2_scenario()):
+        result = v2.step(k, k * STEP_S, rows)
+        a = result.frame.announcement
+        if a is None:
+            continue
+        spoken += 1
+        print(f"{k * STEP_S:>5.1f} | {a.kind:<8} | {a.track_id:<9} | {result.narration.lane:<9} | "
+              f"{result.narration.translated_text}")
+    print(f"\n{spoken} announcements over {25 * STEP_S:.0f} s. Every row went through: Kalman fusion -> "
+          "safety envelope + fused priority -> announcement manager -> narration, on synthetic data only.")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--lang", default="en", help="Target language for the narration lane (e.g. 'hi').")
     p.add_argument("--piper-voice", type=Path,
                    default=PROJECT_ROOT / "models/tts/piper/en_US-lessac-low.onnx")
+    p.add_argument("--v1", action="store_true", help="Run the v1 baseline chain instead of the v2 engine.")
     args = p.parse_args()
 
     translator = PhraseTableTranslator(dict(DEMO_PHRASE_TABLE))
 
     narration_tts: TextToSpeech
-    if args.piper_voice.exists():
+    if args.piper_voice.exists() and importlib.util.find_spec("piper") is not None:
         narration_tts = PiperTTS(args.piper_voice)
         print(f"Using PiperTTS ({args.piper_voice.name}) for the narration lane.\n")
     else:
         narration_tts = CachedClipTTS(fallback=b"(no cached clip, no Piper voice found)")  # placeholder audio
-        print(f"No Piper voice at {args.piper_voice} — narration lane will use "
+        print(f"No Piper voice or piper-tts package — narration lane will use "
               f"CachedClipTTS fallback only. See docs/architecture.md §6.6.\n")
 
     pipeline = NarrationPipeline(
@@ -121,6 +169,10 @@ def main() -> None:
         tts=narration_tts,
         critical_tts=CachedClipTTS(fallback=b"(critical beep - no clip cached)"),
     )
+
+    if not args.v1:
+        run_v2(pipeline, args.lang)
+        return
 
     threat_frames = [build_threat_frame(rows) for rows in build_scenario()]
     results = process_frames(threat_frames, pipeline, target_lang=args.lang)
