@@ -91,7 +91,7 @@ class FusionTests(unittest.TestCase):
         self.assertFalse(out[0].measured)
 
     def test_sanpo_identity_pose_looks_down_minus_z(self):
-        pose = EgoPose.from_sanpo(0, 0, 0, 0, 0, 0, 1)
+        pose = EgoPose.from_sanpo(0, 0, 0, 0, 0, 0, 1, up=(0.0, 1.0, 0.0), convention="zed")
         np.testing.assert_allclose(pose.forward, (0.0, -1.0), atol=1e-9)
         np.testing.assert_allclose(pose.right, (1.0, 0.0), atol=1e-9)
 
@@ -102,11 +102,24 @@ class FusionTests(unittest.TestCase):
         rows = [{"tracking_state": "TrackingState.READY", "pos_x": 0.0, "pos_y": -1.4 * DT * k, "pos_z": 0.0,
                  "q_x": -s, "q_y": 0.0, "q_z": 0.0, "q_w": s} for k in range(5)]
         rows.append({**rows[-1], "tracking_state": "TrackingState.NOT_READY", "pos_y": 50.0})
-        poses = sanpo_session_poses(rows)
+        poses = sanpo_session_poses(rows, convention="zed")
         step = np.subtract(poses[1].position, poses[0].position)
         self.assertAlmostEqual(float(np.linalg.norm(step)), 1.4 * DT, places=6)
         self.assertAlmostEqual(float(step @ np.asarray(poses[0].forward)), 1.4 * DT, places=6)   # forward is forward
-        self.assertEqual(poses[-1], poses[-2])                   # lost tracking holds the last good pose
+        self.assertEqual(poses[-1], poses[-2])                   # trailing lost tracking holds the last good pose
+
+    def test_fixed_poses_opencv_convention_and_dropout_interpolation(self):
+        """fixed_camera_poses.csv: camera looks along +z, y down, world Z up; dropouts are interpolated."""
+        # -90 deg about world x: camera +z (forward) -> world +y, camera +y (down) -> world -z.
+        s = math.sqrt(0.5)
+        def row(k, state="TrackingState.READY", y=None):
+            return {"tracking_state": state, "pos_x": 0.0, "pos_y": 0.28 * k if y is None else y, "pos_z": 1.6,
+                    "q_x": -s, "q_y": 0.0, "q_z": 0.0, "q_w": s}
+        rows = [row(0), row(1), row(2, "TrackingState.NOT_READY", y=9.0), row(3)]
+        poses = sanpo_session_poses(rows)                        # default: opencv
+        self.assertAlmostEqual(float(np.subtract(poses[1].position, poses[0].position) @ np.asarray(poses[0].forward)),
+                               0.28, places=6)
+        np.testing.assert_allclose(poses[2].position, np.add(poses[1].position, poses[3].position) / 2, atol=1e-9)
 
     def test_time_to_radius(self):
         self.assertEqual(time_to_radius(np.array([0.0, 1.0]), np.array([0.0, -1.0]), 2.0), 0.0)

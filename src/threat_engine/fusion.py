@@ -52,6 +52,15 @@ MIN_HITS = 3             # updates before a track counts as confirmed
 EGO_SMOOTHING = 0.5      # EMA weight of the newest walker-velocity sample
 MIN_WALK_SPEED = 0.3     # m/s; below this the walking direction falls back to the camera heading
 
+# Camera axes in the camera's own frame. SANPO's fixed_camera_poses.csv uses the
+# OpenCV convention in a Z-up world; its original camera_poses.csv uses the ZED
+# convention and is too noisy to use (path 2.5-25x the net displacement).
+# Established empirically: tools/validate_sanpo_poses.py.
+CAMERA_AXES = {
+    "opencv": {"right": (1.0, 0.0, 0.0), "up": (0.0, -1.0, 0.0), "forward": (0.0, 0.0, 1.0)},
+    "zed": {"right": (1.0, 0.0, 0.0), "up": (0.0, 1.0, 0.0), "forward": (0.0, 0.0, -1.0)},
+}
+
 
 @dataclass(frozen=True)
 class EgoPose:
@@ -68,19 +77,22 @@ class EgoPose:
     @classmethod
     def from_sanpo(cls, pos_x: float, pos_y: float, pos_z: float,
                    q_x: float, q_y: float, q_z: float, q_w: float,
-                   up: tuple[float, float, float] = (0.0, 1.0, 0.0)) -> "EgoPose":
+                   up: tuple[float, float, float] = (0.0, 0.0, 1.0),
+                   convention: str = "opencv") -> "EgoPose":
         """
-        One row of SANPO's camera_poses.csv. The camera axes follow the ZED
-        convention (x right, y up, looking along its own -z). The *world* up
-        axis is not the same in every session, so pass the session's `up`
-        (sanpo_session_poses() estimates it); the ground plane is the plane
-        perpendicular to it.
+        One row of a SANPO pose file. `convention` names the camera axes
+        (CAMERA_AXES): "opencv" (x right, y down, looking along +z) for
+        fixed_camera_poses.csv, "zed" (x right, y up, looking along -z) for the
+        original camera_poses.csv. `up` is the world up axis — +Z for the fixed
+        file; sanpo_session_poses() estimates it per session. The ground plane
+        is the plane perpendicular to it.
         """
         rot = _quat_to_matrix(q_x, q_y, q_z, q_w)
         e1, e2 = _ground_basis(np.asarray(up, dtype=float))
         pos = np.array([pos_x, pos_y, pos_z], dtype=float)
-        right = rot @ np.array([1.0, 0.0, 0.0])
-        forward = rot @ np.array([0.0, 0.0, -1.0])
+        axes = CAMERA_AXES[convention]
+        right = rot @ np.asarray(axes["right"], dtype=float)
+        forward = rot @ np.asarray(axes["forward"], dtype=float)
         return cls((float(pos @ e1), float(pos @ e2)),
                    _unit((float(right @ e1), float(right @ e2))),
                    _unit((float(forward @ e1), float(forward @ e2))))
@@ -311,29 +323,30 @@ class GroundTracker:
         )
 
 
-def sanpo_session_poses(rows: list[dict]) -> list[EgoPose]:
+def sanpo_session_poses(rows: list[dict], convention: str = "opencv") -> list[EgoPose]:
     """
-    EgoPose per row of one session's camera_poses.csv (dicts with tracking_state,
-    pos_*, q_*). World up = the mean of the camera's up axis over the session
-    (the walker's head is upright on average). Rows where visual tracking was
-    lost (anything but TrackingState.READY) repeat the last good pose, so the
-    walker is treated as standing still rather than teleporting.
+    EgoPose per row of one session's pose file (dicts with tracking_state,
+    pos_*, q_*): fixed_camera_poses.csv with the default "opencv" convention.
+    World up = the mean of the camera's up axis over the session (the walker's
+    head is upright on average). Rows where visual tracking was lost (anything
+    but TrackingState.READY) get a position linearly interpolated between the
+    surrounding READY rows and the orientation of the nearest one; holding the
+    last pose would make static objects appear to approach during dropouts.
     """
     keys = ("pos_x", "pos_y", "pos_z", "q_x", "q_y", "q_z", "q_w")
-    vals = [[float(r[k]) for k in keys] for r in rows]
-    ready = [str(r.get("tracking_state", "")).endswith("READY") and "NOT" not in str(r.get("tracking_state", ""))
-             for r in rows]
-    ups = [_quat_to_matrix(*v[3:]) @ np.array([0.0, 1.0, 0.0]) for v, ok in zip(vals, ready) if ok]
-    if not ups:
+    vals = np.array([[float(r[k]) for k in keys] for r in rows], dtype=float).reshape(-1, 7)
+    ready = np.array([str(r.get("tracking_state", "")).endswith("READY")
+                      and "NOT" not in str(r.get("tracking_state", "")) for r in rows], dtype=bool)
+    if not ready.any():
         return [EgoPose.identity()] * len(rows)
-    up = np.mean(ups, axis=0)
+    cam_up = np.asarray(CAMERA_AXES[convention]["up"], dtype=float)
+    up = np.mean([_quat_to_matrix(*v[3:]) @ cam_up for v in vals[ready]], axis=0)
     up = tuple(up / np.linalg.norm(up))
-    out, last = [], None
-    for v, ok in zip(vals, ready):
-        if ok or last is None:
-            last = EgoPose.from_sanpo(*v, up=up)
-        out.append(last)
-    return out
+    idx = np.arange(len(rows))
+    good = idx[ready]
+    pos = np.stack([np.interp(idx, good, vals[ready, k]) for k in range(3)], axis=1)
+    nearest = good[np.abs(idx[:, None] - good[None, :]).argmin(axis=1)]
+    return [EgoPose.from_sanpo(*pos[i], *vals[nearest[i], 3:], up=up, convention=convention) for i in idx]
 
 
 def time_to_radius(p: np.ndarray, v: np.ndarray, radius: float) -> float | None:

@@ -1,0 +1,4445 @@
+{
+  "file": "camera_poses.csv",
+  "convention": "zed",
+  "generated": "2026-10-14",
+  "gates": {
+    "heading": {
+      "median_deg": 25.40631251591622,
+      "p75_deg": 65.38809469180573,
+      "windows": 6169,
+      "pass": false
+    },
+    "static": {
+      "world_median_m": 0.2706306632070209,
+      "camera_median_m": 0.2485601315090475,
+      "steps": 100,
+      "world_p75_m": 0.5911028177709272,
+      "camera_p75_m": 0.5118378376389587,
+      "pass": false
+    },
+    "smooth": {
+      "median_ratio": 1.4356869058319524,
+      "sessions_failing": 256,
+      "sessions_with_walking": 378,
+      "failing_ids": [
+        "-PqSDmiEe2pXjmYHgxh4YEBsj0T5LU10",
+        "-aAwyxNyh11M5W0DQ8YPcSfdkbvvctaV",
+        "0auMnLmZDf_ZGM3VqzxmYPlwhtls73RF",
+        "0zEhKDk1j7KSuUQYR_rmCLmlbb5FCYG6",
+        "11tnj2tdX_ElmqXEv6kwSXI34_ZWXv-N",
+        "1rL8RTbI4jPqRkavZxrQbbM26iRfSLAH",
+        "28tdwxgz-zPU06lpeDY3OPWTFxZyBv2c",
+        "2bYF53x7c2mOhjKvuwaM7vJHJaLxxR5V",
+        "2dVxdA3XmypOsgSWv27dtf3GxjGUkB5A",
+        "2iQ4jyIxwXUInJKDYmBuoDltgad_GKC5",
+        "2r8tfEea5-Z3_2aiX7TKLKNpt6uji5ko",
+        "30S_d-kuvDkznn3Rhea0G3FoBQc5rXoA",
+        "30wQhQerQzff_3q-R3fKTmiJmO1BYETg",
+        "32-gEsl5LpNIeczEdsUGune0yXludVOp",
+        "3JB37A63XdIqYlAWJJiDsW5iP31Pmubf",
+        "3Ug16NmBGy0496lTVfvP3mCOm-tlT0qy",
+        "3fNdc-1R7QcLCPHG7Zn9oQXrPqKQbuys",
+        "3ok1zz3n49UtV6i2AGMLv-2gBifNtc56",
+        "3sP_fftGJ6fKE8F-lShNvbgYh5tTcBJd",
+        "489R5VLQTD43OHhfmnfq6Om4iWFgbKdF",
+        "48xrURy4Rn3yvrnJ6FkpNv2ywb3uY3_6",
+        "53_TnXrp7ttT3xUyMSps6JSXdidyKw6o",
+        "5ggktqEDHhVh1o4S_p8f1vKNvNXKEHlH",
+        "6lm2fRHPl4AtOLKJkEXRJo9MQJVeCT_y",
+        "6uEJtqNVqHJA1tjeemumA-trgb9xnvt0",
+        "747mmWVmCDlhmzAcuWmC-hngy1fBDNfY",
+        "7X41_wkj6FHIcIpxSuh4tRR6R8P_SAGr",
+        "8gGeL1XFBrc1UxxtyROYgtRGgzNRaVyY",
+        "8jLedz8b0WW5pHGtmx-HFYi-nzVoFkpy",
+        "972O8sd5HpUbGeEE_UAb1g0z1OZUtfHl",
+        "9RrTMx-P3rgXTfrJbI2hD0G6T8RdWbMc",
+        "9e6t9GD8EEnQwpm-zYcFc8OjImoK2D7N",
+        "9m1-lqCg93cYYGzfpXv-n-lQCpu1_yTs",
+        "9uSM4Uud-7EEMmBVvSGtSaK9lIMI6MJp",
+        "9zKoV_3-uNThE8ZgUBzl5dD6Di-HBTvL",
+        "9zhwm8-HDoUub3dkVEp398Xdw9HYTC9m",
+        "A-d9NSdx2GiWxCI0oSnoQe0r6i_z-ZWz",
+        "ASkMDWwjRW4iUW4pRS4JX1D8U6ZpW3zu",
+        "AUTqqeGB74PPSAJ6waiz6prT8DEVf-A7",
+        "AdtGuq73TlhK5miUkWcUO9BoKdnmV-8j",
+        "Ana1yr8Pvh2MyBDmQXDIEL8v67OeMPFz",
+        "B0uBxNujFSoWXKL2-WuP1tF1j-YkKrC6",
+        "BHu1m-6aVxrh_Nilov-XQqtRg-ebLVRI",
+        "BIhF8TbataV9YsahueJKTIdx1oSqV9Sh",
+        "BNzLYFSMk1kYQFqnw8pD0w9_pf0g_4m7",
+        "BZub4NmlnMmHYaPsIehO4G8yNYo11nWW",
+        "BkBde-BxJpmVRnvz1iVKYhI5edhB6-Kr",
+        "CA5XblcaNP_PNAqfIVJQZ6_VeRaTyC1F",
+        "CCG-oMqgJf90LzEhlqj0WkP3xN0dHlXk",
+        "CI7WbRvhJTnOT2gVszCo_UWp9J0USCEW",
+        "ChcneDEXiD6dzznmQNtTnlVflFy2nK2s",
+        "D2fmg-h01L9EjZl89mFRyBOa1DhLY6hi",
+        "DGTZ7ga3Ktw5giWLvJOvPIbgf3N0cVMh",
+        "DSZAhX1NcHwzhDAPV0udk99FeuFdAqzu",
+        "DVKpZk7QFPBkHacUEFLEOGkNYAL1g1o9",
+        "DbY_zNmU-N9JygpIJmVaA4K7BiwK6i7w",
+        "DuPv9dnGn0U8eUTL3dRSJ0Rh25jMwg7u",
+        "EKbeaLhZkRlcXuugCGn-Qu9NE15COkF3",
+        "EQsmDBtPXj0K0gjvZznTtfA_CcEGOR-2",
+        "EXUy7eoDpVbKR-bpIg-faiepUfqZwJ2v",
+        "Ej_gHTCPLY5FGiLVb1gXCt1ySUw-Vel1",
+        "EmUvfKbc-gaUCV0NmT11jLxT0b8O3Hie",
+        "FDESM-gXV7eUb3fg5IMh5FZtFC9rdonr",
+        "FeJgoz6tfxhlDqiesDGIZdbM3VoE_HMZ",
+        "Fhw5qR8o7DO-EAhsnlqxc-y1zp0Y357Y",
+        "GEwWDMMe8FFo-wHxZ4Pg1chw15P2nEEz",
+        "GTz00ckTgX_sFZL8m1VrMZMcto6u_Pb2",
+        "GYTOruYhQQnUq6tmsHvIaquiCHdiZ2-W",
+        "Ghd_fV-tJOTaiQRAVefqIPuk9bmc1uML",
+        "GiXf5Gm7QbpP6cZR04jpOBIOq2Q5kttq",
+        "H55y-9CdOcKd1EQmN-Hi5BbkvCntg1uB",
+        "HZXMnm2JYxcibnWtiIDjaxmnS231i79h",
+        "HnbJgvODI8MMvwjYanYqzQzue6Li3Ni3",
+        "Hnkgzda_TOPUVUgX-ead9vO1y-P2F9O-",
+        "IKO6uZfN9fFM_Q7i-t0-N6cuwUkKSMtH",
+        "J4PblHagnYNO09IdrDjQShle2Z0Dk-Yu",
+        "JrFB7oRxppNref18SJEl_t72ADmhGWlo",
+        "JtMYI6rJ4wiDsEVffAkee0kR5Zmrf8vM",
+        "K7eMgWDzeYtqCc4hje0wN7m3sbWwJRk2",
+        "KCDWvFEBj3tnPnJgQA07K_WXhPnQSIBx",
+        "KDo1FZFB0pRnxh8_sg3XDx5gpp9rqIQk",
+        "KG6YYsHIQiosr82KhLO7g-CiXBP2g69u",
+        "KMB_G-uuKE8-SNDAbRGQSzpEBpVGdsJI",
+        "KbGpSCTRI2wda2CyStsScd3swHtlsfiu",
+        "L5pxmOgWaTb-TxZqxT4l4yEPHTXlQVka",
+        "L8i1h_QePuO2_JpcS2YVbB9BZFjLo41g",
+        "LRWTaGC62fB3NflMQaOPXf0HJR1m5Ypp",
+        "LrwjvhGlCX62TrTSdIrGXeYytIA138ww",
+        "M-VNejgLYhI2MxSNlyoU_0eZLXrFJE8G",
+        "M5UIabsltWCYg1D9LCXLoNPO3bMUo_5-",
+        "Mg1c9D4qOCWdYKaOTRlLFpLllUBP_kXh",
+        "MtwZFFClj_Si11UTnHXXgN4CjqmPulP2",
+        "My89PcpqC4bRu5rxkv7QVMyOs_ugmoM0",
+        "MyiD6J_lPqZu6Gfeys5QLGWtnJIMe4fj",
+        "N2tKPgRBWLgkjCntd7RVV4KtcslWPkBK",
+        "N2vCz9-hYT6sPeKYqKXC6LBNNEIiUuDy",
+        "NES-PJSUabzYMlm5PLuPlohkBzy8FQRw",
+        "Nta3Pe6qqxaApoI2CuagFKvoj1mzwpCO",
+        "NwpwbZGN37li0KRGZGy_kJjfZbs1cgK_",
+        "O-W76TuA87rnwNsQyrvE_zovXSpQGBO0",
+        "O3D8QETleJcWTKlwIz3IV_Hh1uP5IjLZ",
+        "OaBQ_tODvQFkh7-NX41uRtG6-K079QaS",
+        "P1mw_jQi2THNgjGtDW_jskg210PvjupW",
+        "QEKI74U_CX9YHXmreuc5AhWZZUGNgv4A",
+        "QNYa4qqhEF7nmCX5rqY8cZXE4h1oGZtv",
+        "QTtz_6gVhJmQJNdI3A97Fg4Hddu2U4HR",
+        "R-WZzQD8oC4jGO-iBhylUkbCU3DaxqeM",
+        "RJu8PKs9_9LrVHxpKNy4R4cxFkm6W0kg",
+        "RcjvtYy30wvKuz25iSjZ3pmqhz7t9_r-",
+        "ReaqfKEqEf7NPdxTb0PWnR9qXAW2WmqB",
+        "RgdsSxQt79a_JTA5RGqSkjlDeVT4_Q0O",
+        "RqOwmltcpedYcPhPygoVqCihidZ5LAiF",
+        "S7hN6gMvXDMugu5x8iXCvDTCdlxtmxE1",
+        "SPoj3wSxZDDu1zDcE8RYTRxtxrRP_AMK",
+        "SRHpBZXk_0pKjk6SK23VOhoLZGZfnKFF",
+        "SWELFgFF3pP5xx4NnM5YGpLrm8WSONtW",
+        "SWW4uN9dpS5MLx4sQU5QdzZPe8Vbn1OG",
+        "Sq26QZestD7-FT8EncRHwHV29wKPn7H4",
+        "TTj3piLyS3X2V1Ce4fIgdKvhBCtIQOjc",
+        "TccwLbeRW-z_NPDDJsr1S3IC-iUzaJI3",
+        "U4MIPIdJ7NIvp6cxKdp7Ir8bfag4nvPV",
+        "UBrLATxbl0K1G6kZMh9BFfhebCcYofDx",
+        "UGNwBEZMxhzlzXVyl8XUfflcvjGwdpA5",
+        "VDtaHRgxth3Kx3S1IQOv8snwcP2m2_Rh",
+        "VWw2W_obR6zEafYeF_snujhcGroiwb0T",
+        "VjpjnvAcYfG88ud095O2fv9dFUj4OAOM",
+        "W1ZpmAq74J8xfKg23BcwLx0QHfxM6W_w",
+        "WCzpj9Vid4Wo4Y0mForLrXk9idQqqxxi",
+        "Wa0yBTLPFCLYEmxwzfQ3gC6egLJOBkRf",
+        "We-WV-8Vm4iIQjrqprxcTUBltze15m5i",
+        "WguegvD3gOx4PuRfGAxoDSOo2wlKjeU4",
+        "WmGHH-u4wsHU9ukOh5MPeAmZxaq52YI6",
+        "WyVSFIlpLuAjfwUfu_mA33YhggbZVzT_",
+        "XIgek0ISd6wBmW9h2JKZlROpPecoTiNb",
+        "XOjHrx-neyD2GJuPsd5mgT9vNvytEzyL",
+        "Xoe7Kec_tA-bzqYd6hDEMMF6-rFrZx1b",
+        "Y9DwcKE3c7y_ZEUzj04ipPzOurWLLK6P",
+        "YHIZ2gSAMCdq-9sAliYicXln1v45MZS7",
+        "YfLlKP8z8279XpwKWHgA0YhkLG9kbSIJ",
+        "Ym1Zbrtckr8WZq0vuDjOKHs1mKenK6FS",
+        "YndtYKv9ewJkLbyQJyszeO9-mLxyL3tW",
+        "Z75EhNRbd2E0-pga05DfMJ1pqNGRjzXs",
+        "ZR3hpsQxnbI8C4aSV2UMIKf15QvS6qvQ",
+        "_4QWSKrmqvyIETbT05MZEkidA8Xxjz1j",
+        "_UTPXBuzIizvDtKewwJIiK77VZU-h_cg",
+        "_pZ9lL5tkUk30VPMFmDnDiK9-zpFgy4V",
+        "a7bGB6aD6bcUMhl86R9HNNHUVUUxlS2c",
+        "aS0hVe_uSBiAMtWO1Dqc6zvMZt32j5JH",
+        "bW85zNIMTadpXwDZT4XJ7Xa8tgiNyxkb",
+        "bYAxqF9cHadDvQVpTVb2ShohXapW09g-",
+        "bZRMDhpRpyU7nhn3dBVgs258ptT6JZlJ",
+        "bfTbc0atVxbLbnI5MHT3RqWVCj-4u8gp",
+        "bxcyoiUrS7rQxcbLF8kwirN0nRr-mmb8",
+        "c4Mh8piOiKI4EEHHQOLTbFUfCDLlq29P",
+        "cEZJ_REy7wD6B_0xs2nJ4-Jn-fZg23vd",
+        "cPdESnocQmYZ_WjVoXVzioBrqCjXsDLa",
+        "cxmuC9hk_YmIGbt5TQeRpVoYup6uCioo",
+        "dB-D3W80IShuv4pBtc4EPn8JqAVpmQoE",
+        "dKK8ik7Y5ioLJBPEQAuuGZA4b4tvgPfa",
+        "dVP9_sYSGnkBOXR1iuwz5mTwbNtOZVPF",
+        "ddEl0JtxAC3nnXI00uzGQH9cqwAK_uOu",
+        "eDD4YHsx4xR1bhHxIe_WZ164eppCx06E",
+        "eHxtA669WpN381O4ZjVAmG3-3ZUewuXr",
+        "eMOt6M_TanahLx37tyVEF1wd30WG4VQ3",
+        "edlFaCsuH_AXJsyV4q3dadoV-nh2lj7R",
+        "eeLHCIh4n_wnguIpYNqpD2Ge0l0usqSJ",
+        "esqIPICc7jDAken0xHwf9za4X21Cemt0",
+        "fCKRZ-3Dx2g3l5UM1R5Wh6x7ok0NQtO4",
+        "ftH32XHWwVFRwjfvWFXsWnmHM_gVtU12",
+        "g7pB3rS0QKBWtTGHEcC2fFIU_BhjC52_",
+        "gI9i7jV_rKL5TyY9CoEI9gysGu1W2HXj",
+        "gRhotr4JpxVh47xyb-kxKWRTBZhMR440",
+        "gcyWXbvJVi0vjf4lLgIkR_0txpX8LAx9",
+        "gie8DH9dneyPGOyjs1un2ymDP0xWrWNH",
+        "gj0Ljc96oNdvW3HE_a1y5e5EkLkr7lM1",
+        "h6xTCSBsniDQt_HvBYjkOPCNPL9EOPKy",
+        "hITui4New5dOgg5VxGLJBmaRtO2mCDgB",
+        "hS08nuIkpHFAM6mEZAnFyqeao8YGjYG5",
+        "huRVT5BlKVdTYbUhQWrr2feodI612PZH",
+        "hxNvEqHKvg9ut5trf5UirAjJzhA4ctme",
+        "hyhpm7kn1UjPu6L6r3SzlIapcBgLLBG0",
+        "i2jglnBfoIqIIA7ojQGe-4vK07hUm4T3",
+        "ixZaSR2bFF5XplHrvc8r8vEMpkc8amOV",
+        "j2FTNK7VF64uO-WJ8wmRInfXpiORA7Pz",
+        "j5QOrc58fUSYWM7vbUAn0g4NIRwfOhBg",
+        "jC_D9diZHCQuwA1r7nz-XaJ9venQm8B5",
+        "jLAxHSRZg9K-SFpF8_r16BSY79kEvbCJ",
+        "jla8SCRyCOsKpxV9a7Bqq98ZU0wfznpM",
+        "jpQdnBSdxw0io5Iz0OPNG_Jqr2Xg5ilH",
+        "khKoBTOWwXPmDIF0m2Snph5GX7BoJamR",
+        "lCuy7QUOM_Hpy3fm9sFL8j6SnbJd-FxI",
+        "lSxwFoA76iTlce0HDW85WtsKxvI7zeT2",
+        "lmkIchCJ1RIKsZvbb4HjCDl85B2nOicv",
+        "lqZS9JzZESXu4Iy8cQi193n2Ci6B36vQ",
+        "m4N-pkjaAG-yKjpB0t2irwBnV5y0WFn2",
+        "mAhOUl3fk4a3x7frvAX4UaWIgxRonqJv",
+        "mE6bg3DCm-zMCm7_Nt8zOhETHz1XHoTE",
+        "msyklzdTpQ81cQwHlhKDrchnpYroynGV",
+        "myw7tebBIGbG5mQ7aAICzUtVSKlRQQhu",
+        "n9yY3I8yzD4WsuyLUEk2UIrC-GGXxhOn",
+        "ncZ-JURAz1ql5KxaJDQenRsPaLaHZ01b",
+        "oCoFhQBFW4tQ-Y6MYaOlsdtwHd4t3XdU",
+        "oI2m1FrnWm5N2AhC0ACUY3H6drv_1jN8",
+        "oTc35OYrAu58zq4-EGRREZnJ_E73KM8N",
+        "pDqaZ8h0HqfyQZIlyLByCEqDcQIOjvyT",
+        "pLx7nHA3heIzjrIMBy4AVjuT6GnwneSR",
+        "pXiOg7c-G-z7Z6GmGMGqQMlFXOckwaoc",
+        "qFDP9gJDz4MyXNxjl6mIEPFCUb8n1guU",
+        "qn1eNtR0fm1ZJMypjAeec6yr-c7u2zJy",
+        "qsDqc0UMhCk60mJVxIa3TTBGOCAprG-j",
+        "qttyxduaRos5zTgIT4QHXy9Kr2uPEFYw",
+        "rDmxQWE373Pv-Nq51wo2GOif8XiVbDgj",
+        "rL565tkXvzD1FARfwoRscaTvw5xTVkM3",
+        "rjYpw8awPfgy-JURa4FppspZoYloY-CH",
+        "rnAF9qpm-UkGREf9shKX4gXZJvxxrNCl",
+        "rvi-MNk-cw0yRg8U9ANH8RyDlJdfAjSt",
+        "sW4MEG73P0tPDuuXSUu6NAvx1KJSb10W",
+        "sgb9jS9iEBepAPRt-Ijrx83GuV2JPat-",
+        "si66tpk-az2gaLJaobIMXBpfh563i7Xg",
+        "tQDdQuDIPtVd-6P2MQSF-G75j-EP0pqv",
+        "ta-gPhNA8O_O-kjpKTubxCPEjbLsbuv4",
+        "uKY31hW60Rf2xoklHN7PICIryxWkhsM0",
+        "uNjwwJ2t4YyphdEcXW6aOstBFJ5m-2M2",
+        "uqpCZC9IXrCrR23F1hwFoCm5xGhVBv9o",
+        "vBzRkuHzUpRt-EhtMjPQODCEflzDjqio",
+        "vIDx-ROIEhNRFFlivXMGndDMFllOqR90",
+        "vIp8vPcM-fyU2ktEMitwbA2Vsc0A1vtr",
+        "vJ3GwdSWA251IuTOvV1pAV2e2x98MPmC",
+        "vWuqLpN3LO-EyUQ3MEvegQmXAbjkrnfK",
+        "vczXAwthxnadTYUS_TiR7IHiqEQrdSJx",
+        "vxhQFmxofCOrInw5l9Dm4SQ5KAn1lNr2",
+        "wDtxm3UCt1gmodkU-lhpkHhAl4ALvFPH",
+        "wQwueJr_OO3_Jq63iivuipf4SyJ4hVHZ",
+        "wXwTZnJHaWsMeYvf-hR0a3ZHrNXH3I0G",
+        "wta4PcYCd4Kfjw_DuB8Bd-dO2Du3ZcnN",
+        "wweXnLBKNzbCxRHgq6frkOOGKxM4zJ4A",
+        "x3XYa59SAGo-tWQwbLiZj3cinp9BcxPU",
+        "x6NrEpjKMLZGnjvX90q6YJv4_WCqBWhp",
+        "xNMY9hR9X0LQyt6FeDLAgMtl6Z8WfDHZ",
+        "xQgMSVOoFpzRO1uVZV-5w4MO2uaG7s6j",
+        "xTGvmcjzDX2cgYhUThR3KSsZIM1s5fCR",
+        "xwZZW1hxuo6gpcU5Zpe6pkhe99i7YmI_",
+        "y7ZkdaEW1YnMP0T-_9fNfRtx7p9Cu2vI",
+        "y9FMchN_WFT0sKOUar9WcrUoiKHQwD4U",
+        "yGcmWEL64jMkK-ic2NWpFK4cpsCoJ8pN",
+        "yKMdFKTo1-u2b66AKlu6m623h5WorZFj",
+        "yNWbdxXPRJn2IjrMuqTwbBCYQBkoAyVD",
+        "yQ5Ij3w49RMUxxIai6ZVsvPHssZJ13FO",
+        "yUe452gYQOrn5b4BzV1tzgDxW3T0JWE_",
+        "z5iYpzTS2u7i5lehVMuGQPaZucm7aRyp",
+        "zTQeHx40GP76j6Nerv3kzTaR52dEfQ3j",
+        "zY36WhUkV1AOl_aqxxBofB0_ash1nr7p",
+        "zgbjPOUlcKWdKRzwa40PKpNYQqdM3rTI",
+        "zis8Rpau1eqFncWiOgLfarbbFMzIBBjs",
+        "zwFpi237Mq1QQNfIdljxBeck50WxNNqQ",
+        "zy2XqqEo8pJc2qHyRvJwUrQkbCnDe3yd"
+      ],
+      "pass": false
+    }
+  },
+  "sessions": [
+    {
+      "session_id": "-5OCPnbrwJdu3jH70ieU7pUiFsOJQoeG",
+      "walking_windows": 22,
+      "heading_median_deg": 46.860683866915394,
+      "path_net_ratio": 1.1680881373800633,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "-PqSDmiEe2pXjmYHgxh4YEBsj0T5LU10",
+      "walking_windows": 24,
+      "heading_median_deg": 44.097130476011316,
+      "path_net_ratio": 2.0556213434342787,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "-aAwyxNyh11M5W0DQ8YPcSfdkbvvctaV",
+      "walking_windows": 17,
+      "heading_median_deg": 72.73581816048446,
+      "path_net_ratio": 1.3377826593013302,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "0auMnLmZDf_ZGM3VqzxmYPlwhtls73RF",
+      "walking_windows": 23,
+      "heading_median_deg": 84.8002360845452,
+      "path_net_ratio": 1.7612661103508227,
+      "static_steps": 1,
+      "static_world_median_m": 0.38884622618723136,
+      "static_camera_median_m": 0.43225787584369957
+    },
+    {
+      "session_id": "0pf0qM0kG_5fZ0HLO2CDDXmfuMG8aiyR",
+      "walking_windows": 2,
+      "heading_median_deg": 55.294811613362214,
+      "path_net_ratio": 1.0594580902342323,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "0xCqEk5hjEvrygxu26MZkieSv45D_gaJ",
+      "walking_windows": 5,
+      "heading_median_deg": 20.12761477380171,
+      "path_net_ratio": 1.1150733291358124,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "0zEhKDk1j7KSuUQYR_rmCLmlbb5FCYG6",
+      "walking_windows": 9,
+      "heading_median_deg": 15.552972865967657,
+      "path_net_ratio": 1.3240810179700433,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "0zlY0PpjObYEKA2MIUXUzaBtrG1EeXGm",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "11tnj2tdX_ElmqXEv6kwSXI34_ZWXv-N",
+      "walking_windows": 4,
+      "heading_median_deg": 18.104199464745022,
+      "path_net_ratio": 1.3687046299633114,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "12KBw74zlZrX7OftxToP9-jbVlQNC2MO",
+      "walking_windows": 1,
+      "heading_median_deg": 4.747873226346366,
+      "path_net_ratio": 1.102306037498317,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "1Lq8lR7hV5tj2NVJMsanXs24eQcWV15O",
+      "walking_windows": 2,
+      "heading_median_deg": 2.15402500419489,
+      "path_net_ratio": 1.0031112326748852,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "1kpnVCiFPJYF9bju4JjDjTXB9M5BcAPY",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 2,
+      "static_world_median_m": 0.24181510682462182,
+      "static_camera_median_m": 0.21843352041848538
+    },
+    {
+      "session_id": "1rL8RTbI4jPqRkavZxrQbbM26iRfSLAH",
+      "walking_windows": 27,
+      "heading_median_deg": 13.134389096970656,
+      "path_net_ratio": 1.665082045770489,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "1uta1HvNU3-ba-cqLtGifCvQO3ZC5bEK",
+      "walking_windows": 4,
+      "heading_median_deg": 37.739056410875655,
+      "path_net_ratio": 1.2226702246106647,
+      "static_steps": 2,
+      "static_world_median_m": 0.14245971316776732,
+      "static_camera_median_m": 0.15425345828378864
+    },
+    {
+      "session_id": "28tdwxgz-zPU06lpeDY3OPWTFxZyBv2c",
+      "walking_windows": 24,
+      "heading_median_deg": 60.99654201373687,
+      "path_net_ratio": 1.4807616050447259,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "2G1HEWW6tZx5ag8x3t6GeSC_7AAa48Cl",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "2PNXmbUT8NLjjdWsbaTNUTZChIw0VZDQ",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "2bYF53x7c2mOhjKvuwaM7vJHJaLxxR5V",
+      "walking_windows": 2,
+      "heading_median_deg": 77.87581209656898,
+      "path_net_ratio": 1.5788710649775228,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "2dVxdA3XmypOsgSWv27dtf3GxjGUkB5A",
+      "walking_windows": 11,
+      "heading_median_deg": 29.06395263233384,
+      "path_net_ratio": 1.3847098102643105,
+      "static_steps": 1,
+      "static_world_median_m": 0.14596906642527832,
+      "static_camera_median_m": 0.2553072819845845
+    },
+    {
+      "session_id": "2iQ4jyIxwXUInJKDYmBuoDltgad_GKC5",
+      "walking_windows": 19,
+      "heading_median_deg": 11.973108154353657,
+      "path_net_ratio": 1.4144394171685668,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "2r8tfEea5-Z3_2aiX7TKLKNpt6uji5ko",
+      "walking_windows": 7,
+      "heading_median_deg": 71.48383590102972,
+      "path_net_ratio": 1.3047710455274262,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "30S_d-kuvDkznn3Rhea0G3FoBQc5rXoA",
+      "walking_windows": 13,
+      "heading_median_deg": 7.510086990974706,
+      "path_net_ratio": 1.4132423166871884,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "30wQhQerQzff_3q-R3fKTmiJmO1BYETg",
+      "walking_windows": 20,
+      "heading_median_deg": 8.726159670011295,
+      "path_net_ratio": 1.4446211622971366,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "32-gEsl5LpNIeczEdsUGune0yXludVOp",
+      "walking_windows": 31,
+      "heading_median_deg": 12.608652380973968,
+      "path_net_ratio": 2.277485776974903,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "3JB37A63XdIqYlAWJJiDsW5iP31Pmubf",
+      "walking_windows": 10,
+      "heading_median_deg": 31.470467299597356,
+      "path_net_ratio": 1.5171782859433205,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "3Ug16NmBGy0496lTVfvP3mCOm-tlT0qy",
+      "walking_windows": 38,
+      "heading_median_deg": 13.3345510256826,
+      "path_net_ratio": 2.0492919882961096,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "3fNdc-1R7QcLCPHG7Zn9oQXrPqKQbuys",
+      "walking_windows": 14,
+      "heading_median_deg": 16.1983661912061,
+      "path_net_ratio": 1.475826263253338,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "3ok1zz3n49UtV6i2AGMLv-2gBifNtc56",
+      "walking_windows": 26,
+      "heading_median_deg": 30.75911534867328,
+      "path_net_ratio": 1.3614712469383057,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "3onRES1RY1oLbt_edyGGUs9TlyxKnjor",
+      "walking_windows": 1,
+      "heading_median_deg": 28.06418577522995,
+      "path_net_ratio": 1.0180605421863842,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "3sP_fftGJ6fKE8F-lShNvbgYh5tTcBJd",
+      "walking_windows": 24,
+      "heading_median_deg": 33.56787513524441,
+      "path_net_ratio": 1.582597386574359,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "4-XY-LnChCeZpv6lk_5XqTpvfwctXoUB",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "489R5VLQTD43OHhfmnfq6Om4iWFgbKdF",
+      "walking_windows": 25,
+      "heading_median_deg": 18.951137344824872,
+      "path_net_ratio": 2.6918897095240006,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "48xrURy4Rn3yvrnJ6FkpNv2ywb3uY3_6",
+      "walking_windows": 15,
+      "heading_median_deg": 30.937322640330652,
+      "path_net_ratio": 1.4783079372405432,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "4dmtUOZ0DViqKjDa-NjcLRrZ4c9sj6tn",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "53_TnXrp7ttT3xUyMSps6JSXdidyKw6o",
+      "walking_windows": 37,
+      "heading_median_deg": 21.093521191032604,
+      "path_net_ratio": 1.9006023502443001,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "5FV83N_oWfy5whlWhbDUX_2uF2_jx1Pd",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 12,
+      "static_world_median_m": 0.1222047313088824,
+      "static_camera_median_m": 0.1227251126894757
+    },
+    {
+      "session_id": "5LlqRK-hWoDLSW5MmoLjKj6uQtZMKjb9",
+      "walking_windows": 19,
+      "heading_median_deg": 82.94293391345421,
+      "path_net_ratio": 1.19880544497514,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "5WiZ9vFwtK2qdSiU2I1z2ad2nmSjswpD",
+      "walking_windows": 1,
+      "heading_median_deg": 15.636911341859815,
+      "path_net_ratio": 1.0381937278288418,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "5Y83EXy8l8JFDDWKrcb2vcsbUbVkQrph",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "5f9oaGDdrLFg2M1_FUZWnDd-NUaEqiub",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "5ggktqEDHhVh1o4S_p8f1vKNvNXKEHlH",
+      "walking_windows": 15,
+      "heading_median_deg": 44.40679483954916,
+      "path_net_ratio": 1.3249972833100765,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "5z7n1PIsHGyQmO64hAlMynF3Cdj0rBeu",
+      "walking_windows": 13,
+      "heading_median_deg": 75.39928102142738,
+      "path_net_ratio": 1.2299551269323858,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "60_ibYCD9plAr45fi9Hk96_agYJhZeTR",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "653eSeXetkK4IkXWLUH0DQz0pJ4D57LG",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "6D6CrPEVDCCu0sAWU67oTzZY36bADan9",
+      "walking_windows": 9,
+      "heading_median_deg": 14.9793187130577,
+      "path_net_ratio": 1.1745434204287957,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "6ahfAPxjW7k-it2Ud42DQLijyQjjrjBx",
+      "walking_windows": 8,
+      "heading_median_deg": 148.27032690810682,
+      "path_net_ratio": 1.2763825226787584,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "6iA1MuZri4BlEyQrfn2Vi-rYSac89Lth",
+      "walking_windows": 5,
+      "heading_median_deg": 37.21183125422619,
+      "path_net_ratio": 1.0885158794108991,
+      "static_steps": 9,
+      "static_world_median_m": 0.18281794154673592,
+      "static_camera_median_m": 0.21057573144543087
+    },
+    {
+      "session_id": "6lm2fRHPl4AtOLKJkEXRJo9MQJVeCT_y",
+      "walking_windows": 20,
+      "heading_median_deg": 31.543157570917973,
+      "path_net_ratio": 1.7338822072992033,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "6uEJtqNVqHJA1tjeemumA-trgb9xnvt0",
+      "walking_windows": 13,
+      "heading_median_deg": 19.57497690163725,
+      "path_net_ratio": 2.4872330105381852,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "747mmWVmCDlhmzAcuWmC-hngy1fBDNfY",
+      "walking_windows": 13,
+      "heading_median_deg": 15.998706199416935,
+      "path_net_ratio": 1.3508794477631456,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "7BbcsLcMXJXCes98R2M2tdkAJkRJhkDa",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "7X41_wkj6FHIcIpxSuh4tRR6R8P_SAGr",
+      "walking_windows": 26,
+      "heading_median_deg": 33.9932479904288,
+      "path_net_ratio": 1.3484203151601377,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "7ev2OVWs3MBb1wbpFOU6qZLmqILvSm0D",
+      "walking_windows": 2,
+      "heading_median_deg": 55.59871732402229,
+      "path_net_ratio": 1.1347018894492833,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "7li1pwkFmCcqtEIk1O3t2HrxrMOq4wHh",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "8GbY4HVFE794yBRg8-wMqeDi_uLHjQPX",
+      "walking_windows": 11,
+      "heading_median_deg": 77.01210586564164,
+      "path_net_ratio": 1.1830929201421971,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "8WF0e5NO8I-90SR6uyKZvuB0gz59GUM0",
+      "walking_windows": 1,
+      "heading_median_deg": 0.6623408725270338,
+      "path_net_ratio": 1.0276388083538135,
+      "static_steps": 1,
+      "static_world_median_m": 0.9301263616890167,
+      "static_camera_median_m": 0.9303725494476591
+    },
+    {
+      "session_id": "8b33d2zwTeRBzoBKpvS65Fi_ArTXC6Vp",
+      "walking_windows": 3,
+      "heading_median_deg": 59.002608758025545,
+      "path_net_ratio": 1.0364976550878637,
+      "static_steps": 7,
+      "static_world_median_m": 0.12116590831940802,
+      "static_camera_median_m": 0.16064761617180776
+    },
+    {
+      "session_id": "8gGeL1XFBrc1UxxtyROYgtRGgzNRaVyY",
+      "walking_windows": 25,
+      "heading_median_deg": 11.349148879888268,
+      "path_net_ratio": 1.333650135897476,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "8gHQ_KoPSWJfnocATEjdDihzKKPDqvMA",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "8jLedz8b0WW5pHGtmx-HFYi-nzVoFkpy",
+      "walking_windows": 17,
+      "heading_median_deg": 20.534399672810665,
+      "path_net_ratio": 1.8530642490263318,
+      "static_steps": 2,
+      "static_world_median_m": 0.15895684514684125,
+      "static_camera_median_m": 0.16283905571243334
+    },
+    {
+      "session_id": "972O8sd5HpUbGeEE_UAb1g0z1OZUtfHl",
+      "walking_windows": 10,
+      "heading_median_deg": 19.33592395260518,
+      "path_net_ratio": 1.3859480616462312,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9RAnB6HhOUL_UwbKzndTCxt1VKmATiJH",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9RrTMx-P3rgXTfrJbI2hD0G6T8RdWbMc",
+      "walking_windows": 28,
+      "heading_median_deg": 22.38230191397451,
+      "path_net_ratio": 1.510577605314849,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9V3l4ZMRzXqb7AciKSVZRNiEznxLsNlP",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9Y_6Ca8FaKEe5yk52Ezdb950oq9n4MGo",
+      "walking_windows": 8,
+      "heading_median_deg": 46.066594864134785,
+      "path_net_ratio": 1.283889243545512,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9ZXJRXWxuKzuKSLN8LFTMwWZGn0DEOn3",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9e6t9GD8EEnQwpm-zYcFc8OjImoK2D7N",
+      "walking_windows": 25,
+      "heading_median_deg": 60.58905108524524,
+      "path_net_ratio": 2.0404841466451207,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9m1-lqCg93cYYGzfpXv-n-lQCpu1_yTs",
+      "walking_windows": 27,
+      "heading_median_deg": 22.806535083554856,
+      "path_net_ratio": 1.5530657750090906,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9uSM4Uud-7EEMmBVvSGtSaK9lIMI6MJp",
+      "walking_windows": 9,
+      "heading_median_deg": 28.099432527828803,
+      "path_net_ratio": 1.7686443555907347,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9zKoV_3-uNThE8ZgUBzl5dD6Di-HBTvL",
+      "walking_windows": 1,
+      "heading_median_deg": 12.027448436021032,
+      "path_net_ratio": 1.3833807588588902,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "9zhwm8-HDoUub3dkVEp398Xdw9HYTC9m",
+      "walking_windows": 12,
+      "heading_median_deg": 14.937628638337396,
+      "path_net_ratio": 1.350843035376335,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "A-d9NSdx2GiWxCI0oSnoQe0r6i_z-ZWz",
+      "walking_windows": 28,
+      "heading_median_deg": 51.03780626408398,
+      "path_net_ratio": 1.5429224254583218,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "A0YxGHQ10bHw0qVM8gloTs5btvAhbDkV",
+      "walking_windows": 2,
+      "heading_median_deg": 14.677432063151521,
+      "path_net_ratio": 1.0465026269228948,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "AAEOWHxELzR3-s-clycIDujO3gMUcBKH",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ALYuoq-pWdqtJ-Jm9R8ceVzhsXYawzfi",
+      "walking_windows": 14,
+      "heading_median_deg": 31.65604099645672,
+      "path_net_ratio": 1.2386674636999773,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "AMWsWL1lxlW0NelUU8w8yL4psb1R1vCd",
+      "walking_windows": 14,
+      "heading_median_deg": 76.52134076958396,
+      "path_net_ratio": 1.1293100105371,
+      "static_steps": 3,
+      "static_world_median_m": 0.13313981328348287,
+      "static_camera_median_m": 0.22615217726803316
+    },
+    {
+      "session_id": "ASkMDWwjRW4iUW4pRS4JX1D8U6ZpW3zu",
+      "walking_windows": 20,
+      "heading_median_deg": 26.523156105258757,
+      "path_net_ratio": 1.6044380561238771,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "AUTqqeGB74PPSAJ6waiz6prT8DEVf-A7",
+      "walking_windows": 34,
+      "heading_median_deg": 52.19405010368935,
+      "path_net_ratio": 1.7148241923098313,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "AdtGuq73TlhK5miUkWcUO9BoKdnmV-8j",
+      "walking_windows": 26,
+      "heading_median_deg": 36.61758046108213,
+      "path_net_ratio": 1.447225856549388,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Ana1yr8Pvh2MyBDmQXDIEL8v67OeMPFz",
+      "walking_windows": 18,
+      "heading_median_deg": 70.72869261573311,
+      "path_net_ratio": 1.5710687752549841,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "B0uBxNujFSoWXKL2-WuP1tF1j-YkKrC6",
+      "walking_windows": 16,
+      "heading_median_deg": 19.56799001811926,
+      "path_net_ratio": 1.7510405908842743,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "BHu1m-6aVxrh_Nilov-XQqtRg-ebLVRI",
+      "walking_windows": 7,
+      "heading_median_deg": 51.20950978534501,
+      "path_net_ratio": 1.3436262281339852,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "BIhF8TbataV9YsahueJKTIdx1oSqV9Sh",
+      "walking_windows": 18,
+      "heading_median_deg": 22.87548230296824,
+      "path_net_ratio": 1.3948140277844128,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "BNzLYFSMk1kYQFqnw8pD0w9_pf0g_4m7",
+      "walking_windows": 22,
+      "heading_median_deg": 10.997963255560617,
+      "path_net_ratio": 1.4900291384364144,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "BY-Y6r_csUzf6flfnTqv2k9Q9jrR3uRw",
+      "walking_windows": 10,
+      "heading_median_deg": 12.329314223240555,
+      "path_net_ratio": 1.2619654587232207,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "BZub4NmlnMmHYaPsIehO4G8yNYo11nWW",
+      "walking_windows": 20,
+      "heading_median_deg": 57.24329953553993,
+      "path_net_ratio": 1.4899425552495178,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "BkBde-BxJpmVRnvz1iVKYhI5edhB6-Kr",
+      "walking_windows": 23,
+      "heading_median_deg": 12.592013028279611,
+      "path_net_ratio": 1.6923677623205617,
+      "static_steps": 2,
+      "static_world_median_m": 0.9949551693576397,
+      "static_camera_median_m": 0.9949526575896946
+    },
+    {
+      "session_id": "BzioyyXfmDbI7XMmbEFOU40iUfsyc-hH",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "C-g5n2_S5wUCaj75l2JdzeHyjxMBDxmv",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CA5XblcaNP_PNAqfIVJQZ6_VeRaTyC1F",
+      "walking_windows": 16,
+      "heading_median_deg": 52.33146570333439,
+      "path_net_ratio": 1.4563436334421889,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CCG-oMqgJf90LzEhlqj0WkP3xN0dHlXk",
+      "walking_windows": 30,
+      "heading_median_deg": 31.935231270699795,
+      "path_net_ratio": 2.3140988578543342,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CCOQeLblEBD4ICLpXikheOgdG1ALcZdM",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CG0wwC0at8bM0Jp9vwDu1wTAzMf7BjZp",
+      "walking_windows": 2,
+      "heading_median_deg": 8.760885383603112,
+      "path_net_ratio": 1.0343016523320177,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CI7WbRvhJTnOT2gVszCo_UWp9J0USCEW",
+      "walking_windows": 24,
+      "heading_median_deg": 21.396544162126304,
+      "path_net_ratio": 2.027550665921112,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CVz9IWwaJc8hqphv7KXu8_E2hrrSD1uI",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ChcneDEXiD6dzznmQNtTnlVflFy2nK2s",
+      "walking_windows": 26,
+      "heading_median_deg": 40.237029817708766,
+      "path_net_ratio": 1.3959423589109756,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CsGAG79roZxR8LNMK9HJdoxyhGdexdsy",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "CwAGeyByH0uN0PX4iQQ6731OxalzPH9R",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "D2fmg-h01L9EjZl89mFRyBOa1DhLY6hi",
+      "walking_windows": 18,
+      "heading_median_deg": 21.34894212858761,
+      "path_net_ratio": 1.6573605692353923,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "DGTZ7ga3Ktw5giWLvJOvPIbgf3N0cVMh",
+      "walking_windows": 22,
+      "heading_median_deg": 21.41214900058386,
+      "path_net_ratio": 2.573908198848648,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "DSZAhX1NcHwzhDAPV0udk99FeuFdAqzu",
+      "walking_windows": 28,
+      "heading_median_deg": 15.731152221856929,
+      "path_net_ratio": 1.6197144690328455,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "DVKpZk7QFPBkHacUEFLEOGkNYAL1g1o9",
+      "walking_windows": 21,
+      "heading_median_deg": 7.628301749240443,
+      "path_net_ratio": 1.7657538767194874,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "DbY_zNmU-N9JygpIJmVaA4K7BiwK6i7w",
+      "walking_windows": 21,
+      "heading_median_deg": 16.487049253118283,
+      "path_net_ratio": 1.4738829116473944,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "DfLiLI19CEFsSbzOZX9DeCjZ4V0u_yaZ",
+      "walking_windows": 14,
+      "heading_median_deg": 69.3199600319864,
+      "path_net_ratio": 1.2371607155770312,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "DuPv9dnGn0U8eUTL3dRSJ0Rh25jMwg7u",
+      "walking_windows": 22,
+      "heading_median_deg": 3.4275100264761265,
+      "path_net_ratio": 1.3099398002361835,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "EJBVhR0hP_omB5L_ZrZ5jyA7xxQmExXm",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "EK-Dn-ByDTucTgR4juV39aOB-lXRlQsu",
+      "walking_windows": 4,
+      "heading_median_deg": 16.098694093553856,
+      "path_net_ratio": 1.2522213097735262,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "EKbeaLhZkRlcXuugCGn-Qu9NE15COkF3",
+      "walking_windows": 34,
+      "heading_median_deg": 33.77973418060725,
+      "path_net_ratio": 2.2264450664709656,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "EQsmDBtPXj0K0gjvZznTtfA_CcEGOR-2",
+      "walking_windows": 22,
+      "heading_median_deg": 23.529874223269925,
+      "path_net_ratio": 2.4316312170087238,
+      "static_steps": 3,
+      "static_world_median_m": 0.29592830298528694,
+      "static_camera_median_m": 0.27659041493215736
+    },
+    {
+      "session_id": "EXUy7eoDpVbKR-bpIg-faiepUfqZwJ2v",
+      "walking_windows": 22,
+      "heading_median_deg": 18.446134147119714,
+      "path_net_ratio": 1.763476168318467,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Ej_gHTCPLY5FGiLVb1gXCt1ySUw-Vel1",
+      "walking_windows": 18,
+      "heading_median_deg": 53.47380933635908,
+      "path_net_ratio": 1.5347238782356656,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "EmUvfKbc-gaUCV0NmT11jLxT0b8O3Hie",
+      "walking_windows": 20,
+      "heading_median_deg": 39.64326616212012,
+      "path_net_ratio": 1.8169236898791694,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Ex6a-ADqd9ScH3tPae_x2LzuDKV4q8vy",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "F5PjLx0NP55l2JT1Z_jMfIZvQ898K15U",
+      "walking_windows": 1,
+      "heading_median_deg": 7.643274720907948,
+      "path_net_ratio": 1.151773636386128,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "F7F4UNFPQ8tyTwbPSfpzODHV2bmrN1f4",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "FDESM-gXV7eUb3fg5IMh5FZtFC9rdonr",
+      "walking_windows": 16,
+      "heading_median_deg": 17.614542026826822,
+      "path_net_ratio": 1.7097891754514467,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "FKk8f9oCPnk_wHpb4PXWF5yjlxg_WbEj",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "FeJgoz6tfxhlDqiesDGIZdbM3VoE_HMZ",
+      "walking_windows": 17,
+      "heading_median_deg": 56.59221857545029,
+      "path_net_ratio": 1.582731131366327,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Fg7dTretY_qwKGqHz1gL8HxLH_rydmbv",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Fhw5qR8o7DO-EAhsnlqxc-y1zp0Y357Y",
+      "walking_windows": 27,
+      "heading_median_deg": 16.051479889007915,
+      "path_net_ratio": 1.812169612512152,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "G5cL560OcIOvZYpVDutOFIZLVvvQ7f43",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "GEwWDMMe8FFo-wHxZ4Pg1chw15P2nEEz",
+      "walking_windows": 18,
+      "heading_median_deg": 25.18193898537625,
+      "path_net_ratio": 2.3509085985429015,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "GMBhdIW2wgMNZlkOL9nrWZklQz2fxKXa",
+      "walking_windows": 11,
+      "heading_median_deg": 38.19313916968148,
+      "path_net_ratio": 1.0725836392334278,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "GTz00ckTgX_sFZL8m1VrMZMcto6u_Pb2",
+      "walking_windows": 1,
+      "heading_median_deg": 25.109814389078792,
+      "path_net_ratio": 1.411060582473224,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "GYTOruYhQQnUq6tmsHvIaquiCHdiZ2-W",
+      "walking_windows": 28,
+      "heading_median_deg": 20.45581680050908,
+      "path_net_ratio": 1.6891560279694011,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Ghd_fV-tJOTaiQRAVefqIPuk9bmc1uML",
+      "walking_windows": 29,
+      "heading_median_deg": 12.411431862696825,
+      "path_net_ratio": 1.980606911859313,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "GiXf5Gm7QbpP6cZR04jpOBIOq2Q5kttq",
+      "walking_windows": 16,
+      "heading_median_deg": 51.98655726999092,
+      "path_net_ratio": 1.4601054508945375,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "GxMb4zhAvoM5jbF54kfcs8wxTL4fqNnT",
+      "walking_windows": 10,
+      "heading_median_deg": 76.4110309557808,
+      "path_net_ratio": 1.2209601819655076,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "H55y-9CdOcKd1EQmN-Hi5BbkvCntg1uB",
+      "walking_windows": 20,
+      "heading_median_deg": 17.39068042489101,
+      "path_net_ratio": 1.3121813600581849,
+      "static_steps": 1,
+      "static_world_median_m": 2.597698187775022,
+      "static_camera_median_m": 2.9260885278379773
+    },
+    {
+      "session_id": "HEmFiCyijsIoIt_sehLfZ4xyCUq06mss",
+      "walking_windows": 3,
+      "heading_median_deg": 4.438200462543961,
+      "path_net_ratio": 1.1094279815894101,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "HIcSht_hQQymhuFqJMJ_QKsvG5Qbneza",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "HZXMnm2JYxcibnWtiIDjaxmnS231i79h",
+      "walking_windows": 6,
+      "heading_median_deg": 4.608874580157434,
+      "path_net_ratio": 1.418963091686264,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Ha5L10CQhfJPzsElsTF9xiCJXIy_lzCt",
+      "walking_windows": 29,
+      "heading_median_deg": 33.87727644290262,
+      "path_net_ratio": 1.2878940193724144,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "HfUrNcBq2jQ_Q5m5cp373cUtJPtFactP",
+      "walking_windows": 2,
+      "heading_median_deg": 1.5703925766542994,
+      "path_net_ratio": 1.155347735984852,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "HnbJgvODI8MMvwjYanYqzQzue6Li3Ni3",
+      "walking_windows": 4,
+      "heading_median_deg": 16.719756530317184,
+      "path_net_ratio": 1.533143068249727,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Hnkgzda_TOPUVUgX-ead9vO1y-P2F9O-",
+      "walking_windows": 7,
+      "heading_median_deg": 7.95184534413748,
+      "path_net_ratio": 1.3536068646273876,
+      "static_steps": 1,
+      "static_world_median_m": 0.5806924854280502,
+      "static_camera_median_m": 0.49679886536414003
+    },
+    {
+      "session_id": "IKO6uZfN9fFM_Q7i-t0-N6cuwUkKSMtH",
+      "walking_windows": 15,
+      "heading_median_deg": 16.116795723201584,
+      "path_net_ratio": 1.4375158222218145,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "IR6g8_ch0elPSFs9lLvSTGrfhJsB8tVU",
+      "walking_windows": 4,
+      "heading_median_deg": 19.128339882123793,
+      "path_net_ratio": 1.1147351853810508,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "IoIRMMufEJeBbR0NTBF771EQmRbq3fFi",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "IuV5DWkGUmqopOO4bGqe0smCmVPvxUAn",
+      "walking_windows": 1,
+      "heading_median_deg": 10.607302968180957,
+      "path_net_ratio": 1.0379989006254178,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "J30YHSYhXb5mimpOYoTi4WcJV0uEjBi5",
+      "walking_windows": 8,
+      "heading_median_deg": 23.72982059838904,
+      "path_net_ratio": 1.2098663589167713,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "J4PblHagnYNO09IdrDjQShle2Z0Dk-Yu",
+      "walking_windows": 27,
+      "heading_median_deg": 35.11008712624016,
+      "path_net_ratio": 1.4884579972173522,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "JTSsbejeR9-2BL5x-zfmGA0fsWmVs7Q9",
+      "walking_windows": 1,
+      "heading_median_deg": 111.03556081401679,
+      "path_net_ratio": 1.1812940255393354,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "JrFB7oRxppNref18SJEl_t72ADmhGWlo",
+      "walking_windows": 28,
+      "heading_median_deg": 23.249255957094668,
+      "path_net_ratio": 1.943368994645043,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "JtMYI6rJ4wiDsEVffAkee0kR5Zmrf8vM",
+      "walking_windows": 26,
+      "heading_median_deg": 50.27066373336059,
+      "path_net_ratio": 1.352757457018603,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "K7eMgWDzeYtqCc4hje0wN7m3sbWwJRk2",
+      "walking_windows": 29,
+      "heading_median_deg": 15.69395510005642,
+      "path_net_ratio": 1.4194281510124551,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "KCDWvFEBj3tnPnJgQA07K_WXhPnQSIBx",
+      "walking_windows": 25,
+      "heading_median_deg": 131.08923519899025,
+      "path_net_ratio": 1.5173254342159164,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "KDo1FZFB0pRnxh8_sg3XDx5gpp9rqIQk",
+      "walking_windows": 22,
+      "heading_median_deg": 44.699034226435174,
+      "path_net_ratio": 1.5955296622915698,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "KG6YYsHIQiosr82KhLO7g-CiXBP2g69u",
+      "walking_windows": 23,
+      "heading_median_deg": 26.79175057078102,
+      "path_net_ratio": 1.7365510707425005,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "KIERO-z0fyfp_OsxbvxuSWkeAC2p-hXM",
+      "walking_windows": 10,
+      "heading_median_deg": 34.978301256079334,
+      "path_net_ratio": 1.291270218825649,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "KMB_G-uuKE8-SNDAbRGQSzpEBpVGdsJI",
+      "walking_windows": 28,
+      "heading_median_deg": 17.230984763827017,
+      "path_net_ratio": 1.5117143127281691,
+      "static_steps": 1,
+      "static_world_median_m": 0.604531550968555,
+      "static_camera_median_m": 0.2784375437581095
+    },
+    {
+      "session_id": "KbGpSCTRI2wda2CyStsScd3swHtlsfiu",
+      "walking_windows": 29,
+      "heading_median_deg": 21.519339077099442,
+      "path_net_ratio": 1.7597981628904595,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "KhNrNPHOOB9cKHWPWB-gJJlnH-r0b-FU",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "L5pxmOgWaTb-TxZqxT4l4yEPHTXlQVka",
+      "walking_windows": 14,
+      "heading_median_deg": 17.724756725839935,
+      "path_net_ratio": 1.5700516984345438,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "L8i1h_QePuO2_JpcS2YVbB9BZFjLo41g",
+      "walking_windows": 16,
+      "heading_median_deg": 21.30358441552849,
+      "path_net_ratio": 1.498622228255393,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "LRWTaGC62fB3NflMQaOPXf0HJR1m5Ypp",
+      "walking_windows": 24,
+      "heading_median_deg": 21.76138231237836,
+      "path_net_ratio": 1.3226225056662013,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "LpjeyfDdXRDw03hbRDdm4e6MPcR0Ypua",
+      "walking_windows": 4,
+      "heading_median_deg": 47.94085410223052,
+      "path_net_ratio": 1.1995027911558283,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "LrwjvhGlCX62TrTSdIrGXeYytIA138ww",
+      "walking_windows": 27,
+      "heading_median_deg": 25.293609815272294,
+      "path_net_ratio": 1.4198752295464818,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "M-VNejgLYhI2MxSNlyoU_0eZLXrFJE8G",
+      "walking_windows": 30,
+      "heading_median_deg": 15.318824605567183,
+      "path_net_ratio": 1.608632663126582,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "M5UIabsltWCYg1D9LCXLoNPO3bMUo_5-",
+      "walking_windows": 24,
+      "heading_median_deg": 18.917085092828962,
+      "path_net_ratio": 3.2871914104832065,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Mg1c9D4qOCWdYKaOTRlLFpLllUBP_kXh",
+      "walking_windows": 28,
+      "heading_median_deg": 38.92250193988544,
+      "path_net_ratio": 1.6136596681577595,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "MtwZFFClj_Si11UTnHXXgN4CjqmPulP2",
+      "walking_windows": 7,
+      "heading_median_deg": 16.002074703297872,
+      "path_net_ratio": 1.4338579894420902,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "My89PcpqC4bRu5rxkv7QVMyOs_ugmoM0",
+      "walking_windows": 10,
+      "heading_median_deg": 48.61469350120507,
+      "path_net_ratio": 1.4505836701422674,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "MyiD6J_lPqZu6Gfeys5QLGWtnJIMe4fj",
+      "walking_windows": 22,
+      "heading_median_deg": 13.383802748729646,
+      "path_net_ratio": 1.314022140087196,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "N-jJAWL6Y3tuqCJvx9TUaWdub-cq09pO",
+      "walking_windows": 1,
+      "heading_median_deg": 23.905363343836086,
+      "path_net_ratio": 1.0693954800928966,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "N2tKPgRBWLgkjCntd7RVV4KtcslWPkBK",
+      "walking_windows": 25,
+      "heading_median_deg": 31.272332350745323,
+      "path_net_ratio": 1.4711641755991491,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "N2vCz9-hYT6sPeKYqKXC6LBNNEIiUuDy",
+      "walking_windows": 34,
+      "heading_median_deg": 19.510387566011445,
+      "path_net_ratio": 1.8687115981283418,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "NES-PJSUabzYMlm5PLuPlohkBzy8FQRw",
+      "walking_windows": 15,
+      "heading_median_deg": 19.676391687978427,
+      "path_net_ratio": 1.5169999624550135,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "NEljbgsZaaSaMyQwCHvre5n0RnVexfzE",
+      "walking_windows": 24,
+      "heading_median_deg": 88.03419845381566,
+      "path_net_ratio": 1.2304229030790608,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "NYq-4WwpKH9WZJTbcUDlwnzMLUmyLYFs",
+      "walking_windows": 4,
+      "heading_median_deg": 8.664181908441051,
+      "path_net_ratio": 1.1255207131753227,
+      "static_steps": 1,
+      "static_world_median_m": 0.6024432486606993,
+      "static_camera_median_m": 0.9246628912208809
+    },
+    {
+      "session_id": "NcX1p3UtjvhYUPQARsmmFKhUUQh_46Rg",
+      "walking_windows": 3,
+      "heading_median_deg": 84.00118838242561,
+      "path_net_ratio": 1.0871569205613227,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "NmwYNLfqjwd07w3pQugKlGkokZenROgX",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Nta3Pe6qqxaApoI2CuagFKvoj1mzwpCO",
+      "walking_windows": 12,
+      "heading_median_deg": 5.823227171412144,
+      "path_net_ratio": 1.3992165038197681,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "NwpwbZGN37li0KRGZGy_kJjfZbs1cgK_",
+      "walking_windows": 24,
+      "heading_median_deg": 21.903553121953287,
+      "path_net_ratio": 2.174595823119299,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "O-W76TuA87rnwNsQyrvE_zovXSpQGBO0",
+      "walking_windows": 8,
+      "heading_median_deg": 23.295094450832263,
+      "path_net_ratio": 1.4279216833090498,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "O3D8QETleJcWTKlwIz3IV_Hh1uP5IjLZ",
+      "walking_windows": 13,
+      "heading_median_deg": 7.6528822888637,
+      "path_net_ratio": 1.3224504657344587,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "O6iDxMOJz0pkf0HQ7pP4n9g4hT5-e58I",
+      "walking_windows": 1,
+      "heading_median_deg": 14.553260539780501,
+      "path_net_ratio": 1.081385953317648,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "OLLkkVZ1LbJ9S0ZxoMfgjOkCZa4_psRU",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "OaBQ_tODvQFkh7-NX41uRtG6-K079QaS",
+      "walking_windows": 15,
+      "heading_median_deg": 19.037310172893953,
+      "path_net_ratio": 1.7588267644114155,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "OauQwDOmUXxbC4W8B_Odv32CKFviZ0Qf",
+      "walking_windows": 8,
+      "heading_median_deg": 66.28233978182934,
+      "path_net_ratio": 1.2586377988754087,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "P1mw_jQi2THNgjGtDW_jskg210PvjupW",
+      "walking_windows": 22,
+      "heading_median_deg": 16.87667008978813,
+      "path_net_ratio": 1.844888896718056,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "P3PKOtSXTQkhN3I2nBe8e7jpU8V0SkGX",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "P3PtYFWagInJHeDwguqHOrNXXITChypL",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "PYyOgQGBLoNWiv69Xb52UXShlCDU3huJ",
+      "walking_windows": 7,
+      "heading_median_deg": 31.169032504512824,
+      "path_net_ratio": 1.1895872695679686,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "PbY69lq6PB3YKz84w11v_pBzermtDcss",
+      "walking_windows": 16,
+      "heading_median_deg": 17.03766754358329,
+      "path_net_ratio": 1.2565402572319644,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Q373lp_AjjAnhWN_vCF_HcnIw6n17YtQ",
+      "walking_windows": 23,
+      "heading_median_deg": 77.4277945999992,
+      "path_net_ratio": 1.1777744130548553,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "QEKI74U_CX9YHXmreuc5AhWZZUGNgv4A",
+      "walking_windows": 16,
+      "heading_median_deg": 29.380147515219058,
+      "path_net_ratio": 1.4162995908091063,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "QEnw7Luyragmzh8YqK-mRbpDQ32L-w7c",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "QHLSOH3Q_oJgHy1GlJpMllPdbBZb-OoC",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "QI3Y0FyjFIyUc-fFal4gXZewtiTQRfwT",
+      "walking_windows": 1,
+      "heading_median_deg": 8.994612753097849,
+      "path_net_ratio": 1.08987344044022,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "QNYa4qqhEF7nmCX5rqY8cZXE4h1oGZtv",
+      "walking_windows": 12,
+      "heading_median_deg": 14.174187134413007,
+      "path_net_ratio": 1.3395083913897576,
+      "static_steps": 1,
+      "static_world_median_m": 2.769237868314565,
+      "static_camera_median_m": 3.0612052021021237
+    },
+    {
+      "session_id": "QTtz_6gVhJmQJNdI3A97Fg4Hddu2U4HR",
+      "walking_windows": 9,
+      "heading_median_deg": 49.9305980767969,
+      "path_net_ratio": 2.084928448293552,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "QVzjzsSertgX6WAHcL5wP6pnnEieXu8f",
+      "walking_windows": 11,
+      "heading_median_deg": 35.98332409877245,
+      "path_net_ratio": 1.1204645712195467,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "R-WZzQD8oC4jGO-iBhylUkbCU3DaxqeM",
+      "walking_windows": 47,
+      "heading_median_deg": 23.733007966051282,
+      "path_net_ratio": 2.571091218152781,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "RJu8PKs9_9LrVHxpKNy4R4cxFkm6W0kg",
+      "walking_windows": 30,
+      "heading_median_deg": 76.80399324992499,
+      "path_net_ratio": 1.5439962652347443,
+      "static_steps": 2,
+      "static_world_median_m": 0.5991572234778986,
+      "static_camera_median_m": 0.6422206401627318
+    },
+    {
+      "session_id": "RbmdRLuI605cpRaLZzwOwDM9f1N5mfz1",
+      "walking_windows": 12,
+      "heading_median_deg": 5.773360062552413,
+      "path_net_ratio": 1.2725339609200002,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "RcjvtYy30wvKuz25iSjZ3pmqhz7t9_r-",
+      "walking_windows": 23,
+      "heading_median_deg": 12.754309627919369,
+      "path_net_ratio": 1.8181363665337964,
+      "static_steps": 2,
+      "static_world_median_m": 0.5051722666652487,
+      "static_camera_median_m": 0.39767677080445474
+    },
+    {
+      "session_id": "ReaqfKEqEf7NPdxTb0PWnR9qXAW2WmqB",
+      "walking_windows": 28,
+      "heading_median_deg": 19.29060260210826,
+      "path_net_ratio": 1.8545743832016321,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "RgdsSxQt79a_JTA5RGqSkjlDeVT4_Q0O",
+      "walking_windows": 32,
+      "heading_median_deg": 70.82876475298639,
+      "path_net_ratio": 1.72363679722188,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "RqOwmltcpedYcPhPygoVqCihidZ5LAiF",
+      "walking_windows": 25,
+      "heading_median_deg": 65.49755433137165,
+      "path_net_ratio": 1.6451442598382824,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "RsV3OheUJZoU9A61SUMfqZZHtxReni4L",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "RwN5Cc_QtkpF78t_mkUfLqkzbpn12mA9",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "S7U2VKRn0NwTuhp1Qk67R7l8k5iYZFI-",
+      "walking_windows": 3,
+      "heading_median_deg": 17.624202560794163,
+      "path_net_ratio": 1.043019898165372,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "S7fRZ1juIqgNgdb9L-uCBZvOULzrdkuM",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "S7hN6gMvXDMugu5x8iXCvDTCdlxtmxE1",
+      "walking_windows": 17,
+      "heading_median_deg": 29.208789831232995,
+      "path_net_ratio": 1.6474743941006813,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "SFcvHM_1TIs9X0gpXihUFharwIZtpQOQ",
+      "walking_windows": 4,
+      "heading_median_deg": 29.80130227813992,
+      "path_net_ratio": 1.1160261130658777,
+      "static_steps": 2,
+      "static_world_median_m": 0.16942033132689532,
+      "static_camera_median_m": 0.1811735908302612
+    },
+    {
+      "session_id": "SK1d5RB_ktBZhLvPs9-Q9hXeHojD49u-",
+      "walking_windows": 22,
+      "heading_median_deg": 21.672074659548763,
+      "path_net_ratio": 1.2558904249837628,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "SPoj3wSxZDDu1zDcE8RYTRxtxrRP_AMK",
+      "walking_windows": 4,
+      "heading_median_deg": 6.434887213497797,
+      "path_net_ratio": 1.4758306084469002,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "SRHpBZXk_0pKjk6SK23VOhoLZGZfnKFF",
+      "walking_windows": 19,
+      "heading_median_deg": 15.33076683909265,
+      "path_net_ratio": 1.511341118853184,
+      "static_steps": 1,
+      "static_world_median_m": 1.2411268876738524,
+      "static_camera_median_m": 1.2709498670518917
+    },
+    {
+      "session_id": "SWELFgFF3pP5xx4NnM5YGpLrm8WSONtW",
+      "walking_windows": 21,
+      "heading_median_deg": 57.90641877893272,
+      "path_net_ratio": 1.7408050011787681,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "SWW4uN9dpS5MLx4sQU5QdzZPe8Vbn1OG",
+      "walking_windows": 16,
+      "heading_median_deg": 49.685988673936336,
+      "path_net_ratio": 1.5455315602224022,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "S_IHizWb1DnixypKqNzg1Jxv83HwykuB",
+      "walking_windows": 3,
+      "heading_median_deg": 8.10679302817923,
+      "path_net_ratio": 1.072036020958063,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "SiqIAN1gsyTpLoJn7W1B8YuUO1qVZI8b",
+      "walking_windows": 3,
+      "heading_median_deg": 82.49109057664056,
+      "path_net_ratio": 1.138457884911694,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Sq26QZestD7-FT8EncRHwHV29wKPn7H4",
+      "walking_windows": 15,
+      "heading_median_deg": 20.089668063664902,
+      "path_net_ratio": 2.342619330897523,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "TALu-6n5ng3zAExOUnikbJn5SwFmJPL8",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "TFubbcziMpxyAk_bDbSv5GCcmD6f0sP9",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "TTFKzqGh0oCtxGtHcml0nrjfKnrCSuNV",
+      "walking_windows": 3,
+      "heading_median_deg": 26.80861634884616,
+      "path_net_ratio": 1.133102334733485,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "TTj3piLyS3X2V1Ce4fIgdKvhBCtIQOjc",
+      "walking_windows": 1,
+      "heading_median_deg": 56.14059302371476,
+      "path_net_ratio": 1.357918606735157,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "TccwLbeRW-z_NPDDJsr1S3IC-iUzaJI3",
+      "walking_windows": 23,
+      "heading_median_deg": 10.868635938437853,
+      "path_net_ratio": 1.7383473165631047,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "TuVcTZxJici8fJC_HpwP-BIzOCBcP4mJ",
+      "walking_windows": 3,
+      "heading_median_deg": 35.340964395721656,
+      "path_net_ratio": 1.193969831795155,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "U4MIPIdJ7NIvp6cxKdp7Ir8bfag4nvPV",
+      "walking_windows": 26,
+      "heading_median_deg": 18.53207536882002,
+      "path_net_ratio": 1.720978659657642,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "UBrLATxbl0K1G6kZMh9BFfhebCcYofDx",
+      "walking_windows": 11,
+      "heading_median_deg": 4.592863857237601,
+      "path_net_ratio": 1.4083180573766174,
+      "static_steps": 5,
+      "static_world_median_m": 0.41227259582369763,
+      "static_camera_median_m": 0.4122303744917343
+    },
+    {
+      "session_id": "UGNwBEZMxhzlzXVyl8XUfflcvjGwdpA5",
+      "walking_windows": 10,
+      "heading_median_deg": 56.79878953385196,
+      "path_net_ratio": 1.9768714259484084,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "UH8Q5hXB3AVKvFIicmP9hD08z2eg44wh",
+      "walking_windows": 10,
+      "heading_median_deg": 7.313612288866489,
+      "path_net_ratio": 1.0102906610201439,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "US7wvt5osva1gBg_TBJCKRwjXVFpM4dp",
+      "walking_windows": 8,
+      "heading_median_deg": 67.99621185639592,
+      "path_net_ratio": 1.183012462690579,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "UfliyS4e08rZZE10xwN8zGpczHewe8aX",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "V3CUuaYiTdyEl-qcIa4OJdLlFwggCKGu",
+      "walking_windows": 18,
+      "heading_median_deg": 85.90509486461663,
+      "path_net_ratio": 1.023300294515996,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "V58C0wEMiqHrQMJThqKrJ5k1YWDVC_CP",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "VDtaHRgxth3Kx3S1IQOv8snwcP2m2_Rh",
+      "walking_windows": 19,
+      "heading_median_deg": 23.802896196058306,
+      "path_net_ratio": 1.3283957508993032,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "VWw2W_obR6zEafYeF_snujhcGroiwb0T",
+      "walking_windows": 7,
+      "heading_median_deg": 16.513529370894982,
+      "path_net_ratio": 1.44146639542372,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ViITZ31kBCtYXyniyFQoynSZfvAGJPXr",
+      "walking_windows": 2,
+      "heading_median_deg": 49.84649716282891,
+      "path_net_ratio": 1.1452306894394524,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Vj8flXYMr8u2pzT8LK8P0bIHXizOZqAo",
+      "walking_windows": 7,
+      "heading_median_deg": 33.42366792204114,
+      "path_net_ratio": 1.2961662756273504,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "VjpjnvAcYfG88ud095O2fv9dFUj4OAOM",
+      "walking_windows": 15,
+      "heading_median_deg": 27.820984304107572,
+      "path_net_ratio": 1.8550933331331836,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "W1ZpmAq74J8xfKg23BcwLx0QHfxM6W_w",
+      "walking_windows": 38,
+      "heading_median_deg": 33.91808419106724,
+      "path_net_ratio": 2.5750372476074537,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "WCzpj9Vid4Wo4Y0mForLrXk9idQqqxxi",
+      "walking_windows": 26,
+      "heading_median_deg": 17.498517998599105,
+      "path_net_ratio": 1.6177813082410473,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Wa0yBTLPFCLYEmxwzfQ3gC6egLJOBkRf",
+      "walking_windows": 30,
+      "heading_median_deg": 8.74033716490057,
+      "path_net_ratio": 1.573244598058388,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "We-WV-8Vm4iIQjrqprxcTUBltze15m5i",
+      "walking_windows": 27,
+      "heading_median_deg": 53.138296367889936,
+      "path_net_ratio": 1.470179341642607,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "WguegvD3gOx4PuRfGAxoDSOo2wlKjeU4",
+      "walking_windows": 23,
+      "heading_median_deg": 7.57784843833848,
+      "path_net_ratio": 1.6651761268854708,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "WmGHH-u4wsHU9ukOh5MPeAmZxaq52YI6",
+      "walking_windows": 19,
+      "heading_median_deg": 50.95842050940172,
+      "path_net_ratio": 1.5219260132960388,
+      "static_steps": 1,
+      "static_world_median_m": 0.37273848790065733,
+      "static_camera_median_m": 0.3736213849127862
+    },
+    {
+      "session_id": "WxwU5CFkSObAhIherM2g1dJLuTH1LnyX",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "WyVSFIlpLuAjfwUfu_mA33YhggbZVzT_",
+      "walking_windows": 22,
+      "heading_median_deg": 8.983350412489553,
+      "path_net_ratio": 1.4311079539543137,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "XIgek0ISd6wBmW9h2JKZlROpPecoTiNb",
+      "walking_windows": 16,
+      "heading_median_deg": 23.825731355011477,
+      "path_net_ratio": 2.6045232262448925,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "XOjHrx-neyD2GJuPsd5mgT9vNvytEzyL",
+      "walking_windows": 20,
+      "heading_median_deg": 10.952556176346974,
+      "path_net_ratio": 1.3164742949617505,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "XWrVqaw3Xnzw-PK0NwwtLs-RndTNKZQu",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 1,
+      "static_world_median_m": 0.276022797822893,
+      "static_camera_median_m": 0.27747365729331325
+    },
+    {
+      "session_id": "XX-SmMMp2h86npZw98DuzFa-f6AiRcCG",
+      "walking_windows": 2,
+      "heading_median_deg": 25.120578018987153,
+      "path_net_ratio": 1.200803668864776,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "XXn0uDRpVVsIV_yKTDD37VGCa9HdLyKV",
+      "walking_windows": 3,
+      "heading_median_deg": 9.344352026243808,
+      "path_net_ratio": 1.0991327857317585,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "XerEnevfbkVgstEgolrSCcTM7EDiECm5",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Xoe7Kec_tA-bzqYd6hDEMMF6-rFrZx1b",
+      "walking_windows": 29,
+      "heading_median_deg": 12.156226413995379,
+      "path_net_ratio": 1.8309361909458146,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "XorRSaQ4AXQeEfawA7lR22_tCUBvTHjw",
+      "walking_windows": 6,
+      "heading_median_deg": 5.642970197284722,
+      "path_net_ratio": 1.1328180055489576,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Y9DwcKE3c7y_ZEUzj04ipPzOurWLLK6P",
+      "walking_windows": 59,
+      "heading_median_deg": 39.93315075199919,
+      "path_net_ratio": 3.6400444348386176,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YHIZ2gSAMCdq-9sAliYicXln1v45MZS7",
+      "walking_windows": 29,
+      "heading_median_deg": 16.819626365617847,
+      "path_net_ratio": 1.573770332287729,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YMcYvxhfj-FKwXLpd_ZLixAtcGLlf9Ad",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YNo0wJ5J7GLXGsu-zkj-MXNqdvHJ-k_h",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Y_lAnC7lcaZzmiI21CWNZcJDWStR-dSS",
+      "walking_windows": 26,
+      "heading_median_deg": 25.178723218940938,
+      "path_net_ratio": 1.1961336882159794,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YfLlKP8z8279XpwKWHgA0YhkLG9kbSIJ",
+      "walking_windows": 9,
+      "heading_median_deg": 24.241292691961736,
+      "path_net_ratio": 1.4757317977215703,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YkLxJJsFJ91bO8NaCofUY-adqblXK_ey",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Ym1Zbrtckr8WZq0vuDjOKHs1mKenK6FS",
+      "walking_windows": 24,
+      "heading_median_deg": 49.22106264869758,
+      "path_net_ratio": 1.5558081693154895,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YnCjnEzv2rFXfyDKwJNehsHg9_l8cPDs",
+      "walking_windows": 26,
+      "heading_median_deg": 76.05710160584869,
+      "path_net_ratio": 1.1640643811148306,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "YndtYKv9ewJkLbyQJyszeO9-mLxyL3tW",
+      "walking_windows": 11,
+      "heading_median_deg": 83.86042345474833,
+      "path_net_ratio": 1.5297890834004046,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Z2ONR-bjyCLh20aSZwHjZvk_wPxEQEO2",
+      "walking_windows": 3,
+      "heading_median_deg": 8.645237611954704,
+      "path_net_ratio": 1.1176595301796393,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Z75EhNRbd2E0-pga05DfMJ1pqNGRjzXs",
+      "walking_windows": 18,
+      "heading_median_deg": 32.41770076829936,
+      "path_net_ratio": 1.8333092151619983,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ZR3hpsQxnbI8C4aSV2UMIKf15QvS6qvQ",
+      "walking_windows": 41,
+      "heading_median_deg": 30.46377468875635,
+      "path_net_ratio": 2.6093605342743076,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ZkyuHBvjielTTEVMLjv7fkIMYzAxXGle",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "Zodf1mn3rR80jtAik_zwIDgumTbfmbhm",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "_4QWSKrmqvyIETbT05MZEkidA8Xxjz1j",
+      "walking_windows": 6,
+      "heading_median_deg": 11.150818534682799,
+      "path_net_ratio": 1.5144291085280306,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "_Syk0BTVCWUxQSKa-dSkzl0FBLj7a0RQ",
+      "walking_windows": 19,
+      "heading_median_deg": 103.56615777909468,
+      "path_net_ratio": 1.2579341737500873,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "_UTPXBuzIizvDtKewwJIiK77VZU-h_cg",
+      "walking_windows": 24,
+      "heading_median_deg": 8.866200785370463,
+      "path_net_ratio": 1.6043427613165269,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "_ggFVZ4NWnq3yVzHGvrhzEVt1sIXD_Oo",
+      "walking_windows": 1,
+      "heading_median_deg": 55.63915951482045,
+      "path_net_ratio": 1.0648603615597965,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "_pZ9lL5tkUk30VPMFmDnDiK9-zpFgy4V",
+      "walking_windows": 21,
+      "heading_median_deg": 15.404388778649889,
+      "path_net_ratio": 1.3035249902917365,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "a1lsFFXKefIs6dnugfw-Xh4lbyWzlWE9",
+      "walking_windows": 6,
+      "heading_median_deg": 110.91361398172359,
+      "path_net_ratio": 1.117217244460627,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "a7bGB6aD6bcUMhl86R9HNNHUVUUxlS2c",
+      "walking_windows": 25,
+      "heading_median_deg": 31.353687218463207,
+      "path_net_ratio": 1.9786160860602753,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "aS0hVe_uSBiAMtWO1Dqc6zvMZt32j5JH",
+      "walking_windows": 16,
+      "heading_median_deg": 20.94916636842697,
+      "path_net_ratio": 1.8151382505093443,
+      "static_steps": 1,
+      "static_world_median_m": 0.3654957352995221,
+      "static_camera_median_m": 0.359908119471227
+    },
+    {
+      "session_id": "aeu6u2kPRp9Rc-BXh-iaLEZJsaNCbbfe",
+      "walking_windows": 2,
+      "heading_median_deg": 4.409022199153963,
+      "path_net_ratio": 1.285810399273652,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "atIg5ANUF3-U-qtg6rr4-C_LU-PzH4xY",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bSVNyEkNunWN711VEwmnMX-OHxNZmnQH",
+      "walking_windows": 1,
+      "heading_median_deg": 8.268494862369002,
+      "path_net_ratio": 1.029180350648633,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bSo4owzNL_YnfHEb8OdzM8qT8UHOd8BQ",
+      "walking_windows": 14,
+      "heading_median_deg": 13.382379770710287,
+      "path_net_ratio": 1.2253405721317292,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bW85zNIMTadpXwDZT4XJ7Xa8tgiNyxkb",
+      "walking_windows": 29,
+      "heading_median_deg": 8.463610232315265,
+      "path_net_ratio": 1.759062170665227,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bYAxqF9cHadDvQVpTVb2ShohXapW09g-",
+      "walking_windows": 20,
+      "heading_median_deg": 18.82376830199195,
+      "path_net_ratio": 1.6293028574428123,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bZRMDhpRpyU7nhn3dBVgs258ptT6JZlJ",
+      "walking_windows": 27,
+      "heading_median_deg": 95.60398969157555,
+      "path_net_ratio": 1.6967302309698225,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bbzUJNHouYQEOhfD0cpXLtDz0c2DSt-e",
+      "walking_windows": 7,
+      "heading_median_deg": 17.325896795929722,
+      "path_net_ratio": 1.1270407552485224,
+      "static_steps": 3,
+      "static_world_median_m": 0.17377691600622558,
+      "static_camera_median_m": 0.1568299880920053
+    },
+    {
+      "session_id": "bfTbc0atVxbLbnI5MHT3RqWVCj-4u8gp",
+      "walking_windows": 24,
+      "heading_median_deg": 16.1471754832976,
+      "path_net_ratio": 1.753278425535996,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "buqUWhuACIPXgXR0zI7KcfyfbnnaEad1",
+      "walking_windows": 6,
+      "heading_median_deg": 4.518068388184169,
+      "path_net_ratio": 1.113138987049945,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "bxcyoiUrS7rQxcbLF8kwirN0nRr-mmb8",
+      "walking_windows": 12,
+      "heading_median_deg": 14.006180076333168,
+      "path_net_ratio": 1.6322000206828702,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "c4Mh8piOiKI4EEHHQOLTbFUfCDLlq29P",
+      "walking_windows": 33,
+      "heading_median_deg": 42.663958798210444,
+      "path_net_ratio": 3.152199028985759,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "cBVSUvSNGsl6C4kHrsaG6RwL9u0L0Ln2",
+      "walking_windows": 26,
+      "heading_median_deg": 32.12630951876034,
+      "path_net_ratio": 1.277038358821581,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "cEZJ_REy7wD6B_0xs2nJ4-Jn-fZg23vd",
+      "walking_windows": 11,
+      "heading_median_deg": 79.08892137851069,
+      "path_net_ratio": 1.3372441362103245,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "cPdESnocQmYZ_WjVoXVzioBrqCjXsDLa",
+      "walking_windows": 10,
+      "heading_median_deg": 49.855830715163805,
+      "path_net_ratio": 1.559756062580774,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "cxmuC9hk_YmIGbt5TQeRpVoYup6uCioo",
+      "walking_windows": 25,
+      "heading_median_deg": 21.46923495640943,
+      "path_net_ratio": 1.8148877544661217,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "d3CKbaNbOPz-ZjLPUd6qD6wSNC3OKQxL",
+      "walking_windows": 13,
+      "heading_median_deg": 110.40798654924319,
+      "path_net_ratio": 1.1751231100928499,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "dB-D3W80IShuv4pBtc4EPn8JqAVpmQoE",
+      "walking_windows": 22,
+      "heading_median_deg": 11.933635648034866,
+      "path_net_ratio": 1.4483566774997552,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "dKK8ik7Y5ioLJBPEQAuuGZA4b4tvgPfa",
+      "walking_windows": 4,
+      "heading_median_deg": 69.87577642868209,
+      "path_net_ratio": 1.9499515104687422,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "dVP9_sYSGnkBOXR1iuwz5mTwbNtOZVPF",
+      "walking_windows": 24,
+      "heading_median_deg": 14.58038494519273,
+      "path_net_ratio": 1.6311933768963707,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "dZSSXPJTCynSjFRCdC6jmh1B_jvNXiuU",
+      "walking_windows": 4,
+      "heading_median_deg": 87.2128403737986,
+      "path_net_ratio": 1.1971417272024436,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ddEl0JtxAC3nnXI00uzGQH9cqwAK_uOu",
+      "walking_windows": 24,
+      "heading_median_deg": 31.685238266659205,
+      "path_net_ratio": 2.6011379644264316,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "dvUgguwseONxFnyefZ0q5qX8EEDNcoo-",
+      "walking_windows": 6,
+      "heading_median_deg": 11.419427944667824,
+      "path_net_ratio": 1.070704340598302,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "dvYjJ8-gYAkWTH01I4FBAj67or-23YCN",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "eAXv0qwkO9zgffv9lQdSts_uRZCQI3Ro",
+      "walking_windows": 9,
+      "heading_median_deg": 17.687689596631117,
+      "path_net_ratio": 1.2619097675101507,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "eDD4YHsx4xR1bhHxIe_WZ164eppCx06E",
+      "walking_windows": 25,
+      "heading_median_deg": 29.014564439911208,
+      "path_net_ratio": 2.4942997897368167,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "eHxtA669WpN381O4ZjVAmG3-3ZUewuXr",
+      "walking_windows": 18,
+      "heading_median_deg": 44.696568953604675,
+      "path_net_ratio": 1.3535693295044666,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "eMOt6M_TanahLx37tyVEF1wd30WG4VQ3",
+      "walking_windows": 12,
+      "heading_median_deg": 8.282968659367931,
+      "path_net_ratio": 1.4984774201321538,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "edlFaCsuH_AXJsyV4q3dadoV-nh2lj7R",
+      "walking_windows": 31,
+      "heading_median_deg": 26.211464454555113,
+      "path_net_ratio": 2.0884944767393163,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "eeLHCIh4n_wnguIpYNqpD2Ge0l0usqSJ",
+      "walking_windows": 8,
+      "heading_median_deg": 30.82581541183412,
+      "path_net_ratio": 1.3355493328024362,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "esqIPICc7jDAken0xHwf9za4X21Cemt0",
+      "walking_windows": 14,
+      "heading_median_deg": 10.604312340421803,
+      "path_net_ratio": 1.526717189878066,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "f-JGXSprz9W1eHWgQ6h0jkWuoHfqk7xO",
+      "walking_windows": 3,
+      "heading_median_deg": 49.99312218505015,
+      "path_net_ratio": 1.153444183016652,
+      "static_steps": 1,
+      "static_world_median_m": 0.20911927690084017,
+      "static_camera_median_m": 0.3326861012525495
+    },
+    {
+      "session_id": "fCKRZ-3Dx2g3l5UM1R5Wh6x7ok0NQtO4",
+      "walking_windows": 18,
+      "heading_median_deg": 8.74031839879067,
+      "path_net_ratio": 1.4945704870915044,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "fEWTd_ALjfFhatPaw9-y86tMzMwdnK61",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "fJfPwv7c12yYlmv821PvLT0i80blDY-B",
+      "walking_windows": 1,
+      "heading_median_deg": 18.67819264081028,
+      "path_net_ratio": 1.0374740481144333,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "fkhs0IjcBs5WBrU1MfUfgqQHWbncN8H0",
+      "walking_windows": 3,
+      "heading_median_deg": 9.397130562535393,
+      "path_net_ratio": 1.1051176597486179,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "fqPKKSuX5-S5wEjiceRCpubD8DemWMvG",
+      "walking_windows": 7,
+      "heading_median_deg": 89.21599949337583,
+      "path_net_ratio": 1.1845320340616614,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ftH32XHWwVFRwjfvWFXsWnmHM_gVtU12",
+      "walking_windows": 30,
+      "heading_median_deg": 17.68886740892502,
+      "path_net_ratio": 2.8549350034609544,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "fwYdLjnwBOpEZ_fpyn8Lrvv5EwEouzD3",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "g7pB3rS0QKBWtTGHEcC2fFIU_BhjC52_",
+      "walking_windows": 2,
+      "heading_median_deg": 25.844185482374698,
+      "path_net_ratio": 1.3001980214911466,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gCiGZRKAGlEg_qtfjTFfljDlu3FdCrRt",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gCrXbGAg7t-z2iAywSge1H8RFTtE-MqD",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gI9i7jV_rKL5TyY9CoEI9gysGu1W2HXj",
+      "walking_windows": 26,
+      "heading_median_deg": 24.34909031500291,
+      "path_net_ratio": 1.4117871278938376,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gQUct2fV6y3SDfae0tZ0YX1_J9HqGr7k",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gRhotr4JpxVh47xyb-kxKWRTBZhMR440",
+      "walking_windows": 11,
+      "heading_median_deg": 51.11256317968524,
+      "path_net_ratio": 1.4404580856798397,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gcyWXbvJVi0vjf4lLgIkR_0txpX8LAx9",
+      "walking_windows": 23,
+      "heading_median_deg": 26.265277562955927,
+      "path_net_ratio": 1.624380900372187,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gie8DH9dneyPGOyjs1un2ymDP0xWrWNH",
+      "walking_windows": 17,
+      "heading_median_deg": 16.524938152662795,
+      "path_net_ratio": 1.5858257023938578,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "gj0Ljc96oNdvW3HE_a1y5e5EkLkr7lM1",
+      "walking_windows": 18,
+      "heading_median_deg": 49.96887197980128,
+      "path_net_ratio": 1.3333510609159913,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "h3TEaYCAYqdYXlz3h9u0TkBR0W9b8VE-",
+      "walking_windows": 28,
+      "heading_median_deg": 12.467078423747502,
+      "path_net_ratio": 1.2871301789888823,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "h4vYcXJH3lxX3slCFnT6UzZjlrSFuzjz",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "h6xTCSBsniDQt_HvBYjkOPCNPL9EOPKy",
+      "walking_windows": 3,
+      "heading_median_deg": 52.70633708793872,
+      "path_net_ratio": 1.6505019892199813,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hITui4New5dOgg5VxGLJBmaRtO2mCDgB",
+      "walking_windows": 28,
+      "heading_median_deg": 13.967167192592338,
+      "path_net_ratio": 1.398027155385919,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hQ_bpZHjlOxJkGOjZBssqeycvEvJQ47W",
+      "walking_windows": 7,
+      "heading_median_deg": 9.322597668389932,
+      "path_net_ratio": 1.1743555152483545,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hS08nuIkpHFAM6mEZAnFyqeao8YGjYG5",
+      "walking_windows": 9,
+      "heading_median_deg": 9.698904770164617,
+      "path_net_ratio": 1.4665478872443185,
+      "static_steps": 6,
+      "static_world_median_m": 0.1125533744261153,
+      "static_camera_median_m": 0.11241533149311089
+    },
+    {
+      "session_id": "hbK_M8tkfhWmNK-nNwOpTPEJsOl_luyh",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hnVXDPEUTpwTRqHi7EvNvIed3zmpNx9j",
+      "walking_windows": 26,
+      "heading_median_deg": 59.28401094520402,
+      "path_net_ratio": 1.2937870660802364,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "huRVT5BlKVdTYbUhQWrr2feodI612PZH",
+      "walking_windows": 5,
+      "heading_median_deg": 25.15851170717775,
+      "path_net_ratio": 1.7835622319442728,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hxNvEqHKvg9ut5trf5UirAjJzhA4ctme",
+      "walking_windows": 13,
+      "heading_median_deg": 8.574430146260308,
+      "path_net_ratio": 1.3148638738997653,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hxjQ4bB_GAN9CFO7KkLO4eihH2uuELpt",
+      "walking_windows": 3,
+      "heading_median_deg": 21.423075024469174,
+      "path_net_ratio": 1.1323220724424043,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "hyhpm7kn1UjPu6L6r3SzlIapcBgLLBG0",
+      "walking_windows": 3,
+      "heading_median_deg": 72.40866621845453,
+      "path_net_ratio": 1.3072117100257201,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "i2jglnBfoIqIIA7ojQGe-4vK07hUm4T3",
+      "walking_windows": 29,
+      "heading_median_deg": 52.728496615580134,
+      "path_net_ratio": 1.8452371988167764,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "iSY4ceKQcR6hxYVV3RwvaWwAp2rVJX0j",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "iWU7EQffkjCfEb-5uca7_TFq8HkP2WBd",
+      "walking_windows": 3,
+      "heading_median_deg": 16.191318708883454,
+      "path_net_ratio": 1.0371834040950636,
+      "static_steps": 1,
+      "static_world_median_m": 1.2768295562406458,
+      "static_camera_median_m": 1.275892219170562
+    },
+    {
+      "session_id": "ic_BpoiSOIW-7_mffGenT6yissRNiPzT",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ixZaSR2bFF5XplHrvc8r8vEMpkc8amOV",
+      "walking_windows": 11,
+      "heading_median_deg": 17.823799501216147,
+      "path_net_ratio": 1.4182143410863512,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "j2FTNK7VF64uO-WJ8wmRInfXpiORA7Pz",
+      "walking_windows": 20,
+      "heading_median_deg": 9.462390868102212,
+      "path_net_ratio": 1.604475472022385,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "j5QOrc58fUSYWM7vbUAn0g4NIRwfOhBg",
+      "walking_windows": 22,
+      "heading_median_deg": 48.560132117466495,
+      "path_net_ratio": 1.5587794700535833,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "jC_D9diZHCQuwA1r7nz-XaJ9venQm8B5",
+      "walking_windows": 26,
+      "heading_median_deg": 12.858213415940604,
+      "path_net_ratio": 1.578431875858651,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "jLAxHSRZg9K-SFpF8_r16BSY79kEvbCJ",
+      "walking_windows": 25,
+      "heading_median_deg": 31.02366007136977,
+      "path_net_ratio": 1.513402203325611,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "jSokwhOqI8ddZGwASdpCpbwO8s-bzDp9",
+      "walking_windows": 1,
+      "heading_median_deg": 6.104902698064179,
+      "path_net_ratio": 1.1015525370673893,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "jaFq58LAV1bO4zUMp_B4NxE0PnrO3lWx",
+      "walking_windows": 9,
+      "heading_median_deg": 31.50117744792407,
+      "path_net_ratio": 1.1693475097129449,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "jby020CZB4zrQOSFa9G8HivhbhSYiJ2M",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "jla8SCRyCOsKpxV9a7Bqq98ZU0wfznpM",
+      "walking_windows": 20,
+      "heading_median_deg": 13.235122708703319,
+      "path_net_ratio": 1.8736716964972302,
+      "static_steps": 1,
+      "static_world_median_m": 2.785130825565272,
+      "static_camera_median_m": 2.792715396223692
+    },
+    {
+      "session_id": "jpQdnBSdxw0io5Iz0OPNG_Jqr2Xg5ilH",
+      "walking_windows": 27,
+      "heading_median_deg": 11.891766302605902,
+      "path_net_ratio": 1.7643667204206577,
+      "static_steps": 3,
+      "static_world_median_m": 1.1603379067755433,
+      "static_camera_median_m": 1.1666958522875417
+    },
+    {
+      "session_id": "k1ElOc9vJeCeiP_G5awMB8kUOcS4611C",
+      "walking_windows": 5,
+      "heading_median_deg": 9.432552190863653,
+      "path_net_ratio": 1.1151115314709898,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "k7SM64BWbyyZThK-T5fr-8lJQcvGQ8Av",
+      "walking_windows": 21,
+      "heading_median_deg": 99.96940341608884,
+      "path_net_ratio": 1.0879702864943714,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "kg00o09y82-Kgy_XKrS-FBySUm3VSGjW",
+      "walking_windows": 30,
+      "heading_median_deg": 102.91549864803571,
+      "path_net_ratio": 1.2358519637516299,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "khKoBTOWwXPmDIF0m2Snph5GX7BoJamR",
+      "walking_windows": 9,
+      "heading_median_deg": 13.618436402710087,
+      "path_net_ratio": 1.5866584920264777,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "kpmkGO6LWJS89tPfk5aUoPk4Tvp67nVg",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "l5yZFJ3Z6LXrw4QDfC8kIbFZu4P87HzX",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "lCuy7QUOM_Hpy3fm9sFL8j6SnbJd-FxI",
+      "walking_windows": 13,
+      "heading_median_deg": 28.962083108975293,
+      "path_net_ratio": 1.3505738085808485,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "lE6lpL5lGivGqqik0GIioEA8TUa0JpOo",
+      "walking_windows": 16,
+      "heading_median_deg": 105.55865555821026,
+      "path_net_ratio": 1.1807433976359167,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "lSxwFoA76iTlce0HDW85WtsKxvI7zeT2",
+      "walking_windows": 26,
+      "heading_median_deg": 64.83106193364341,
+      "path_net_ratio": 1.7423532597428104,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "lmkIchCJ1RIKsZvbb4HjCDl85B2nOicv",
+      "walking_windows": 38,
+      "heading_median_deg": 115.93379363638195,
+      "path_net_ratio": 1.9153624282359658,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "lqZS9JzZESXu4Iy8cQi193n2Ci6B36vQ",
+      "walking_windows": 9,
+      "heading_median_deg": 74.85972605977165,
+      "path_net_ratio": 1.3466007665983628,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "m4N-pkjaAG-yKjpB0t2irwBnV5y0WFn2",
+      "walking_windows": 13,
+      "heading_median_deg": 25.85496877066077,
+      "path_net_ratio": 1.6297226734157737,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "mAhOUl3fk4a3x7frvAX4UaWIgxRonqJv",
+      "walking_windows": 3,
+      "heading_median_deg": 20.119601271271478,
+      "path_net_ratio": 1.3031599300520817,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "mDY30DMpIWHQnASYA9gS3mcfYiOV7lnr",
+      "walking_windows": 5,
+      "heading_median_deg": 15.356393289363199,
+      "path_net_ratio": 1.1377398098851794,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "mE6bg3DCm-zMCm7_Nt8zOhETHz1XHoTE",
+      "walking_windows": 41,
+      "heading_median_deg": 62.9034374040691,
+      "path_net_ratio": 1.4793299572721506,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "mEsfHZfIkDceWOyrI0HG4ggtAO572luJ",
+      "walking_windows": 2,
+      "heading_median_deg": 16.285243370264425,
+      "path_net_ratio": 1.119947045862817,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "mLmahoWdeGlIfQDbvzUxRWqelEUkUKl-",
+      "walking_windows": 7,
+      "heading_median_deg": 17.89616998459864,
+      "path_net_ratio": 1.2093419139018813,
+      "static_steps": 3,
+      "static_world_median_m": 0.37354327642839574,
+      "static_camera_median_m": 0.4283044349015831
+    },
+    {
+      "session_id": "me9999Ha8ed6HKkQvQQzgnqwgXEpJOZa",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "mkIHKOI6hNeb1mB-DVaHpGlo1pWveY6d",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "msyklzdTpQ81cQwHlhKDrchnpYroynGV",
+      "walking_windows": 18,
+      "heading_median_deg": 9.274849150878751,
+      "path_net_ratio": 1.6314437787411153,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "myw7tebBIGbG5mQ7aAICzUtVSKlRQQhu",
+      "walking_windows": 22,
+      "heading_median_deg": 71.21404294006618,
+      "path_net_ratio": 1.5594918910484317,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "n0SjAV4pwqSUitFLGYmESXNC6guH6kQc",
+      "walking_windows": 7,
+      "heading_median_deg": 10.971900414415558,
+      "path_net_ratio": 1.0705333783079984,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "n3XL5R4agzVZ7DKs-j8dfEBkmqznu_Ck",
+      "walking_windows": 10,
+      "heading_median_deg": 38.09314190918899,
+      "path_net_ratio": 1.1955282752830951,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "n9yY3I8yzD4WsuyLUEk2UIrC-GGXxhOn",
+      "walking_windows": 24,
+      "heading_median_deg": 14.945916726116089,
+      "path_net_ratio": 1.5829733599524731,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "nLMkaU45iav7Ix1Iymm2LcA5PWJs0InI",
+      "walking_windows": 28,
+      "heading_median_deg": 54.46746607898852,
+      "path_net_ratio": 1.157687446473886,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ncZ-JURAz1ql5KxaJDQenRsPaLaHZ01b",
+      "walking_windows": 20,
+      "heading_median_deg": 28.265372926078633,
+      "path_net_ratio": 2.0060752734119127,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "oCoFhQBFW4tQ-Y6MYaOlsdtwHd4t3XdU",
+      "walking_windows": 23,
+      "heading_median_deg": 17.332418276365516,
+      "path_net_ratio": 1.3214030933536214,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "oGmaqcOIA2NkQySXCaQe-8b3moo5KiTC",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 1,
+      "static_world_median_m": 2.999358523531675,
+      "static_camera_median_m": 3.010911838232159
+    },
+    {
+      "session_id": "oI2m1FrnWm5N2AhC0ACUY3H6drv_1jN8",
+      "walking_windows": 20,
+      "heading_median_deg": 11.133518068029245,
+      "path_net_ratio": 1.404800812855719,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "oKxogrrXwa6GmopdX6QEz15aXeT42fUy",
+      "walking_windows": 1,
+      "heading_median_deg": 15.179824187639353,
+      "path_net_ratio": 1.1635809906439258,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "oOsHOKWxouIymwQItTJwBHfBWTcTEZ7C",
+      "walking_windows": 6,
+      "heading_median_deg": 73.27063347813541,
+      "path_net_ratio": 1.2554484037059206,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "oRWdvWfgQ8M7-SjWNXJNktaGtRdvcCuC",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "oTc35OYrAu58zq4-EGRREZnJ_E73KM8N",
+      "walking_windows": 16,
+      "heading_median_deg": 22.112055727154473,
+      "path_net_ratio": 1.5113648504563397,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ofHK3nQXlpAOUracjoR7TyUz00U6no0H",
+      "walking_windows": 5,
+      "heading_median_deg": 4.556382291013332,
+      "path_net_ratio": 1.1361829343603893,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ou5qRcSlpTtC0MF72ybFDUoEBvPS3XuA",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "pDqaZ8h0HqfyQZIlyLByCEqDcQIOjvyT",
+      "walking_windows": 19,
+      "heading_median_deg": 26.406364743152977,
+      "path_net_ratio": 1.600971631229163,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "pFJzgGxDtCuGSpsidNaOp9Om-apL5cIg",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "pLx7nHA3heIzjrIMBy4AVjuT6GnwneSR",
+      "walking_windows": 38,
+      "heading_median_deg": 49.22512882316911,
+      "path_net_ratio": 1.5360511887311887,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "pXiOg7c-G-z7Z6GmGMGqQMlFXOckwaoc",
+      "walking_windows": 26,
+      "heading_median_deg": 12.189559329903734,
+      "path_net_ratio": 2.0294990450005006,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "q8thcTX-0dmCGl6IF_aOisDvEdKk22mq",
+      "walking_windows": 13,
+      "heading_median_deg": 11.346262239138554,
+      "path_net_ratio": 1.2715340278531746,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "qFDP9gJDz4MyXNxjl6mIEPFCUb8n1guU",
+      "walking_windows": 1,
+      "heading_median_deg": 33.03080116989388,
+      "path_net_ratio": 1.412416742183021,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "qNBdh6pUkHPoCtxqvB8e0mZtAAQVgOfJ",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "qb0z4vd8Y2NNVoVRuZzHCZPDMMQSi4hS",
+      "walking_windows": 10,
+      "heading_median_deg": 25.060192726864194,
+      "path_net_ratio": 1.2686473015872306,
+      "static_steps": 1,
+      "static_world_median_m": 0.32317733063006937,
+      "static_camera_median_m": 0.28012416935773865
+    },
+    {
+      "session_id": "qn1eNtR0fm1ZJMypjAeec6yr-c7u2zJy",
+      "walking_windows": 23,
+      "heading_median_deg": 25.40631251591622,
+      "path_net_ratio": 2.3767059366761214,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "qsDqc0UMhCk60mJVxIa3TTBGOCAprG-j",
+      "walking_windows": 27,
+      "heading_median_deg": 18.492643234491243,
+      "path_net_ratio": 1.5453434224413003,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "qttyxduaRos5zTgIT4QHXy9Kr2uPEFYw",
+      "walking_windows": 22,
+      "heading_median_deg": 21.064087612031358,
+      "path_net_ratio": 1.4994321330608291,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "qu_9254AGAKuERYRydJu9xI9EVMw8AIG",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "rDmxQWE373Pv-Nq51wo2GOif8XiVbDgj",
+      "walking_windows": 17,
+      "heading_median_deg": 40.00913860457727,
+      "path_net_ratio": 1.9051718813944638,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "rL565tkXvzD1FARfwoRscaTvw5xTVkM3",
+      "walking_windows": 5,
+      "heading_median_deg": 46.344216602965645,
+      "path_net_ratio": 1.4870662094510367,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "reigDTj3Eqg5IraZfRGRHJTCxvVqMtHh",
+      "walking_windows": 14,
+      "heading_median_deg": 9.246714959320354,
+      "path_net_ratio": 1.259840662440788,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "rjYpw8awPfgy-JURa4FppspZoYloY-CH",
+      "walking_windows": 22,
+      "heading_median_deg": 12.255823012335252,
+      "path_net_ratio": 1.6294718208480243,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "rnAF9qpm-UkGREf9shKX4gXZJvxxrNCl",
+      "walking_windows": 4,
+      "heading_median_deg": 34.76785118675528,
+      "path_net_ratio": 1.5114230294265796,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "rvi-MNk-cw0yRg8U9ANH8RyDlJdfAjSt",
+      "walking_windows": 19,
+      "heading_median_deg": 115.87558701489495,
+      "path_net_ratio": 1.5155126691602636,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "sW4MEG73P0tPDuuXSUu6NAvx1KJSb10W",
+      "walking_windows": 44,
+      "heading_median_deg": 53.09742101444793,
+      "path_net_ratio": 3.488242529189842,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "sgb9jS9iEBepAPRt-Ijrx83GuV2JPat-",
+      "walking_windows": 28,
+      "heading_median_deg": 10.376195370381955,
+      "path_net_ratio": 1.644339680550456,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "si66tpk-az2gaLJaobIMXBpfh563i7Xg",
+      "walking_windows": 27,
+      "heading_median_deg": 9.96451410499673,
+      "path_net_ratio": 1.819288888335274,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "slHJ31IRyUGIffXVjHkrBIkumu09u2a2",
+      "walking_windows": 3,
+      "heading_median_deg": 6.21262666800624,
+      "path_net_ratio": 1.135419529069252,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "t0dGsEvxqyRwJj7Y12X2ZQzXxsD3l54u",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "tFooNIS4CR1DA6HG8nQJP-0vcXVdltfR",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "tQDdQuDIPtVd-6P2MQSF-G75j-EP0pqv",
+      "walking_windows": 27,
+      "heading_median_deg": 11.585057541170592,
+      "path_net_ratio": 1.6414597501017039,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "ta-gPhNA8O_O-kjpKTubxCPEjbLsbuv4",
+      "walking_windows": 18,
+      "heading_median_deg": 13.928727395108426,
+      "path_net_ratio": 1.6108528648686513,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "tqQTCrVAo80-TggXDBfcrr4QOEiYFD-t",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "uKY31hW60Rf2xoklHN7PICIryxWkhsM0",
+      "walking_windows": 24,
+      "heading_median_deg": 59.381918117741435,
+      "path_net_ratio": 1.3941302433376221,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "uNjwwJ2t4YyphdEcXW6aOstBFJ5m-2M2",
+      "walking_windows": 28,
+      "heading_median_deg": 22.20299409646693,
+      "path_net_ratio": 1.3860607299379804,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "uqpCZC9IXrCrR23F1hwFoCm5xGhVBv9o",
+      "walking_windows": 18,
+      "heading_median_deg": 28.255199801422407,
+      "path_net_ratio": 1.3941051326342633,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vBzRkuHzUpRt-EhtMjPQODCEflzDjqio",
+      "walking_windows": 24,
+      "heading_median_deg": 118.63153956070452,
+      "path_net_ratio": 1.3227276692643368,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vIDx-ROIEhNRFFlivXMGndDMFllOqR90",
+      "walking_windows": 7,
+      "heading_median_deg": 20.68863509791001,
+      "path_net_ratio": 1.3878483049690327,
+      "static_steps": 2,
+      "static_world_median_m": 0.5758637608775865,
+      "static_camera_median_m": 0.575864090561694
+    },
+    {
+      "session_id": "vIp8vPcM-fyU2ktEMitwbA2Vsc0A1vtr",
+      "walking_windows": 29,
+      "heading_median_deg": 16.57093905964699,
+      "path_net_ratio": 2.2224782792848417,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vJ3GwdSWA251IuTOvV1pAV2e2x98MPmC",
+      "walking_windows": 22,
+      "heading_median_deg": 33.76684172982171,
+      "path_net_ratio": 1.6400092584039634,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vQQb0mRpkVOlWkGiDk2rM4KO4NIiGHNC",
+      "walking_windows": 2,
+      "heading_median_deg": 15.85595875142764,
+      "path_net_ratio": 1.1524583165309585,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vWuqLpN3LO-EyUQ3MEvegQmXAbjkrnfK",
+      "walking_windows": 25,
+      "heading_median_deg": 111.26780066778822,
+      "path_net_ratio": 1.340279076389447,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vczXAwthxnadTYUS_TiR7IHiqEQrdSJx",
+      "walking_windows": 47,
+      "heading_median_deg": 24.036385473967876,
+      "path_net_ratio": 3.3463576688449623,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "vxhQFmxofCOrInw5l9Dm4SQ5KAn1lNr2",
+      "walking_windows": 19,
+      "heading_median_deg": 37.53793500499582,
+      "path_net_ratio": 1.7075450424409033,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wBPxyouyX9_6p1hGzIf8sYB9UPqpoBex",
+      "walking_windows": 31,
+      "heading_median_deg": 74.65070144580959,
+      "path_net_ratio": 1.1350342116854601,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wDtxm3UCt1gmodkU-lhpkHhAl4ALvFPH",
+      "walking_windows": 37,
+      "heading_median_deg": 76.89551632091418,
+      "path_net_ratio": 2.184705902819686,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wHbdubn2UcxgoE5qVOtwQhJJw2AlZLzC",
+      "walking_windows": 23,
+      "heading_median_deg": 94.14541758255685,
+      "path_net_ratio": 1.1552841497138442,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wQwueJr_OO3_Jq63iivuipf4SyJ4hVHZ",
+      "walking_windows": 24,
+      "heading_median_deg": 18.862440244903798,
+      "path_net_ratio": 1.7679037197302474,
+      "static_steps": 1,
+      "static_world_median_m": 0.474166461973822,
+      "static_camera_median_m": 0.38288941127744225
+    },
+    {
+      "session_id": "wWyl_kHZjg_yLHgA9dh9RQGKz0SLl8PY",
+      "walking_windows": 1,
+      "heading_median_deg": 12.142417242412922,
+      "path_net_ratio": 1.1198999281741397,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wXwTZnJHaWsMeYvf-hR0a3ZHrNXH3I0G",
+      "walking_windows": 17,
+      "heading_median_deg": 16.9092262212214,
+      "path_net_ratio": 2.04041466024821,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wZ9KabBA03cxMpwWeYekeTGt502Ddp6h",
+      "walking_windows": 3,
+      "heading_median_deg": 14.843877550429474,
+      "path_net_ratio": 1.1864930355095924,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wgsnTNpm8JF03ZXchpOwS2ph0JKVOk8q",
+      "walking_windows": 1,
+      "heading_median_deg": 10.244586655660864,
+      "path_net_ratio": 1.1184497609457889,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wt8n-4XzZxS_daJM-oZiE7RPArdIMrHX",
+      "walking_windows": 2,
+      "heading_median_deg": 5.523762551302919,
+      "path_net_ratio": 1.173125721011528,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wta4PcYCd4Kfjw_DuB8Bd-dO2Du3ZcnN",
+      "walking_windows": 16,
+      "heading_median_deg": 48.86683989245053,
+      "path_net_ratio": 1.4169104697949435,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "wweXnLBKNzbCxRHgq6frkOOGKxM4zJ4A",
+      "walking_windows": 29,
+      "heading_median_deg": 11.348817830620108,
+      "path_net_ratio": 1.5671918036886527,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "x3XYa59SAGo-tWQwbLiZj3cinp9BcxPU",
+      "walking_windows": 25,
+      "heading_median_deg": 35.29704308947682,
+      "path_net_ratio": 1.7826858344236096,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "x6NrEpjKMLZGnjvX90q6YJv4_WCqBWhp",
+      "walking_windows": 11,
+      "heading_median_deg": 54.279108900920654,
+      "path_net_ratio": 1.6098846990362448,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xNMY9hR9X0LQyt6FeDLAgMtl6Z8WfDHZ",
+      "walking_windows": 2,
+      "heading_median_deg": 27.698928411403948,
+      "path_net_ratio": 1.3666645118710472,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xQgMSVOoFpzRO1uVZV-5w4MO2uaG7s6j",
+      "walking_windows": 8,
+      "heading_median_deg": 43.94664687044576,
+      "path_net_ratio": 1.5756043933833934,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xTGvmcjzDX2cgYhUThR3KSsZIM1s5fCR",
+      "walking_windows": 21,
+      "heading_median_deg": 10.975549564724165,
+      "path_net_ratio": 1.3034531265874107,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xY8toV8mKYLyEBJ4guhdJbYjJ9mCundm",
+      "walking_windows": 2,
+      "heading_median_deg": 8.52186045505489,
+      "path_net_ratio": 1.0659312869464062,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xcYGnrtBHdZpXbTM6CDF6uesDhndyJMe",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xnKsFF3HurcEaPZ9og818sQMEzZlQDhV",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xowZ4XVruB_wP4WssRYa0U0f5eyM_oMC",
+      "walking_windows": 1,
+      "heading_median_deg": 19.776746112266498,
+      "path_net_ratio": 1.0992698523975688,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xwZZW1hxuo6gpcU5Zpe6pkhe99i7YmI_",
+      "walking_windows": 5,
+      "heading_median_deg": 27.52791012661849,
+      "path_net_ratio": 1.613747902724028,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "xzZE8IX_uFMn4TDczrDP_jFNKQTYbvob",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "y-W7aubs2gI5x5AioURb0dPfr9qWveYC",
+      "walking_windows": 29,
+      "heading_median_deg": 71.3503070566942,
+      "path_net_ratio": 1.2165398587516036,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "y7ZkdaEW1YnMP0T-_9fNfRtx7p9Cu2vI",
+      "walking_windows": 24,
+      "heading_median_deg": 15.969531616418983,
+      "path_net_ratio": 1.9359105680743975,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "y9FMchN_WFT0sKOUar9WcrUoiKHQwD4U",
+      "walking_windows": 16,
+      "heading_median_deg": 14.792388198678278,
+      "path_net_ratio": 1.3333294608715232,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "yGcmWEL64jMkK-ic2NWpFK4cpsCoJ8pN",
+      "walking_windows": 31,
+      "heading_median_deg": 28.909664553518258,
+      "path_net_ratio": 3.02672507172551,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "yKMdFKTo1-u2b66AKlu6m623h5WorZFj",
+      "walking_windows": 21,
+      "heading_median_deg": 124.24236597919887,
+      "path_net_ratio": 1.6115085573197891,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "yNWbdxXPRJn2IjrMuqTwbBCYQBkoAyVD",
+      "walking_windows": 28,
+      "heading_median_deg": 17.6662692031918,
+      "path_net_ratio": 1.7397819130695886,
+      "static_steps": 4,
+      "static_world_median_m": 0.48071115023838984,
+      "static_camera_median_m": 0.28111253093304006
+    },
+    {
+      "session_id": "yQ5Ij3w49RMUxxIai6ZVsvPHssZJ13FO",
+      "walking_windows": 15,
+      "heading_median_deg": 14.523825878019347,
+      "path_net_ratio": 1.4925367118056623,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "yRCAOvT7AcXjFYExZn-E4PhlLYO4654G",
+      "walking_windows": 4,
+      "heading_median_deg": 9.048267263937142,
+      "path_net_ratio": 1.0776905073313021,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "yUe452gYQOrn5b4BzV1tzgDxW3T0JWE_",
+      "walking_windows": 27,
+      "heading_median_deg": 21.157886875182363,
+      "path_net_ratio": 1.4409157704461044,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "z295IF4707WrgUqFKeTZWxsvDp_6JY00",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "z5iYpzTS2u7i5lehVMuGQPaZucm7aRyp",
+      "walking_windows": 14,
+      "heading_median_deg": 25.746779270219776,
+      "path_net_ratio": 1.5570001161087328,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zKsJQMv6IV6seRnaYa_gp6fYkiKFYR3h",
+      "walking_windows": 7,
+      "heading_median_deg": 59.03919226886296,
+      "path_net_ratio": 1.1801816583554432,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zQ-VwwU4xm4xIXgq_ft51BKRoJruASBa",
+      "walking_windows": 8,
+      "heading_median_deg": 51.478912700753064,
+      "path_net_ratio": 1.0833465920028154,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zTQeHx40GP76j6Nerv3kzTaR52dEfQ3j",
+      "walking_windows": 13,
+      "heading_median_deg": 39.28383468379738,
+      "path_net_ratio": 1.4631888906992527,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zY36WhUkV1AOl_aqxxBofB0_ash1nr7p",
+      "walking_windows": 14,
+      "heading_median_deg": 83.45402545354548,
+      "path_net_ratio": 1.6933250797825679,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zgbjPOUlcKWdKRzwa40PKpNYQqdM3rTI",
+      "walking_windows": 22,
+      "heading_median_deg": 33.49176490931016,
+      "path_net_ratio": 1.6363658882725813,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zis8Rpau1eqFncWiOgLfarbbFMzIBBjs",
+      "walking_windows": 24,
+      "heading_median_deg": 63.67212292729943,
+      "path_net_ratio": 1.552613215526383,
+      "static_steps": 8,
+      "static_world_median_m": 0.35298621922613393,
+      "static_camera_median_m": 0.2353567664092161
+    },
+    {
+      "session_id": "zjjsAoWh9z326KWr0Mp_1pwN0UoPvO_p",
+      "walking_windows": 2,
+      "heading_median_deg": 31.260496085453333,
+      "path_net_ratio": 1.036884275430809,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "znCVhOUdd8pEQSoTCgTwX_2glfBKncwW",
+      "walking_windows": 0,
+      "heading_median_deg": null,
+      "path_net_ratio": null,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zwFpi237Mq1QQNfIdljxBeck50WxNNqQ",
+      "walking_windows": 8,
+      "heading_median_deg": 8.12336033068539,
+      "path_net_ratio": 1.375501646677352,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    },
+    {
+      "session_id": "zy2XqqEo8pJc2qHyRvJwUrQkbCnDe3yd",
+      "walking_windows": 18,
+      "heading_median_deg": 19.819003234074053,
+      "path_net_ratio": 1.985807677447255,
+      "static_steps": 0,
+      "static_world_median_m": null,
+      "static_camera_median_m": null
+    }
+  ]
+}

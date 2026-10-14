@@ -75,7 +75,7 @@ from tools.download_sanpo_valid_streams import BASE_PREFIX
 
 DEFAULT_DATASET = PROJECT_ROOT / "dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_official"
 AUDIT = PROJECT_ROOT / "simulation/datasets/sanpo/session_audit.json"
-POSE_CACHE = PROJECT_ROOT / "data/sanpo_poses"
+POSE_CACHE = PROJECT_ROOT / "data/sanpo_poses_fixed"
 STEP_S = 0.2
 STRIDE = 3
 LEGACY_HALF_FOV = 35.0
@@ -91,7 +91,7 @@ def session_poses(sid: str) -> list[EgoPose]:
     POSE_CACHE.mkdir(parents=True, exist_ok=True)
     path = POSE_CACHE / f"{sid}.csv"
     if not path.exists():
-        path.write_bytes(fetch(object_url(f"{BASE_PREFIX}/{sid}/camera_head/camera_poses.csv")))
+        path.write_bytes(fetch(object_url(f"{BASE_PREFIX}/{sid}/camera_head/fixed_camera_poses.csv")))
     return sanpo_session_poses(list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8")))))
 
 
