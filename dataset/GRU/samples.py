@@ -112,6 +112,35 @@ def _stride(frame_idx: np.ndarray) -> int:
     return int(values[np.argmax(counts)])
 
 
+def history_features(track: dict[int, tuple], first_seen: int, frame_idx: int,
+                     history: int = DEFAULT_HISTORY, stride: int = 1) -> np.ndarray:
+    """
+    [history, N_FEATURES] inputs for one object at frame_idx. `track` maps
+    frame_idx -> (confidence, bearing_deg, distance_m, bbox_area_px,
+    velocity_ms) for the frames it was observed in. This is the one encoder
+    both the dataset and the runtime predictor
+    (src/threat_engine/priority.py) call, so training and inference can't drift.
+    """
+    x = np.zeros((history, N_FEATURES), dtype=np.float32)
+    prev = None
+    for k in range(history):
+        f = frame_idx - (history - 1 - k) * stride
+        if f not in track:
+            continue
+        conf, bearing, dist, area, vel = track[f]
+        if prev is None:
+            d_dist = d_bearing = 0.0
+        else:
+            gap = k - prev[0]
+            d_dist = (dist - prev[1]) / gap
+            d_bearing = (bearing - prev[2]) / gap
+        age = min((f - first_seen) / stride, 30.0)
+        x[k] = (1.0, dist / 10, vel / 5, bearing / 35, d_dist, d_bearing / 10,
+                conf, np.log1p(max(area, 0.0)) / 15, age / 30)
+        prev = (k, dist, bearing)
+    return x
+
+
 def session_samples(
     raw: pd.DataFrame,
     session_id: str,
@@ -148,24 +177,7 @@ def session_samples(
             g = g.nsmallest(max_objects, "distance_m")
         tids = g["track_id"].tolist()
 
-        x = np.zeros((len(tids), history, N_FEATURES), dtype=np.float32)
-        for i, tid in enumerate(tids):
-            track, prev = obs[tid], None
-            for k in range(history):
-                f = frame_idx - (history - 1 - k) * stride
-                if f not in track:
-                    continue
-                conf, bearing, dist, area, vel = track[f]
-                if prev is None:
-                    d_dist = d_bearing = 0.0
-                else:
-                    gap = k - prev[0]
-                    d_dist = (dist - prev[1]) / gap
-                    d_bearing = (bearing - prev[2]) / gap
-                age = min((f - first_seen[tid]) / stride, 30.0)
-                x[i, k] = (1.0, dist / 10, vel / 5, bearing / 35, d_dist, d_bearing / 10,
-                           conf, np.log1p(max(area, 0.0)) / 15, age / 30)
-                prev = (k, dist, bearing)
+        x = np.stack([history_features(obs[tid], first_seen[tid], frame_idx, history, stride) for tid in tids])             if tids else np.zeros((0, history, N_FEATURES), dtype=np.float32)
 
         hits = arrivals.get(frame_idx, {})
         tte = np.array([hits.get(tid, -1) for tid in tids], dtype=np.int64)

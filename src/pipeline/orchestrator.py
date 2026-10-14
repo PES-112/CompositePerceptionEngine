@@ -1,6 +1,17 @@
 """
 orchestrator.py
 ================
+Two runtime chains, one processed frame at a time:
+
+  v2 (the design, docs/architecture.md §5)  V2Pipeline.step(): Stage-1 rows
+     (+ camera pose) -> src.threat_engine (Kalman fusion, safety envelope,
+     fused priority, announcement manager) -> narration. Stateful: one
+     V2Pipeline per walk.
+  v1 (kept as the replay baseline)          process_frame(): K0 routing ->
+     cognitive stub -> PhysicsVerification -> narration. Stateless.
+
+The rest of this docstring describes the v1 chain.
+
 The one thing that did not exist anywhere in the repo before this: a single
 function that runs one processed frame through every runtime component that
 has been built — Threat Prioritizer -> (stub) Cognitive Layer -> Physics
@@ -36,6 +47,7 @@ from src.physics_verification.physics_verification import (
     PhysicsVerification,
     SemanticEval,
 )
+from src.threat_engine import EgoPose, EngineFrame, SceneContext, ThreatEngine
 from src.threat_prioritizer import DEFAULT_REFLEX_TTC_S, ThreatFrame
 
 
@@ -95,6 +107,36 @@ def process_frames(
     ]
 
 
+# ── v2 ───────────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class V2FrameResult:
+    frame: EngineFrame
+    narrator_event: NarratorEvent | None
+    narration: NarrationOutput | None
+
+    @property
+    def has_alert(self) -> bool:
+        return self.narrator_event is not None
+
+
+class V2Pipeline:
+    """The v2 threat engine plus narration. One instance per walk: tracks and cooldowns carry over."""
+
+    def __init__(self, narration: NarrationPipeline, engine: ThreatEngine | None = None, *,
+                 target_lang: str = "en"):
+        self.narration = narration
+        self.engine = engine or ThreatEngine()
+        self.target_lang = target_lang
+
+    def step(self, frame_idx: int, t: float, rows: list[dict], pose: EgoPose | None = None,
+             contexts: dict[str, SceneContext] | None = None) -> V2FrameResult:
+        frame = self.engine.step(frame_idx, t, rows, pose, contexts)
+        event = frame.narrator_event()
+        out = self.narration.process(event, target_lang=self.target_lang) if event else None
+        return V2FrameResult(frame, event, out)
+
+
 # ── Self-check ───────────────────────────────────────────────────────────────
 
 def _demo() -> None:
@@ -145,6 +187,18 @@ def _demo() -> None:
     result = process_frame(ignore_frame, narration)
     assert not result.has_alert
     assert result.narration is None
+
+    # v2: a person walking straight at the camera. The fused track must raise
+    # an override on the critical lane; a bench off to the side must not.
+    v2 = V2Pipeline(narration)
+    results = [v2.step(k, 0.2 * k, [
+        row(frame_idx=k, track_id="p", **{"class": "person"}, bearing_deg=0.0, distance_m=6.0 - 0.45 * k),
+        row(frame_idx=k, track_id="b", **{"class": "bench"}, bearing_deg=40.0, distance_m=3.0),
+    ]) for k in range(12)]
+    overrides = [r for r in results if r.narrator_event and r.narrator_event.is_override]
+    assert overrides and overrides[0].narrator_event.track_id == "p"
+    assert overrides[0].narration.lane == "critical"
+    assert not any(r.narrator_event and r.narrator_event.track_id == "b" for r in results)
 
     print("orchestrator.py self-check OK")
 
