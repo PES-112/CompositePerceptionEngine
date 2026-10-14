@@ -335,6 +335,17 @@ def load_dataset(dataset_dir: Path, splits: tuple[str, ...] = SPLITS,
                       for split in splits}
 
 
+def truncate_history(samples: list[dict], steps: int) -> list[dict]:
+    """Copies of the samples with all but the last `steps` history steps blanked (present = 0), for history ablations."""
+    out = []
+    for s in samples:
+        x = s["x"].copy()
+        if steps < x.shape[1]:
+            x[:, : x.shape[1] - steps] = 0.0
+        out.append({**s, "x": x})
+    return out
+
+
 def arrival_bins(tte: np.ndarray, n_bins: int, horizon: int = HORIZON_FRAMES) -> np.ndarray:
     """Arrival-time class per object: 0..n_bins-1 = which slice of the horizon it arrives in, n_bins = not within it."""
     width = -(-horizon // n_bins)   # ceil

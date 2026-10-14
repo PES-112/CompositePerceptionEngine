@@ -32,7 +32,7 @@ from typing import Protocol
 import numpy as np
 
 from src.perception_stack.physics import class_severity
-from src.threat_engine.envelope import CONE_HALF_ANGLE_DEG
+from src.threat_engine.envelope import CONE_HALF_ANGLE_DEG, CORRIDOR_WIDTH_M, half_width
 from src.threat_engine.fusion import FusedTrack
 
 SEVERITY_GAMMA = 0.25        # bus 13.1 → 1.9×, car 4.6 → 1.5×, stop sign 0.19 → 0.66× a person
@@ -110,17 +110,32 @@ def rank(tracks: list[FusedTrack], arrivals: dict[str, Arrival], *,
 class PhysicsArrivalPredictor:
     """
     No learned model: P(arrive) is a sigmoid of how far inside the horizon the
-    fused relative path enters the hazard zone. This is the 'cone + TTC' rule on
-    fused tracks, and the fallback whenever no GRU checkpoint is loaded.
+    fused relative path enters the hazard zone — the walking corridor (default;
+    the label since 2026-10-15: 0 < forward <= hazard_m, |lateral| <= corridor
+    half-width + object half-width) or the v1 cone. The fallback whenever no
+    GRU checkpoint is loaded.
     """
 
     def __init__(self, hazard_m: float = HAZARD_M, horizon_s: float = HORIZON_S,
-                 softness_s: float = PHYSICS_SOFTNESS_S):
+                 softness_s: float = PHYSICS_SOFTNESS_S, zone: str = "corridor",
+                 width_m: float = CORRIDOR_WIDTH_M, step_s: float = 0.2):
         self.hazard_m, self.horizon_s, self.softness_s = hazard_m, horizon_s, softness_s
+        self.zone, self.width_m, self.step_s = zone, width_m, step_s
+
+    def _corridor_entry(self, t: FusedTrack) -> float | None:
+        steps = np.arange(0.0, self.horizon_s * 1.25 + 1e-9, self.step_s)
+        lat = t.lateral_m + t.rel_velocity[0] * steps
+        fwd = t.forward_m + t.rel_velocity[1] * steps
+        inside = (fwd > 0) & (fwd <= self.hazard_m) & (np.abs(lat) <= self.width_m / 2 + half_width(t.class_name))
+        hit = np.nonzero(inside)[0]
+        return float(steps[hit[0]]) if len(hit) else None
 
     def predict(self, frame_idx: int, tracks: list[FusedTrack]) -> dict[str, Arrival]:
         out = {}
         for t in tracks:
+            if self.zone == "corridor":
+                self._finish(out, t, self._corridor_entry(t))
+                continue
             tz = t.time_to_zone(self.hazard_m)
             if tz is not None:
                 # The label counts arrival inside the forward cone only, so the entry point must be in it.
@@ -128,13 +143,15 @@ class PhysicsArrivalPredictor:
                 fwd = t.forward_m + t.rel_velocity[1] * tz
                 if fwd <= 0 or abs(math.degrees(math.atan2(lat, fwd))) > CONE_HALF_ANGLE_DEG:
                     tz = None
-            if tz is None:
-                out[t.track_id] = Arrival(0.0, self.horizon_s * 1.25)
-                continue
-            z = min(50.0, (tz - self.horizon_s) / self.softness_s)   # far-future entries: p -> 0 without overflow
-            p = 1.0 / (1.0 + math.exp(z))
-            out[t.track_id] = Arrival(p, min(tz, self.horizon_s * 1.25))
+            self._finish(out, t, tz)
         return out
+
+    def _finish(self, out: dict[str, Arrival], t: FusedTrack, tz: float | None) -> None:
+        if tz is None:
+            out[t.track_id] = Arrival(0.0, self.horizon_s * 1.25)
+            return
+        z = min(50.0, (tz - self.horizon_s) / self.softness_s)   # far-future entries: p -> 0 without overflow
+        out[t.track_id] = Arrival(1.0 / (1.0 + math.exp(z)), min(tz, self.horizon_s * 1.25))
 
 
 class GRUArrivalPredictor:

@@ -31,7 +31,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from dataset.GRU.samples import N_CLASSES, N_FEATURES, collate, load_dataset
+from dataset.GRU.samples import N_CLASSES, N_FEATURES, collate, load_dataset, truncate_history
 from models.GRU.evaluate import evaluate_samples, write_report
 from models.GRU.registry import ARCHS, RUN_ROOTS, build_model
 
@@ -53,6 +53,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--time-bins", type=int, default=0,
                    help="0 = one yes/no encounter output; K > 0 = arrival-time output over K slices of the horizon "
                         "plus 'not within it', so objects can be ranked by how soon they arrive.")
+    p.add_argument("--history-steps", type=int, default=0,
+                   help="Ablation: blank all but the last N history steps (0 = use the dataset's full history).")
     p.add_argument("--hidden", type=int, default=64)
     p.add_argument("--gru-layers", type=int, default=1)
     p.add_argument("--dropout", type=float, default=0.1)
@@ -193,6 +195,8 @@ def main() -> None:
 
     for fold in folds:
         manifest, samples = load_dataset(args.dataset, fold=fold)
+        if args.history_steps:
+            samples = {part: truncate_history(v, args.history_steps) for part, v in samples.items()}
         print(f"{args.arch} on {manifest['name']}" + (f" fold {fold}" if fold is not None else "") + ": "
               + ", ".join(f"{part} {len(manifest['split'][part])} sessions / {len(v)} frames"
                           for part, v in samples.items()), flush=True)

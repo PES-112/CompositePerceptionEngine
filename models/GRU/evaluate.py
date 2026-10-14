@@ -264,6 +264,9 @@ def main() -> None:
     model.to(args.device)
 
     manifest, splits = load_dataset(args.dataset or Path(cfg["dataset"]), splits=("test",), fold=cfg.get("fold"))
+    if cfg.get("history_steps"):
+        from dataset.GRU.samples import truncate_history
+        splits = {part: truncate_history(v, cfg["history_steps"]) for part, v in splits.items()}
     if manifest["source"]["fingerprint"] != cfg["dataset_fingerprint"] or manifest["split"] != cfg["split"]:
         raise SystemExit(f"{manifest['name']} is not the dataset this run was trained on ({cfg['dataset_name']})")
 

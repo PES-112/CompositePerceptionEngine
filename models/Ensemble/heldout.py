@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from dataset.GRU.samples import arrival_bins, load_dataset
+from dataset.GRU.samples import arrival_bins, load_dataset, truncate_history
 from evaluation.kinetic_ablation import HORIZON_FRAMES
 from models.Ensemble.ensemble import (COMPONENTS, FEATURES, _split, _table, features, fit_softmax,
                                       predict_logits, rank_average)
@@ -77,7 +77,9 @@ def main() -> None:
             model, cfg = load_run(d)
             if cfg["dataset_fingerprint"] != manifest["source"]["fingerprint"] or cfg["split"] != manifest["split"]:
                 raise SystemExit(f"{d} was not trained on {manifest['name']}")
-            outputs[comp].append((predict(model, val, "cpu"), predict(model, test, "cpu")))
+            k = cfg.get("history_steps") or 0
+            v, t = (truncate_history(val, k), truncate_history(test, k)) if k else (val, test)
+            outputs[comp].append((predict(model, v, "cpu"), predict(model, t, "cpu")))
     seeds = min(len(v) for v in outputs.values())
 
     def comp_scores(comp: str, k: int, part: int, samples: list[dict]):

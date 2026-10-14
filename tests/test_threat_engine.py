@@ -136,10 +136,18 @@ class EnvelopeTests(unittest.TestCase):
         for v in (0.0, -1.0, 0.1):
             self.assertIsNone(envelope.check(track(distance_m=0.5, forward_m=0.5, closing_speed_ms=v)))
 
-    def test_outside_cone_or_behind_never_fires(self):
-        self.assertIsNone(envelope.check(track(bearing_deg=45.0, distance_m=1.0, closing_speed_ms=3.0)))
+    def test_outside_corridor_or_behind_never_fires(self):
+        # Passing beside the walker: 1.5 m to the side, closing but not moving sideways.
+        self.assertIsNone(envelope.check(track(lateral_m=1.5, forward_m=0.8, distance_m=1.7, closing_speed_ms=3.0,
+                                               rel_velocity=(0.0, -3.0))))
         self.assertIsNone(envelope.check(track(forward_m=-1.0, distance_m=1.0, closing_speed_ms=3.0)))
-        self.assertIsNotNone(envelope.check(track(bearing_deg=29.0, distance_m=1.0, closing_speed_ms=3.0)))
+        # Inside the 1.5 m envelope corridor (0.75 + 0.25 person half-width).
+        self.assertIsNotNone(envelope.check(track(lateral_m=0.9, forward_m=0.6, distance_m=1.08, closing_speed_ms=3.0)))
+
+    def test_object_crossing_into_the_path_fires(self):
+        # 2 m to the side now, moving 2 m/s toward the path: in the corridor by the time it arrives.
+        crossing = track(lateral_m=2.0, forward_m=0.5, distance_m=2.06, closing_speed_ms=2.2, rel_velocity=(-2.0, -0.5))
+        self.assertIsNotNone(envelope.check(crossing))
 
     def test_unconfirmed_never_fires_and_short_coast_still_does(self):
         self.assertIsNone(envelope.check(track(confirmed=False, distance_m=0.5, closing_speed_ms=3.0)))
