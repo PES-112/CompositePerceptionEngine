@@ -76,7 +76,7 @@
     "bench"
   ],
   "name": "sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w1.5_d3_h13",
-  "created": "2026-10-14",
+  "created": "2026-10-17",
   "resplit_from": "sanpo_real_462_tracked_d3_h8_current_m32_f5_s0",
   "split_source": "simulation\\datasets\\sanpo\\official_split.json",
   "stats": {
@@ -84,28 +84,28 @@
       "sessions": 252,
       "frames": 6593,
       "objects": 14517,
-      "positive_rate": 0.098,
-      "sessions_with_encounter": 67,
-      "frames_with_encounter": 1262,
-      "positive_tracks": 275
+      "positive_rate": 0.0815,
+      "sessions_with_encounter": 59,
+      "frames_with_encounter": 1194,
+      "positive_tracks": 233
     },
     "val": {
       "sessions": 41,
       "frames": 988,
       "objects": 2027,
-      "positive_rate": 0.224,
-      "sessions_with_encounter": 10,
-      "frames_with_encounter": 294,
-      "positive_tracks": 68
+      "positive_rate": 0.1954,
+      "sessions_with_encounter": 9,
+      "frames_with_encounter": 283,
+      "positive_tracks": 59
     },
     "test": {
       "sessions": 71,
       "frames": 2175,
       "objects": 4721,
-      "positive_rate": 0.193,
-      "sessions_with_encounter": 22,
-      "frames_with_encounter": 655,
-      "positive_tracks": 144
+      "positive_rate": 0.1608,
+      "sessions_with_encounter": 21,
+      "frames_with_encounter": 625,
+      "positive_tracks": 125
     }
   },
   "split": {
