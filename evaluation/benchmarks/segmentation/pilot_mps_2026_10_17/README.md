@@ -15,7 +15,11 @@ s/iter is the median after 5 warm-up iterations; peak memory is `torch.mps.drive
 \* Projected for the full split: 21,394 train images (11,691 human + 9,703 propagated) and 3,246 val images
 per epoch (training + one val pass). Patience 10 can stop earlier.
 
-**Choice (declared before training): yolo26s-sem, imgsz 640, batch 8.** Rule: the largest config whose
-projected run is practical on this laptop, s over n, then larger imgsz. s@768 (~100 h worst case, memory-bound
-at batch 8, no per-image gain at batch 4) is not; s@640 (~45 h) is. Cost: thinner curb/stairs edges than the
-docstring's 1024 lab-server plan; reported via curb/stairs boundary F.
+**Superseded choice:** yolo26s-sem @640 b8, 40 epochs. Started, reached 2 epochs (val mIoU 0.550, 0.555;
+110 and 144 min per epoch, slowed by iCloud syncing the data folder), then stopped.
+
+**Choice (declared before training): yolo26n-sem, imgsz 640, batch 8, 20 epochs, patience 5** (~13 h at
+0.65 h/epoch). Reasons: the ~12 h training budget, which no config meets at 40 epochs, so epochs are capped
+instead; n is the model with a measured iPhone latency (YOLO26n-sem 4.9 ms); it is fine-tuned from Cityscapes
+weights. yolo26s-sem @640 is a follow-up only if test scores show the model is the bottleneck (high
+false-safe rate or weak curb/stairs boundary F).
