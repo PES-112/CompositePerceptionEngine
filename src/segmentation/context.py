@@ -43,6 +43,8 @@ MIN_GROUND_PX = 5
 BOUNDARY_SHARE = 0.15           # both walkable and unsafe ground at least this share -> near a boundary
 CURB_SHARE = 0.10
 MAX_EDGE_M = 10.0
+APPROACH_MS = 0.3               # closing on the walker's centre line at least this fast -> approaching the path
+APPROACH_STEPS = 3              # over the last 3 steps (0.6 s at 5 Hz)
 GROUND = np.array(sorted(GROUND_CLASSES), dtype=np.uint8)
 
 
@@ -148,6 +150,25 @@ def scene_frame(class_map: np.ndarray, depth: np.ndarray, objects: list[ObjectRe
             other_surface=walker_ok and surface in (ROAD, NON_WALKABLE),
         )
     return out
+
+
+def approach_speed(distance_m: np.ndarray, bearing_deg: np.ndarray, step_s: float = 0.2) -> float:
+    """
+    How fast an object closes on the walker's centre line (m/s, positive =
+    approaching), over the last APPROACH_STEPS steps: one value per step,
+    oldest first, NaN where the track wasn't observed. The lateral offset is
+    distance · sin(bearing) in the camera frame, so head turns count as
+    motion; the engine's fused tracks have a ground-plane lateral speed for
+    this instead.
+    """
+    d = np.asarray(distance_m, float)[-(APPROACH_STEPS + 1):]
+    b = np.asarray(bearing_deg, float)[-(APPROACH_STEPS + 1):]
+    seen = np.nonzero(np.isfinite(d) & np.isfinite(b))[0]
+    if seen.size < 2:
+        return 0.0
+    lateral = np.abs(d * np.sin(np.radians(b)))
+    i, j = seen[0], seen[-1]
+    return float((lateral[i] - lateral[j]) / ((j - i) * step_s))
 
 
 def flat_ground(class_map: np.ndarray) -> np.ndarray:

@@ -47,6 +47,7 @@ CompositePerceptionEngine/
 │   ├── progress.md                  # Status, key results with numbers, slide order, Q&A numbers
 │   ├── pending_work.md              # Prioritized backlog (P0 data correctness → P5 paper)
 │   ├── methodology.md               # Paper-ready methods + LLM paper-drafting prompts
+│   ├── paper_draft.md               # Paper text, final vs pending results (with owners), figure list
 │   ├── ablation_guide.md            # Stage-1 streaming, K0 ablation, VLM referee + human calibration run guide
 │   ├── related_work.md              # Verified citations by component
 │   ├── sanpo_dataset.md             # SANPO layout, audited camera facts + official split, intake, server latency, gap analysis
@@ -55,7 +56,7 @@ CompositePerceptionEngine/
 ├── src/
 │   ├── perception_stack/            # YOLO26n v3 + ByteTrack + depth sampling, physics (severity, pinhole bearing, K0)
 │   ├── threat_engine/               # v2: fusion.py (Kalman), envelope.py, priority.py (GRU/physics), announcer.py, engine.py
-│   ├── segmentation/                # v2 §6.3: labels.py (SANPO 31 -> 8 walkable classes), context.py (SceneContext per track, edge ahead)
+│   ├── segmentation/                # v2 §6.3: labels.py (SANPO 31 -> 8 walkable classes), context.py (SceneContext per track, edge ahead), edge_alert.py ("Curb ahead." rule)
 │   ├── pipeline/                    # orchestrator.py — V2Pipeline (v2 + narration) and the v1 process_frame baseline
 │   ├── narration/                   # Scripted templates (distance buckets, all_phrases), phrase-table translation, TTS
 │   ├── threat_prioritizer/          # v1 baseline: ThreatEvent contract and K0 routing
@@ -81,7 +82,8 @@ CompositePerceptionEngine/
 │   └── benchmarks/
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
 │       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics; oracle_context_* = segmentation on/off
-│       ├── scene_context/           # Scene-context flag vs arrival-label association
+│       ├── scene_context/           # Scene-context flag vs arrival-label association (all / train / val+test)
+│       ├── edge_alerts/             # Edge-ahead alert vs mask-implied step-offs (evaluate_edge_alerts.py)
 │       ├── segmentation/            # Walkable-surface model scores (evaluate_yolo26_sem_walkable.py)
 │       ├── gru_encounter_eval/      # GRU cross-validation runs, one report.md per run
 │       ├── ensemble_eval/           # Ensemble reports, paired differences, stacker weights
@@ -97,6 +99,7 @@ CompositePerceptionEngine/
 │   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 threat engines (--context-dir: context on/off)
 │   ├── build_sanpo_segmentation.py  # SANPO masks (237 sessions, head + chest) -> Ultralytics semantic dataset
 │   ├── build_scene_context.py       # Per-frame SceneContext for replay sessions (SANPO masks or a trained model)
+│   ├── evaluate_edge_alerts.py      # "Curb ahead." alerts over the 53 head-masked sessions at 2.5 Hz
 │   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler
 │   ├── run_perception.py            # Stage 1 on local frames
 │   ├── build_threat_events.py       # Stage-1 CSV → ThreatEvent JSONL

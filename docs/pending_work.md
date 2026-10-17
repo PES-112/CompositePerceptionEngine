@@ -18,6 +18,32 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 3. **Walkable-surface segmentation (P1.1).** Data, context, metrics and the oracle check are built;
    what's left is training YOLO26s-sem on the lab server and re-running the replay with its masks.
 
+## Integration: merge order (2026-10-17)
+
+`v2-threat-engine` is the integration branch. Four branches feed it:
+
+| Branch | Owner | Base | State |
+|---|---|---|---|
+| `v2-segmentation` | segmentation | all of `v2-threat-engine` | merges with no conflicts: **merge first** |
+| `v2-kalman-lidar` | teammate | `a5fd0aa`, **without the camera-intrinsics fix** (`4fe42a6` → `430234a`) | must merge `v2-threat-engine` and re-run |
+| `v2-seg-training` | Mac (M4) | `v2-segmentation` | training; results only |
+| `v2-narration` | narration | `v2-threat-engine` | `src/narration/` only |
+
+1. Merge `v2-segmentation` → `v2-threat-engine` (PR).
+2. `v2-kalman-lidar` merges `v2-threat-engine`.
+   - Conflicts are additive. In `tools/replay_threat_engine.py`, keep both the context arms and the
+     latency delays: one docstring paragraph each, the `SceneContext` and `KalmanArrivalPredictor`
+     imports, `session_contexts()` and `load_latencies()`, `--context-dir` and `--latency-*`, and
+     both `contexts` and `delays_for(...)` in the scoring loop.
+   - The docs conflicts (README, CHANGELOG, architecture, pending_work) are side-by-side sections.
+   - Then **re-run everything label-dependent on the corrected labels**: the Kalman noise fit, the
+     baseline ladder and the corridor replay (the LiDAR range check is optional and can wait). The ladder on that branch reports 20
+     test sessions with arrivals and a positive rate of 0.169; the corrected labels give 19 and
+     0.140.
+3. `v2-seg-training` merges `v2-threat-engine` before its replay step, so the model-context replay
+   uses the fitted tracker.
+4. `v2-narration` merges last; it only touches `src/narration/`, its tests and §6.6.
+
 ---
 
 ## Done on 2026-10-14 (moved to `progress.md`)
@@ -54,12 +80,16 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
      --split test`. Report mIoU, false-safe rate and curb/stairs boundary F with CIs, per camera.
    - `tools/build_scene_context.py --source <best.pt> --all-sessions` (all 41 val / 71 test sessions,
      not just the 15 with head masks), then the replay with `--context-dir`: the powered on/off test.
-   - Decide the multipliers from train sessions only if the declared ones are contradicted
-     (`evaluation/context_association.py`), and say so.
+   - ~~Decide the multipliers from train sessions only if the declared ones are contradicted.~~
+     Done 2026-10-17: near a boundary ×1.25 → ×1.0 (train-only check; methodology §4.14).
    - Stage 1 on the chest stream for the 130 chest-masked curated sessions (lab server), to get an
      oracle bound on 28 test sessions instead of 10.
-   - The "edge ahead" scripted alert ("Curb ahead.", "Stairs ahead."), and masking flat ground out
-     of `detect_unlabeled_obstacles`.
+   - Edge-ahead alert rule and its oracle evaluation: done 2026-10-17
+     (`src/segmentation/edge_alert.py`, `tools/evaluate_edge_alerts.py`). Left: play it through the
+     announcement manager as a normal-lane phrase (threat-engine owner), the phrases themselves
+     (`v2-narration`), and re-scoring with the model's masks.
+   - Mask flat ground out of `detect_unlabeled_obstacles` (live pipeline only; the replay uses
+     tracked objects).
 2. **"In my path" as a lateral corridor, not a cone.** With the real FOV the ±30° cone covers nearly
    the whole image. Use |lateral| < ~1 m on the ground plane (fusion already provides it) for the
    envelope and the label; re-run the held-out evaluation.
@@ -115,6 +145,9 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 3. Optional: stereo panning toward the object's bearing.
 
 ## P5. Paper
+
+Draft: `paper_draft.md` (2026-10-17). It holds the text, the results that are final, a status table
+of every pending result with its owner, and the figure list.
 
 1. Rewrite `methodology.md` §4 around the held-out and replay results (§5–6 already describe the
    procedures).

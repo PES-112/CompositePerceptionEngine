@@ -561,6 +561,69 @@ chest-masked sessions can't be used without re-running Stage 1 on the chest stre
   unchanged. Twenty arrivals cannot settle it; the powered test needs the trained model's masks on
   all 71 test sessions.
 
+**Revising "near a boundary", on train sessions only (2026-10-17).** The hypothesis was that the flag
+is right only for objects moving toward the walker's path. *Approaching* is a closing speed on the
+walker's centre line of at least 0.3 m/s over the last 3 steps (0.6 s). The lateral offset is
+distance · sin(bearing) in the camera frame (`context.approach_speed`). The decision rule was fixed
+before looking: keep a motion-qualified flag only if its distance-adjusted RR on train is above 1;
+otherwise make the flag neutral. On the 32 train sessions (4,121 observations,
+`scene_context/gt_train_2026_10_17/`):
+
+| Flag | share | RR, distance-adjusted |
+|---|---:|---|
+| near a boundary | 0.38 | 0.75 [0.18, 0.96] |
+| approaching (motion only) | 0.26 | 1.00 [0.76, 1.29] |
+| near a boundary and approaching | 0.09 | 0.80 [0.21, 1.15]; 0.75 [0.21, 1.48] adjusted over distance × approaching |
+
+Neither variant raises the arrival rate, so `CONTEXT_NEAR_BOUNDARY` is now **1.0**. The flag is
+still computed and reported, but carries no weight. Motion in the camera frame includes head turns;
+fused ground-plane lateral speed may separate better and is a follow-up once the fitted tracker is
+merged.
+- **Held-out check, once** (5 val + 10 test sessions, 1,561 observations,
+  `gt_val_test_2026_10_17/`): near a boundary 1.04 [0.12, 6.22], consistent with neutral.
+- **Oracle replay with the neutral weight**
+  (`threat_engine_replay/oracle_context_neutral_boundary_2026_10_17/`): GRU context on vs. off,
+  warned +0.05 [0.00, +0.07], false alerts/min +0.50 [0.00, +1.35]. Under ×1.25 the false-alert
+  change was 0.00. Both are within noise at 20 arrivals.
+
+**Edge-ahead alerts, oracle (2026-10-17).** `tools/evaluate_edge_alerts.py` runs every 6th source
+frame (2.5 Hz) of the 53 sessions with head-camera masks: 26.6 min, about 30 s per session. The
+class maps are SANPO's own masks, so this scores the rule and the edge geometry, not a model.
+
+*Rule* (`src/segmentation/edge_alert.py`, declared before the run):
+- curb, stairs or road within 5 m;
+- seen in 2 consecutive frames;
+- one alert per episode, re-armed after 2 s with no edge.
+
+*Reference: step-off.* SANPO has no annotated "stepped off the curb" event, so the reference is a
+step-off: the bottom-centre ground turns from walkable to curb, stairs or road after at least 2
+walkable frames. Warned = an alert in the 10 s before.
+
+| Step-off definition | step-offs | alerts / min | warned | median lead (s) | alerts followed by a step-off |
+|---|---:|---|---|---|---|
+| declared (any duration) | 45 | 0.79 [0.49, 1.12] | 0.29 [0.13, 0.47] | 1.2 [0.4, 2.8] | 0.48 [0.24, 0.69] |
+| sustained ≥ 2 frames (sensitivity) | 26 | 0.79 [0.49, 1.12] | 0.35 [0.14, 0.59] | 1.6 [0.8, 6.0] | 0.33 [0.12, 0.52] |
+
+- **Why the sensitivity row exists.** Under the declared definition, 20 of the 32 misses lasted
+  one frame: mask flicker at crosswalk/road boundaries, not a step. The sustained variant drops
+  these. It was added after seeing the misses and is reported only as a sensitivity check.
+- **By kind (declared).**
+  - Stairs: 3 alerts, all 3 step-offs warned.
+  - Road: 10 alerts, 42 step-offs, 24% warned.
+  - Curb: 8 alerts; the bottom-centre patch never registers curb as the walker's surface, so
+    curbs have no step-offs to score against.
+- **Misses (declared).**
+  - 11: the edge was only ever seen beyond 5 m.
+  - 8: no edge was seen in the 10 s before at all. The walker turned onto the road, or the edge
+    was outside the centre band.
+  - 12: a near edge was seen but not confirmed in 2 consecutive frames, or its episode had already
+    alerted.
+- **Not tuned.** Every session was used, test included, so the rule was not changed on these
+  numbers. Widening the band, raising the range or confirming in 1 frame would each trade
+  nuisance alerts for warned share; that choice needs a train-only sweep.
+- **Model masks.** The same tool takes a trained model (`--source <best.pt>`), which gives the
+  model-vs-oracle gap.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate
