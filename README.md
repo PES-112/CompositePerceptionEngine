@@ -98,6 +98,8 @@ CompositePerceptionEngine/
 │   ├── audit_sanpo_sessions.py      # FPS / intrinsics / official split / mask coverage for all 462 sessions
 │   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 engines; --latency-csv
 │   ├── fit_kalman_noise.py          # Fit the Kalman noise model by predictive likelihood on train sessions
+│   ├── build_session_viewer.py      # Visual check of one SANPO walk: boxes, engine scores, alerts vs. truth
+│   │                                #     (HTML viewer from session_viewer.html, written to data/viewer/)
 │   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler
 │   ├── run_perception.py            # Stage 1 on local frames
 │   ├── build_threat_events.py       # Stage-1 CSV → ThreatEvent JSONL

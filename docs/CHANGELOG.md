@@ -2,6 +2,19 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, viewer] - Session viewer for checking the engine by eye
+
+### Added
+- `tools/build_session_viewer.py` + `tools/session_viewer.html`: runs Stage 1 (YOLO26n v3 + ByteTrack +
+  SANPO depth as is) and the v2 engine (Kalman, envelope, GRU, announcer) on one SANPO walk. It
+  writes a local HTML viewer to `data/viewer/<session>/` (git-ignored) showing:
+  - every box with distance, P(arrive) and priority, plus safety overrides and the spoken phrase;
+  - the corridor ground truth (which objects enter the path within 4 s);
+  - a timeline of alerts (true / late / false) and arrivals (warned early / at arrival / missed).
+
+  Arrivals follow the replay's rule (seen at least one frame before arriving). Default: the
+  official-test walk with the most arrivals, 30 s, threshold 0.6, poses on.
+
 ## [2026-10-17, decision] - SANPO depth used as is everywhere; no iPhone LiDAR
 
 Team decision: the product's depth comes from an **external LiDAR sensor**, and the demo replays
