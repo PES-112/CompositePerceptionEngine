@@ -37,7 +37,7 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
      both `contexts` and `delays_for(...)` in the scoring loop.
    - The docs conflicts (README, CHANGELOG, architecture, pending_work) are side-by-side sections.
    - Then **re-run everything label-dependent on the corrected labels**: the Kalman noise fit, the
-     baseline ladder, the LiDAR bound and the corridor replay. The ladder on that branch reports 20
+     baseline ladder and the corridor replay (the LiDAR range check is optional and can wait). The ladder on that branch reports 20
      test sessions with arrivals and a positive rate of 0.169; the corrected labels give 19 and
      0.140.
 3. `v2-seg-training` merges `v2-threat-engine` before its replay step, so the model-context replay

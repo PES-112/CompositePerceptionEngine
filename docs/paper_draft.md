@@ -8,8 +8,8 @@ applications paper; the ASSETS version needs the listening study.
 
 **Claim policy.** The replay is open-loop: the recorded walker never heard an alert. We claim
 predictive accuracy against named baselines, precision and recall at frozen alert budgets,
-opportunity-normalised lead time, announcement stability, a depth-realism bound and measured
-on-device latency. We do **not** claim "safer", "reduces collisions", "usable by blind people" or
+opportunity-normalised lead time, announcement stability and measured on-device latency, all on
+SANPO's own depth. We do **not** claim "safer", "reduces collisions", "usable by blind people" or
 that any alert rate is acceptable.
 
 ---
@@ -24,7 +24,7 @@ that any alert rate is acceptable.
 | 6.4 | Edge-ahead alerts, oracle | final (rule not tuned) | `edge_alerts/gt_2026_10_17/`, `gt_sustained_2026_10_17/` |
 | 6.5 | Segmentation model (YOLO26s-sem) | **[PENDING: training on the M4]** | `v2-seg-training` |
 | 6.6 | Scene context with the model's masks, all 71 test sessions | **[PENDING: needs 6.5]** | `v2-seg-training` |
-| 6.7 | Depth-realism (LiDAR) bound | **[PENDING: re-run on corrected labels]** | teammate |
+| 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
 | 6.8 | On-device latency, latency-aware replay | **[PENDING: TestFlight run]** | teammate |
 | 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
 | — | Audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]** | `v2-narration` |
@@ -77,7 +77,7 @@ release labels, code and the replay harness.
      opportunity-normalised lead time (Kaplan–Meier).
   4. **Scene context from walkable-surface segmentation**, with an oracle bound from SANPO's masks.
      It includes a negative result: the "near a boundary" rule points the wrong way.
-  5. **On-device measurement** on an iPhone 17 Pro Max, and a depth-realism bound.
+  5. **On-device measurement** on an iPhone 17 Pro Max.
 
 ## 2. Related work
 
@@ -274,10 +274,12 @@ the replay with `--context-dir` over all 71 test sessions: context on vs. off at
 paired. Repeat the edge-alert evaluation with the model's masks, against the oracle numbers in
 §6.4.
 
-### 6.7 Depth-realism bound · 6.8 On-device latency · 6.9 Announcement order
+### 6.7 Optional: phone-LiDAR range · 6.8 On-device latency · 6.9 Announcement order
 
-**[PENDING: teammate.]** Each comes with its own `methodology.md` section on `v2-kalman-lidar`:
-- LiDAR-degraded depth: Δ for every headline metric;
+All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each comes with its own
+`methodology.md` section on `v2-kalman-lidar`:
+- optional, supplementary: SANPO depth cut to the phone LiDAR's ~5 m range, showing how much of
+  each headline metric survives. It's a what-if for a phone build, not part of the main results;
 - iPhone 17 Pro Max median / p95 / p99 by stage, a sustained run with the thermal timeline, and the
   latency-aware replay;
 - VLM referee protocol v2: order swap, text-only control, human ceiling, Gwet's AC1 gate.
@@ -303,8 +305,9 @@ paired. Repeat the edge-alert evaluation with the model's masks, against the ora
 
 - **Open-loop replay**, not deployment. Warned arrivals are not avoided ones (Dauner et al.). No
   user study in the workshop version.
-- **Depth** comes from SANPO's stereo, not phone LiDAR; it is an upper bound, partly measured by
-  §6.7. Labels and inputs share one depth source.
+- **Depth** comes from SANPO's stereo throughout. A phone's LiDAR reaches only ~5 m, so the
+  results describe a system with SANPO-quality depth. The optional §6.7 check shows what a 5 m
+  limit would cost. Labels and inputs share one depth source.
 - **Head-mounted camera.** A phone would more likely be chest-worn. Chest masks exist for 130
   sessions but would need Stage 1 re-run on that stream.
 - **Ego-motion.** Camera poses pass trajectory-level checks, but the object-level reconciliation is
