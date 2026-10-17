@@ -9,7 +9,7 @@ Fill ios/CPETiming/ with what the timing app bundles (all git-ignored):
                                          frames, padded to [N_obj=32, T, F] float32 / [32] int32,
                                          little-endian, M frames back to back
   Resources/bundle.json                  provenance (sessions, frame objects, dataset, models)
-  Models/CPEDetector.mlpackage           --export: YOLO26n v3 (FP16 Core ML), via export_yolo26n_edge.py
+  Models/CPEDetector.mlpackage           --export: YOLO26n v3 (FP16 Core ML), via the Ultralytics API
   Models/CPEArrivalGRU.mlpackage         --export: the arrival GRU, via export_gru_coreml.py
 
 The detector input is real SANPO imagery; the GRU input is real recorded
@@ -87,13 +87,36 @@ def write_gru_inputs(m: int, res: Path) -> dict:
             "objects_per_frame_mean": float(np.mean([len(s["y"]) for s in samples]))}
 
 
+def export_detector(work: Path) -> Path:
+    """
+    YOLO26n v3 -> FP16 Core ML through the Ultralytics API. Newer releases take
+    quantize=16, older ones half=True; Ultralytics logs a failed export instead of
+    raising, so a missing .mlpackage is turned into an error here.
+    """
+    from ultralytics import YOLO
+
+    work.mkdir(parents=True, exist_ok=True)
+    weights = work / "best.pt"
+    shutil.copy2(PROJECT_ROOT / "training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt", weights)
+    errors = []
+    for extra in ({"quantize": 16}, {"half": True}):
+        try:
+            out = YOLO(str(weights)).export(format="coreml", imgsz=640, device="cpu", **extra)
+        except Exception as exc:   # an unknown argument raises in some versions
+            errors.append(f"{extra}: {type(exc).__name__}: {exc}")
+            continue
+        found = [Path(out)] if out and Path(out).exists() else sorted(work.glob("*.mlpackage"))
+        if found:
+            print(f"detector exported with {extra} -> {found[0]}", flush=True)
+            return found[0]
+        errors.append(f"{extra}: export returned {out!r} and wrote no .mlpackage")
+    raise SystemExit("Core ML export of the detector failed:\n  " + "\n  ".join(errors))
+
+
 def export_models(models: Path) -> dict:
     models.mkdir(parents=True, exist_ok=True)
     py = sys.executable
-    yolo_root = PROJECT_ROOT / "models/yolo/cpe_yolo26n_hazards_v3_from_base/exports"
-    subprocess.run([py, "training/scripts/export_yolo26n_edge.py", "--formats", "coreml", "--quantize", "16",
-                    "--device", "cpu"], cwd=PROJECT_ROOT, check=True)
-    det = max(yolo_root.glob("*.mlpackage"), key=lambda p: p.stat().st_mtime)
+    det = export_detector(HERE / "build" / "detector")
     gru_dir = PROJECT_ROOT / "models/GRU/exports"
     subprocess.run([py, "training/scripts/export_gru_coreml.py", "--run", str(GRU_RUN)], cwd=PROJECT_ROOT, check=True)
     gru = gru_dir / f"cpe_gru_{GRU_RUN.name}_fp16.mlpackage"
@@ -110,7 +133,16 @@ def main() -> None:
     p.add_argument("--frames", type=int, default=300)
     p.add_argument("--gru-frames", type=int, default=600)
     p.add_argument("--export", action="store_true", help="Also export both models to Core ML (macOS/Linux).")
+    p.add_argument("--export-only", action="store_true", help="Only export the models (bundle already prepared).")
     args = p.parse_args()
+    if args.export_only:
+        info_path = HERE / "Resources" / "bundle.json"
+        info = json.loads(info_path.read_text(encoding="utf-8")) if info_path.exists() else {}
+        info["models"] = export_models(HERE / "Models")
+        info_path.parent.mkdir(exist_ok=True)
+        info_path.write_text(json.dumps(info, indent=2), encoding="utf-8")
+        print(f"models -> {HERE / 'Models'}")
+        return
 
     split = json.loads((PROJECT_ROOT / "simulation/datasets/sanpo/official_split.json").read_text(encoding="utf-8"))
     _, test = load_dataset(DATASET, splits=("test",))

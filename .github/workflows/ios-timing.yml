@@ -49,8 +49,11 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Bundle SANPO frames + GRU inputs, export both models to Core ML
-        run: python ios/CPETiming/prepare_bundle.py --frames "${{ inputs.frames || '300' }}" --export
+      - name: Bundle SANPO frames + recorded GRU inputs
+        run: python ios/CPETiming/prepare_bundle.py --frames "${{ inputs.frames || '300' }}"
+
+      - name: Export both models to Core ML
+        run: python ios/CPETiming/prepare_bundle.py --export-only
 
       - name: Keep the exported models and the numeric check
         uses: actions/upload-artifact@v4
