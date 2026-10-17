@@ -9,7 +9,8 @@ __pycache__/
 
 # Virtual Environments
 .venv/
-.venv-seg/
+.venv-seg
+.venv-seg.nosync/
 env/
 .env
 venv/
@@ -18,6 +19,8 @@ venv/
 # DO NOT COMMIT massive raw datasets, but model weights/checkpoints ARE tracked
 # regardless of size if they are part of the CPE end product (see docs/yolo_training.md)
 data/
+/data
+data.nosync/
 
 # Logs and outputs
 logs/
