@@ -1,0 +1,104 @@
+{
+  "created": "2026-10-17",
+  "dataset": "sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20",
+  "frame": "pose",
+  "fitted": {
+    "accel_std": 0.3505414247885031,
+    "static_accel_std": 0.09839552853367543,
+    "depth_base": 0.3042836812125563,
+    "depth_lin": 0.21888852506794107,
+    "depth_quad": 0.0,
+    "bearing_std_deg": 0.5508559254332193,
+    "init_speed_std": 0.851103852587968,
+    "robust_nu": 4.0,
+    "gate_nis": 60.0
+  },
+  "declared": {
+    "accel_std": 1.5,
+    "static_accel_std": 1.5,
+    "depth_base": 0.05,
+    "depth_lin": 0.0,
+    "depth_quad": 0.01,
+    "bearing_std_deg": 1.0,
+    "init_speed_std": 3.0,
+    "robust_nu": 0.0,
+    "gate_nis": 11.62
+  },
+  "trace": [
+    {
+      "robust_nu": 0.0,
+      "loglik": -4.263520582081623,
+      "evals": 100,
+      "noise": {
+        "accel_std": 0.485458540252797,
+        "static_accel_std": 0.10856572961253674,
+        "depth_base": 0.36241693670459274,
+        "depth_lin": 0.3588993292668079,
+        "depth_quad": 0.0,
+        "bearing_std_deg": 0.47035905492594593,
+        "init_speed_std": 1.07964755490564,
+        "robust_nu": 0.0,
+        "gate_nis": 11.62
+      }
+    },
+    {
+      "robust_nu": 4.0,
+      "loglik": -4.1266926676864,
+      "evals": 100,
+      "noise": {
+        "accel_std": 0.3505414247885031,
+        "static_accel_std": 0.09839552853367543,
+        "depth_base": 0.3042836812125563,
+        "depth_lin": 0.21888852506794107,
+        "depth_quad": 0.0,
+        "bearing_std_deg": 0.5508559254332193,
+        "init_speed_std": 0.851103852587968,
+        "robust_nu": 4.0,
+        "gate_nis": 60.0
+      }
+    }
+  ],
+  "scores": {
+    "declared": {
+      "train": {
+        "loglik": -6.5990618180462,
+        "updates": 10382,
+        "gated": 0.21306106723174725,
+        "nis_mean": 8.740840552511724,
+        "nis_median": 2.1687865927793153,
+        "err_1s_median_m": 3.3762579216841893,
+        "forecasts": 1654
+      },
+      "val": {
+        "loglik": -10.147026982398854,
+        "updates": 1477,
+        "gated": 0.25727826675693977,
+        "nis_mean": 17.524640204445614,
+        "nis_median": 2.66006705398353,
+        "err_1s_median_m": 1.9787012700823507,
+        "forecasts": 210
+      }
+    },
+    "fitted": {
+      "train": {
+        "loglik": -4.1266926676864,
+        "updates": 10468,
+        "gated": 0.002197172334734429,
+        "nis_mean": 4.119907373278217,
+        "nis_median": 1.5107307309648963,
+        "err_1s_median_m": 3.120512973588745,
+        "forecasts": 2461
+      },
+      "val": {
+        "loglik": -3.3717949882880522,
+        "updates": 1484,
+        "gated": 0.006064690026954178,
+        "nis_mean": 4.246793575028643,
+        "nis_median": 1.1640258051574972,
+        "err_1s_median_m": 2.159226697204021,
+        "forecasts": 344
+      }
+    }
+  },
+  "seconds": 2653
+}

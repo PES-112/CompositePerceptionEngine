@@ -12,7 +12,11 @@ Methods
     cv_last2              constant-velocity model from the last two observed steps
                           (Schöller et al., RA-L 2020), extrapolated into the zone
     cv_kalman             constant-velocity Kalman filter over the whole history
-                          (src/threat_engine/fusion.GroundTracker), extrapolated
+                          (src/threat_engine/fusion.GroundTracker, train-fitted noise),
+                          scored by P(enter the zone) over the filter's own uncertainty
+                          (src/threat_engine/kalman_arrival.py), ties by expected time
+    cv_kalman_declared    the same filter with its 2026-10-14 hand-set noise, mean
+                          state extrapolated (the point rule; before/after reference)
   learned without sequence modelling (fitted on the official train sessions)
     logreg_now            logistic regression on the current step's features + class
     gbt_now               gradient-boosted trees, same inputs
@@ -55,7 +59,8 @@ from src.threat_engine.envelope import CLASS_HALF_WIDTH_M, DEFAULT_HALF_WIDTH_M
 from models.GRU.evaluate import auroc, average_precision, baseline_scores, model_scores, per_frame, predict
 from models.GRU.registry import build_model
 from models.GRU.summarize import run_dirs
-from src.threat_engine.fusion import GroundTracker, Measurement
+from src.threat_engine.fusion import GroundTracker, Measurement, NoiseModel
+from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 AUDIT = PROJECT_ROOT / "simulation/datasets/sanpo/session_audit.json"
@@ -114,7 +119,9 @@ def rule_scores(s: dict, fx: float, width: float, zone: Zone) -> dict[str, np.nd
     x, z = X[:, -1], Z[:, -1]
     corridor = np.array([zone.lateral_ok(x[i:i + 1], z[i:i + 1], h)[0] for i, h in enumerate(halves)])
     out = {"nearest_in_corridor": -s["distance"] - np.where(corridor, 0.0, 1e3)}
-    last2, kalman = [], []
+    last2, kalman, declared = [], [], []
+    entry = KalmanArrivalPredictor(hazard_m=zone.depth, horizon_s=zone.horizon * STEP_S, width_m=zone.width,
+                                   step_s=STEP_S) if zone.kind == "corridor" else None
     for i, h in enumerate(halves):
         steps = np.nonzero(present[i])[0]
         p = np.array([x[i], z[i]])
@@ -124,21 +131,30 @@ def rule_scores(s: dict, fx: float, width: float, zone: Zone) -> dict[str, np.nd
         else:
             v = np.zeros(2)
         last2.append(extrapolate(p, v, zone, h))
-        tracker = GroundTracker()
-        track = None
-        for k in steps:
-            bearing = math.degrees(math.atan2(X[i, k], Z[i, k]))
-            track = tracker.step(k * STEP_S, [Measurement("o", s["classes"][i], float(Z[i, k]), bearing)])
-        if track:
-            t0 = track[0]
-            pk = np.array([t0.lateral_m, t0.forward_m])
-            vk = np.array(t0.rel_velocity) * STEP_S
-            kalman.append(extrapolate(pk, vk, zone, h))
-        else:
-            kalman.append(extrapolate(p, np.zeros(2), zone, h))
+        for noise, out_list in ((NoiseModel(), kalman), (NoiseModel.declared(), declared)):
+            t0 = kalman_track(X[i], Z[i], steps, s["classes"][i], noise)
+            if t0 is None:
+                out_list.append(extrapolate(p, np.zeros(2), zone, h))
+            elif out_list is kalman and entry is not None:
+                prob, expected_s = entry.entry(t0)
+                out_list.append(prob - 1e-3 * expected_s)   # in [-0.006, 1]: P(enter), ties by sooner
+            else:
+                out_list.append(extrapolate(np.array([t0.lateral_m, t0.forward_m]),
+                                            np.array(t0.rel_velocity) * STEP_S, zone, h))
     out["cv_last2"] = np.array(last2)
     out["cv_kalman"] = np.array(kalman)
+    out["cv_kalman_declared"] = np.array(declared)
     return out
+
+
+def kalman_track(X: np.ndarray, Z: np.ndarray, steps: np.ndarray, class_name: str, noise: NoiseModel):
+    """The fused track after filtering one object's observed history (camera frame), or None."""
+    tracker = GroundTracker(noise=noise)
+    track = None
+    for k in steps:
+        bearing = math.degrees(math.atan2(X[k], Z[k]))
+        track = tracker.step(k * STEP_S, [Measurement("o", class_name, float(Z[k]), bearing)])
+    return track[0] if track else None
 
 
 # ── Learned non-sequence baselines ───────────────────────────────────────────

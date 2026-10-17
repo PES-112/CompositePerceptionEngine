@@ -2,6 +2,59 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17] - Kalman noise fitted on train, Kalman arrival predictor, corridor baseline ladder, on-device timing harness, referee v2
+
+Branch `v2-kalman-lidar` (from `v2-threat-engine` a5fd0aa).
+
+### Found
+- **The fusion filter's noise model was ~10× too optimistic.** Box-median SANPO depth has a robust
+  σ ≈ 0.7 m even under 3 m and heavy tails; the declared σ = 0.05 + 0.01·d² gave a mean NIS of 17.5 on
+  validation (2 = consistent) and rejected 26% of measurements, so tracks kept restarting and fused
+  velocities were mostly noise. That was the main cause of `v2_physics` meeting no alert budget.
+- **On the corridor label, the learned models no longer beat simple baselines significantly.** GRU AUROC
+  0.875 vs nearest-in-corridor 0.851 (Δ −0.024 [−0.040, +0.002], Holm p 0.43), GBT on the current
+  step 0.865, fitted Kalman 0.862 (Δ −0.013 [−0.039, +0.024]). History length doesn't matter
+  (hist1 ≈ hist4 ≈ h8). The GRU's edge is in stability and the replay operating point, not AUROC.
+- With the fitted filter, **no-pose arms do as well or better than pose arms**: ego-motion removal stays
+  an ablation.
+- `nearest_in_corridor` in the replay depends on the tracker's positions; with the fitted (smoother)
+  filter it warns 0.05 of arrivals at `budget_5` (was 0.24).
+
+### Added
+- `src/threat_engine/fusion.py`: `NoiseModel` (fitted defaults; `NoiseModel.declared()` = the old values),
+  Student-t measurement update, class-dependent acceleration noise for static classes,
+  `FusedTrack.rel_cov` (4×4 relative covariance, optional field; interface otherwise unchanged),
+  `GroundTracker(innovations=[])` recording for fitting.
+- `src/threat_engine/kalman_arrival.py`: `KalmanArrivalPredictor`, P(enter the corridor within the
+  horizon) over 128 fixed samples of the track's covariance.
+- `tools/fit_kalman_noise.py` → `evaluation/benchmarks/kalman_noise_fit/fit_pose.json` (train-only
+  predictive-likelihood fit). `tools/compare_kalman_noise.py` → `replay_before_after_test.{md,json}`
+  (paired before/after with session-bootstrap CIs).
+- Replay arms `v2_kalman`, `v2_kalman_nopose`; report
+  `evaluation/benchmarks/threat_engine_replay/corridor_kalman_2026_10_17/`.
+- `models/GRU/benchmark.py`: `cv_kalman` is now the fitted filter scored by `KalmanArrivalPredictor`;
+  `cv_kalman_declared` keeps the old rung. Corridor ladder report under
+  `evaluation/benchmarks/baseline_ladder/sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20/`
+  (+ `ref_cv_kalman_declared/`).
+- `tools/replay_threat_engine.py`: `--latency-ms` / `--latency-csv` (latency-aware replay: warned and
+  lead use the heard time) and `--lidar-range` (see the next entry).
+- On-device timing: `training/scripts/export_gru_coreml.py` (GRU → Core ML, fixed shapes, softmax in
+  graph; graph conversion checked on Windows, saving needs macOS/Linux), `ios/CPETiming/` (SwiftUI +
+  XcodeGen app timing detector + GRU per stage with ARKit/LiDAR load, `prepare_bundle.py`,
+  `analyze_timing.py`, TestFlight how-to), `.github/workflows/ios-timing.yml` (macOS build, optional
+  TestFlight upload). Not yet run on a phone.
+- `evaluation/vlm_referee.py` protocol v2 and `docs/listening_study_plan.md` (committed separately).
+- Tests: `tests/test_kalman_lidar.py` (14). Suite: 67 pass.
+
+### Changed
+- Fusion defaults: depth σ 0.30 + 0.22·d m, acceleration σ 0.35 m/s² (static 0.098), bearing σ 0.55°,
+  initial speed σ 0.85 m/s, Student-t ν = 4, gate NIS 60. Two fusion tests now pin
+  `NoiseModel.declared()` (hard gate) or use a longer track (coasting).
+- `docs/related_work.md`: SANPO is Waghmare et al., WACV 2025; Mobilio's venue marked unconfirmed.
+- Docs: `methodology.md` §4.7 (referee v2), §4.13 (rewritten: fitted noise, results), new §4.14
+  (corridor ladder), §5.1 (timing harness, latency-aware replay); `architecture.md` §6.2, §7, §11;
+  `ablation_guide.md` §4; `README.md` structure.
+
 ## [2026-10-14, later] - Data Audit, Held-Out Results, v2 Threat Engine Built and Replayed
 
 Branch `v2-threat-engine` (from `main` after `contextual_evaluation` was fast-forwarded into it).

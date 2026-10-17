@@ -123,7 +123,7 @@ Code: `src/perception_stack/`. Training and data: `yolo_training.md`.
 v2 change: the obstacle sweep will ignore pixels that segmentation labels as walkable ground (§6.3).
 This removes the "ground ahead" pseudo-objects that dominated the encounter labels.
 
-### 6.2 Sensor fusion & tracking ✅ (ego-motion on SANPO unvalidated)
+### 6.2 Sensor fusion & tracking ✅ (noise fitted on train; ego-motion on SANPO unvalidated)
 
 | | |
 |---|---|
@@ -134,7 +134,9 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Why | Head turns currently look like every object moving sideways. Velocity is differentiated depth and is noisy. The fused priority can down-weight uncertain tracks |
 | Cost | Under 1 ms per frame |
 | Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
-| Status | Built and unit-tested. On SANPO the camera poses don't yet reconcile with box depth (§9), so the replay reports ego-motion removal as an ablation (`v2_*_nopose`) |
+| Noise model | Fitted on official-train sessions by predictive likelihood (`tools/fit_kalman_noise.py`, methodology §4.13): Student-t update (ν = 4), depth σ = 0.30 + 0.22·d m, acceleration σ 0.35 m/s² (static classes 0.098). The 2026-10-14 hand-set values assumed ~10× less depth noise and rejected 26% of measurements |
+| Uncertainty out | `FusedTrack.rel_cov` (4×4 relative position/velocity covariance) feeds the Kalman arrival predictor (`kalman_arrival.py`: P(enter the corridor) over 128 samples) |
+| Status | Built, fitted and unit-tested. Ladder: fitted Kalman ties the GRU on AUROC. Replay: −7 to −14 false alerts/min vs. the declared filter. Ego-motion removal stays an ablation: with the fitted filter, no-pose arms do as well or better (§9) |
 
 ### 6.3 Scene context: walkable-surface segmentation ⬜
 
@@ -231,9 +233,13 @@ override repeat 2 s, stale after 0.6 s; declared values). `src/threat_engine/eng
 | Segmentation | 2–5 Hz, async | must not delay perception | Not measured |
 | Narration | per announcement | ~0 ms (template + pre-rendered clip) | Template measured at ~0 ms |
 
-On-device numbers come from exporting each model to Core ML and running it on the iPhone 17 Pro Max,
-on SANPO frames. The replay then delays each alert by the measured latency ("latency-aware replay"),
-so the reported timeline matches the device. Neither step has been done yet (`pending_work.md`).
+On-device numbers come from `ios/CPETiming`. This SwiftUI timing app runs YOLO26n v3 and the
+arrival GRU (both FP16 Core ML) on bundled SANPO frames, with ARKit + LiDAR depth live. It's built by
+GitHub Actions on macOS and installed through TestFlight, so no team Mac is needed. The replay then
+delays each alert by the measured latency (`--latency-csv`, "latency-aware replay"), so the reported
+timeline matches the device. Status: the harness, the GRU export and the replay option are built.
+The phone run hasn't happened yet: it needs an Apple Developer account and the phone
+(`ios/CPETiming/README.md`).
 
 ## 8. Evaluation design
 
@@ -307,8 +313,11 @@ Open:
 | `src/pipeline/orchestrator.py` | `V2Pipeline` (v2 engine + narration) and `process_frame` (v1 baseline) |
 | `src/narration/` | Narration (§6.6). Keep; add the clip library |
 | `models/GRU/`, `models/Ensemble/`, `dataset/GRU/` | "When" component (§6.4): training, held-out evaluation (`models/Ensemble/heldout.py`), official-split datasets (`dataset/GRU/resplit.py`) |
-| `tools/audit_sanpo_sessions.py`, `tools/replay_threat_engine.py` | Data audit (§9) and the end-to-end replay (§8) |
-| `evaluation/kinetic_ablation.py`, `evaluation/vlm_referee.py` | Metric definitions and the referee, reused for v2 evaluation |
+| `tools/audit_sanpo_sessions.py`, `tools/replay_threat_engine.py` | Data audit (§9) and the end-to-end replay (§8); the replay's `--lidar-range` degrades inputs to iPhone-LiDAR quality, `--latency-csv` adds measured on-device latency |
+| `tools/fit_kalman_noise.py` | Fits the fusion noise model (§6.2) on official-train sessions |
+| `src/threat_engine/kalman_arrival.py` | Kalman arrival predictor: P(enter the corridor) over the fused track's covariance (replay arm `v2_kalman`, ladder rung `cv_kalman`) |
+| `evaluation/kinetic_ablation.py`, `evaluation/vlm_referee.py` | Metric definitions and the referee (protocol v2: numbered boxes, order swap, text-only control, AC1 / α), reused for v2 evaluation |
+| `ios/CPETiming/`, `training/scripts/export_gru_coreml.py`, `.github/workflows/ios-timing.yml` | On-device latency harness (§7) |
 
 ## 12. Open decisions
 

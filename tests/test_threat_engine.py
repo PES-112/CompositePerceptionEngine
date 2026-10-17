@@ -12,7 +12,7 @@ from models.GRU.registry import build_model
 from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
-from src.threat_engine.fusion import (EgoPose, FusedTrack, GroundTracker, Measurement, sanpo_session_poses,
+from src.threat_engine.fusion import (EgoPose, FusedTrack, GroundTracker, Measurement, NoiseModel, sanpo_session_poses,
                                       time_to_radius)
 from src.threat_engine.priority import (Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat,
                                         SceneContext, rank)
@@ -72,18 +72,21 @@ class FusionTests(unittest.TestCase):
 
     def test_missing_depth_coasts_then_drops(self):
         tracker = GroundTracker(max_misses=2)
-        for k in range(5):
-            tracker.step(k * DT, [Measurement("p", "person", 5.0 - DT * k, 0.0)])
-        out = tracker.step(5 * DT, [Measurement("p", "person", None, 0.0)])
+        for k in range(20):
+            last = tracker.step(k * DT, [Measurement("p", "person", 8.0 - DT * k, 0.0)])
+        out = tracker.step(20 * DT, [Measurement("p", "person", None, 0.0)])
         self.assertEqual(len(out), 1)
         self.assertFalse(out[0].measured)
         self.assertEqual(out[0].misses, 1)
-        self.assertAlmostEqual(out[0].forward_m, 4.0, delta=0.15)  # predicted on, not frozen
-        tracker.step(6 * DT, [])
-        self.assertEqual(tracker.step(7 * DT, []), [])
+        self.assertAlmostEqual(out[0].forward_m, 4.0, delta=0.2)   # predicted on at ~1 m/s, not frozen
+        self.assertLess(out[0].forward_m, last[0].forward_m - 0.1)
+        tracker.step(21 * DT, [])
+        self.assertEqual(tracker.step(22 * DT, []), [])
 
     def test_depth_outlier_is_gated(self):
-        tracker = GroundTracker()
+        """The declared (Gaussian, hard-gate) model rejects a one-frame jump; the fitted Student-t
+        model down-weights it instead (tests/test_kalman_lidar.py)."""
+        tracker = GroundTracker(noise=NoiseModel.declared())
         for k in range(8):
             tracker.step(k * DT, [Measurement("p", "person", 6.0, 0.0)])
         out = tracker.step(8 * DT, [Measurement("p", "person", 1.0, 0.0)])   # occluder in the box for one frame

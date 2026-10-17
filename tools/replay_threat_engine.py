@@ -26,6 +26,9 @@ Arms, each with one sensitivity knob swept densely:
                       the walking corridor, 0 otherwise; knob = ignore threshold
   v2_physics          v2 engine, physics (constant-velocity) arrival predictor
   v2_physics_nopose   same, camera-frame tracking (ego-motion ablation)
+  v2_kalman           v2 engine, Kalman arrival predictor: P(enter the corridor) over
+                      the fused track's own uncertainty (src/threat_engine/kalman_arrival.py)
+  v2_kalman_nopose    same, camera-frame tracking
   v2_gru              v2 engine, GRU arrival predictor
   v2_gru_nopose       same, camera-frame tracking
 
@@ -46,7 +49,25 @@ arrival): warned rate and lead among arrivals with a window of >= 1 s and
 >= 2 s, lead / window, and a Kaplan-Meier "not yet warned" curve over time
 since first sighting (an arrival never warned is censored at arrival).
 
+LiDAR realism bound (--lidar-range R, default 0 = off). The phone measures depth
+with LiDAR, not SANPO's stereo. lidarize() degrades every engine's *inputs*:
+rows beyond R m are dropped (out of range), 5% of the rest at random
+(dropouts), and the rest get distance- and eccentricity-dependent noise,
+d + N(0, (0.01 + 0.01·d)·(1 + 3·min(1, |bearing| / 30°)²)) (centre error 1-2 cm
+at 1-3 m, ~0.2-0.3 m at the image edge at 3 m). Closing speed is re-estimated
+from the degraded depth (least squares over the last 6 processed steps, as
+Stage 1 does). Labels, arrivals and the opportunity window stay on SANPO's
+original depth, so only what the engines see changes.
+
     python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_seed0
+    python tools/replay_threat_engine.py --gru-run ... --lidar-range 5      # -> <name>_lidar5m
+
+Latency-aware replay (--latency-csv, or a fixed --latency-ms): each
+announcement is heard that long after the frame that triggered it, using the
+per-frame totals the CPE Timing app measured on the phone (ios/CPETiming).
+Warned / lead time use the heard time; precision is still judged at the frame.
+
+    python tools/replay_threat_engine.py --gru-run ... --latency-csv cpe_timing_sustained30min_*.csv
 """
 
 from __future__ import annotations
@@ -59,6 +80,7 @@ import logging
 import math
 import sys
 import time
+import zlib
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -71,11 +93,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from dataset.GRU.samples import load_dataset
 from src.narration.pipeline import NarrationPipeline
 from src.narration.tts import CachedClipTTS
+from src.perception_stack.physics import compute_velocity
 from src.pipeline.orchestrator import process_frame
 from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
 from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, sanpo_session_poses
+from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
 from src.threat_engine.priority import Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat
 from src.threat_prioritizer import build_threat_frame
 from tools.audit_sanpo_sessions import fetch, object_url
@@ -94,6 +118,9 @@ V1_LOW_K = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0)
 BUDGETS = (2.0, 5.0, 10.0)
 KM_TIMES = (0.5, 1.0, 2.0, 3.0, 4.0)
 N_BOOT = 1000
+LIDAR_DROP = 0.05          # random dropouts on top of the range cut
+LIDAR_EDGE_DEG = 30.0      # noise reaches 4x the centre value at this bearing
+LIDAR_SPEED_STEPS = 6      # processed steps in the closing-speed fit
 
 
 # ── Inputs ───────────────────────────────────────────────────────────────────
@@ -127,6 +154,46 @@ def session_rows(samples: list[dict], fx: float, width: float) -> dict[int, list
             })
         frames[s["frame_idx"]] = rows
     return frames
+
+
+def lidarize(frames: dict[int, list[dict]], range_m: float, seed: int) -> dict[int, list[dict]]:
+    """
+    The engines' inputs as an iPhone LiDAR would give them (module docstring):
+    range cut, random dropouts, distance- and eccentricity-dependent depth noise,
+    and closing speed re-fitted on the degraded depth. Labels (_tte) are kept.
+    """
+    rng = np.random.default_rng(seed)
+    out: dict[int, list[dict]] = {}
+    history: dict[str, list[tuple[int, float]]] = defaultdict(list)
+    for k in sorted(frames):
+        rows = []
+        for r in frames[k]:
+            d = r["distance_m"]
+            keep = rng.random() >= LIDAR_DROP
+            ecc = min(1.0, abs(r["bearing_deg"]) / LIDAR_EDGE_DEG)
+            noisy = d + rng.normal(0.0, (0.01 + 0.01 * d) * (1 + 3 * ecc ** 2))
+            if d > range_m or not keep or noisy <= 0:
+                continue
+            h = history[r["track_id"]]
+            h.append((STRIDE * k, noisy))
+            del h[:-LIDAR_SPEED_STEPS]
+            recent = [(f, x) for f, x in h if f > STRIDE * (k - LIDAR_SPEED_STEPS)]
+            speed = compute_velocity(recent, fps=STRIDE / STEP_S)
+            rows.append({**r, "distance_m": noisy, "velocity_ms": speed,
+                         "_legacy": {**r["_legacy"], "velocity_ms": speed / SPEED_FIX}})
+        out[k] = rows
+    return out
+
+
+def load_latencies(paths: list[Path]) -> np.ndarray:
+    """total_ms of every non-warm-up frame in CPE Timing app CSVs (ios/CPETiming/analyze_timing.py format)."""
+    vals = []
+    for path in paths:
+        rows = csv.DictReader(line for line in path.read_text(encoding="utf-8").splitlines() if not line.startswith("#"))
+        vals += [float(r["total_ms"]) for r in rows if r["block"] != "warmup"]
+    if not vals:
+        raise SystemExit("no timing rows in --latency-csv")
+    return np.array(vals)
 
 
 def legacy_row(row: dict) -> dict:
@@ -215,18 +282,23 @@ def arrivals(frames: dict[int, list[dict]]) -> dict[str, tuple[int, int]]:
     return {tid: (first_seen[tid], k) for tid, k in arrive.items() if first_seen[tid] < k}
 
 
-def session_metrics(frames, log, horizon_frames: int) -> dict:
+def session_metrics(frames, log, horizon_frames: int, delays: np.ndarray | None = None) -> dict:
+    """
+    delays: seconds added to each announcement in `log` (on-device latency, --latency-*); an
+    announcement decided at frame k is heard at k·STEP_S + delay. Labels are judged at frame k.
+    """
     arr = arrivals(frames)
     label = {(k, r["track_id"]): r["_tte"] for k, rows in frames.items() for r in rows}
-    window_frames = round(WARN_WINDOW_S / STEP_S)
+    heard = [k * STEP_S + (float(delays[i]) if delays is not None else 0.0) for i, (k, _, _) in enumerate(log)]
     per_arrival = []
     for tid, (seen, ka) in arr.items():
-        times = [k for k, a, _ in log if a == tid and ka - window_frames <= k <= ka]
+        ta = ka * STEP_S
+        times = [t for t, (_, a, _) in zip(heard, log) if a == tid and ta - WARN_WINDOW_S - 1e-9 <= t <= ta + 1e-9]
         warn = min(times) if times else None
         per_arrival.append({"window_s": (ka - seen) * STEP_S,
-                            "lead_s": (ka - warn) * STEP_S if warn is not None else None,
+                            "lead_s": ta - warn if warn is not None else None,
                             # time from first sighting to first warning (Kaplan-Meier event), or censored at arrival
-                            "time_to_warn_s": ((warn - seen) * STEP_S) if warn is not None else (ka - seen) * STEP_S,
+                            "time_to_warn_s": (warn - seen * STEP_S) if warn is not None else (ka - seen) * STEP_S,
                             "event": warn is not None})
     kinds = {"true": 0, "late": 0, "false": 0}
     for k, a, _ in log:
@@ -338,6 +410,14 @@ def main() -> None:
     p.add_argument("--out-dir", type=Path, default=PROJECT_ROOT / "evaluation/benchmarks/threat_engine_replay")
     p.add_argument("--name", default=None, help="Output folder name (default: <dataset label>_<date>).")
     p.add_argument("--max-sessions", type=int, default=0, help="Per split; 0 = all (smoke testing).")
+    p.add_argument("--lidar-range", type=float, default=0.0,
+                   help="Degrade the engines' depth to iPhone-LiDAR quality with this range in m (0 = off).")
+    p.add_argument("--lidar-seed", type=int, default=0)
+    p.add_argument("--latency-ms", type=float, default=0.0,
+                   help="Add this fixed on-device latency to every announcement (ms).")
+    p.add_argument("--latency-csv", type=Path, nargs="*", default=[],
+                   help="CPE Timing app CSVs (ios/CPETiming): each announcement is delayed by a total_ms drawn "
+                        "from them (warm-up excluded), seeded per session.")
     args = p.parse_args()
 
     manifest, splits = load_dataset(args.dataset, splits=("val", "test"))
@@ -354,9 +434,20 @@ def main() -> None:
             by[s["session"]].append(s)
         ids = sorted(by)[: args.max_sessions or None]
         sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
+    # What the engines see; metrics always use `sessions` (SANPO depth).
+    inputs = {part: {sid: (lidarize(frames, args.lidar_range, zlib.crc32(sid.encode()) + args.lidar_seed)
+                           if args.lidar_range > 0 else frames) for sid, frames in by_sid.items()}
+              for part, by_sid in sessions.items()}
     all_ids = [sid for part in sessions.values() for sid in part]
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(all_ids, pool.map(session_poses, all_ids)))
+
+    latency_pool = load_latencies(args.latency_csv) if args.latency_csv else None
+
+    def delays_for(sid: str, n: int) -> np.ndarray | None:
+        if latency_pool is not None:
+            return np.random.default_rng(zlib.crc32(sid.encode())).choice(latency_pool, n) / 1000.0
+        return np.full(n, args.latency_ms / 1000.0) if args.latency_ms else None
 
     caches: dict[tuple, dict] = defaultdict(dict)
     gru_path = args.gru_run / "model.pt"
@@ -364,6 +455,8 @@ def main() -> None:
         "nearest_in_corridor": (True, lambda: NearestInCorridorPredictor()),
         "v2_physics": (True, lambda: PhysicsArrivalPredictor()),
         "v2_physics_nopose": (False, lambda: PhysicsArrivalPredictor()),
+        "v2_kalman": (True, lambda: KalmanArrivalPredictor()),
+        "v2_kalman_nopose": (False, lambda: KalmanArrivalPredictor()),
         "v2_gru": (True, lambda: LegacyGRU(gru_path)),
         "v2_gru_nopose": (False, lambda: LegacyGRU(gru_path)),
     }
@@ -372,13 +465,14 @@ def main() -> None:
     def run(part: str, arm: str, knob: float) -> list[dict]:
         per = []
         for sid, frames in sessions[part].items():
+            seen = inputs[part][sid]
             if arm.startswith("v1"):
-                log = run_v1(frames, announcer=arm.endswith("announcer"), low_k=knob)
+                log = run_v1(seen, announcer=arm.endswith("announcer"), low_k=knob)
             else:
                 use_pose, make = v2_arms[arm]
                 predictor = CachedPredictor(make(), caches[(arm, sid)])
-                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob)
-            per.append(session_metrics(frames, log, horizon))
+                log = run_v2(seen, poses[sid] if use_pose else None, predictor, knob)
+            per.append(session_metrics(frames, log, horizon, delays_for(sid, len(log))))
         return per
 
     started = time.time()
@@ -406,6 +500,10 @@ def main() -> None:
 
     stats = manifest["stats"]
     name = args.name or f"{manifest['label'].get('kind', 'cone')}_{time.strftime('%Y_%m_%d')}"
+    if args.lidar_range > 0:
+        name += f"_lidar{args.lidar_range:g}m"
+    if latency_pool is not None or args.latency_ms:
+        name += "_latency"
     out = args.out_dir / name
     out.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -415,6 +513,19 @@ def main() -> None:
         f"first seen before it entered the zone). Operating points chosen on {len(sessions['val'])} validation "
         f"sessions, then scored once on test. GRU: `{args.gru_run.as_posix()}`. Generated "
         f"{time.strftime('%Y-%m-%d')} by `python tools/replay_threat_engine.py` ({time.time() - started:.0f} s).", "",
+    ]
+    if args.lidar_range > 0:
+        lines += [f"Depth: LiDAR-degraded inputs (`--lidar-range {args.lidar_range:g}`, seed {args.lidar_seed}): rows "
+                  f"beyond {args.lidar_range:g} m and {LIDAR_DROP:.0%} at random dropped, noise N(0, (0.01 + 0.01·d)·"
+                  f"(1 + 3·min(1, |bearing|/{LIDAR_EDGE_DEG:g}°)²)) m, closing speed re-fitted over "
+                  f"{LIDAR_SPEED_STEPS} steps. Labels, arrivals and windows use SANPO depth.", ""]
+    if latency_pool is not None:
+        lines += [f"Latency: each announcement is heard after an on-device total drawn from {len(latency_pool)} "
+                  f"measured frames ({', '.join(p.name for p in args.latency_csv)}; median "
+                  f"{np.median(latency_pool):.1f} ms, p95 {np.percentile(latency_pool, 95):.1f} ms).", ""]
+    elif args.latency_ms:
+        lines += [f"Latency: every announcement is heard {args.latency_ms:g} ms after the frame that triggered it.", ""]
+    lines += [
         "## Opportunity window (first sighting -> arrival), test", "",
         f"Median {windows['median_window_s']:.1f} s; {windows['share_lt_1s']:.0%} of arrivals were first seen less "
         f"than 1 s before arriving, {windows['share_lt_2s']:.0%} less than 2 s, {windows['share_ge_4s']:.0%} at least "
