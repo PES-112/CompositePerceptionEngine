@@ -288,6 +288,20 @@ Resolved 2026-10-14 (`tools/audit_sanpo_sessions.py`, all 462 sessions):
 
 Open:
 
+0. **SANPO depth was decoded wrong in Stage 1 (found 2026-10-17; loader fixed, data not rebuilt).**
+   Each `depth_maps/*.float16.gz` file is a 2-value header [720, 1280] followed by a 720×1280 image.
+   The loader read the header as padding and reshaped the data as 960×960. That scrambles each map into
+   three shifted, interleaved strips: vertical structure roughly survives, but a box samples the wrong
+   part of the scene. Example: a person 1.3 m away read 6.4 m; another at 6 m read 21 m.
+   - **Affected:** every Stage-1 CSV, the GRU datasets (inputs *and* arrival labels), the trained GRUs,
+     the fitted Kalman noise (its "0.7 m box-depth noise" is mostly this), and every ladder and replay
+     result. The comparisons are internally consistent but measure scrambled depth.
+   - **Second bug, also fixed:** the depth-sweep pseudo-boxes (`obs_*`, whole lower-frame columns)
+     were used as occluders and masked out real objects in front of them. The same person then read
+     18.8 m.
+   - **Fix:** `depth_loader.decode_sanpo_depth` (tested) and the occluder filter in
+     `pipeline.py`. Rebuilding is `pending_work.md` P0.0.
+
 4. **Ground pseudo-objects.** The obstacle sweep has no ground removal, so 99.7% of the original
    encounter labels were ground. Results use tracked objects only. Segmentation masking (§6.3) is
    the real fix; 53 sessions have SANPO masks.

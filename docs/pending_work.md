@@ -47,6 +47,17 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## P0. Data correctness
 
+0. **Rebuild everything on correctly decoded depth (blocks every number).** The SANPO depth loader
+   read each 720×1280 map as a scrambled 960×960 array, and depth-sweep boxes masked real objects
+   (`architecture.md` §9 item 0). Both are fixed in code (2026-10-17). Still to do:
+   1. Re-run Stage 1 on all 462 sessions (`tools/stream_sanpo_perception.py`; GPU box).
+   2. Rebuild the GRU datasets and corridor labels (`dataset/GRU/build.py`, `resplit.py`,
+      `relabel.py`).
+   3. Retrain the GRUs (3 seeds per variant).
+   4. Refit the Kalman noise (`tools/fit_kalman_noise.py`).
+   5. Re-run the ladder, the replays and the before/after comparison.
+
+   Until then, treat every Stage-1-based number as provisional.
 1. **Rebuild Stage-1 CSVs at the correct rate (optional).** Existing CSVs work once converted (×0.5
    speed, pinhole bearing), and every ranking metric is unaffected. A rebuild with the updated
    `tools/stream_sanpo_perception.py` gives clean units for the paper and is needed anyway for

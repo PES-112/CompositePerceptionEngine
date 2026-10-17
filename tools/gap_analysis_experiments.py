@@ -18,6 +18,7 @@ from google.auth.credentials import AnonymousCredentials
 # Set up paths
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+from src.perception_stack.depth_loader import decode_sanpo_depth  # noqa: E402
 
 # Central Configuration
 # The finetuned 17-class CPE detector (v3), the same one Stage 1 runs. The original
@@ -126,13 +127,7 @@ class SANPOLoader:
     def _parse_float16_gz_bytes(self, data: bytes) -> np.ndarray | None:
         try:
             raw = np.frombuffer(gzip.decompress(data) if data.startswith(b'\x1f\x8b') else data, dtype=np.float16)
-            for h, w in [(1242, 2208), (720, 1280), (1080, 1920)]:
-                if raw.size >= h * w:
-                    if raw.size >= h*w + 2 and np.allclose(raw[:2], 0):
-                        return raw[2:h*w+2].reshape(h, w).astype(np.float32)
-                    return raw[:h*w].reshape(h, w).astype(np.float32)
-            side = int(np.sqrt(raw.size))
-            return raw[:side*side].reshape(side, side).astype(np.float32)
+            return decode_sanpo_depth(raw)   # [H, W] header + image (src/perception_stack/depth_loader.py)
         except Exception:
             return None
 

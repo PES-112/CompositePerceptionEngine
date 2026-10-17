@@ -200,11 +200,14 @@ def run_perception_stream(
             else:
                 distance_m = None
                 if depth_map is not None:
-                    # Build occlusion mask from already-processed closer objects
+                    # Build occlusion mask from already-processed closer objects. The
+                    # depth-sweep pseudo-boxes (obs_*) are whole lower-frame columns, not
+                    # objects: as occluders they masked out any real object standing in
+                    # front of them (a person 1.5 m away read 18.8 m), so they're skipped.
                     occluders = [
                         (r["bbox_x1"], r["bbox_y1"], r["bbox_x2"], r["bbox_y2"])
                         for r in frame_rows
-                        if r["distance_m"] is not None
+                        if r["distance_m"] is not None and not str(r["track_id"]).startswith("obs_")
                     ]
                     distance_m = median_depth_in_box(
                         depth_map,

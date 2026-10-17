@@ -2,6 +2,30 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, depth bug] - SANPO depth maps were decoded wrong; loader and occlusion fixed
+
+### Found
+- **Every SANPO depth map was misread.** `depth_maps/*.float16.gz` holds a [720, 1280] header and then
+  a 720×1280 image (921,602 values). `depth_loader._infer_sanpo_shape` took the header for padding and
+  reshaped from the start as 960×960 (also 921,600 values), scrambling each map into three shifted,
+  interleaved copies. Found in the session viewer: a woman ~1.3 m in front of the camera was
+  labelled 18.8 m. All Stage-1 distances, the GRU datasets and labels, the models, the fitted Kalman
+  noise and every result built on them used scrambled depth.
+- **Depth-sweep pseudo-boxes masked real objects.** `obs_*` boxes (whole lower-frame columns) were
+  passed as occluders to `median_depth_in_box`, so a close person standing in front of one was
+  sampled from background (6.4 m → 18.8 m in the same example).
+
+### Fixed
+- `src/perception_stack/depth_loader.py`: `decode_sanpo_depth()` reads the [H, W] header; headerless
+  files fall back to known shapes; unknown sizes raise. The woman now reads 1.28 m.
+- `src/perception_stack/pipeline.py`: `obs_*` rows are no longer occluders.
+- `tools/gap_analysis_experiments.py`: uses the same decoder (it was 2 values off).
+- `tests/test_depth_loader.py` (4 tests). Suite: 66 pass.
+
+### Not yet done
+- Rebuilding Stage-1 CSVs, the datasets, the models and the results (`pending_work.md` P0.0). Existing
+  numbers stay in the repo but are provisional.
+
 ## [2026-10-17, viewer] - Session viewer for checking the engine by eye
 
 ### Added

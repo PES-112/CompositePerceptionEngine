@@ -7,9 +7,13 @@ Handles both SANPO and UASOL depth formats:
 
   SANPO-Synthetic / SANPO-Real:
       File   : <frame>.float16.gz
-      Format : gzip-compressed float16 numpy array, shape (H, W)
+      Format : gzip-compressed float16: a 2-value header [H, W] followed by
+               the H×W depth image, row-major (SANPO-Real depth_maps/: [720, 1280]).
       Values : metric depth in metres (no scale needed)
-      Res    : 2208×1242 (downsized to match RGB frame by load_depth_map)
+      Note   : before 2026-10-17 the header was mistaken for padding and the
+               921,602 values were reshaped as 960×960 from the start, which
+               scrambles the image into three shifted, interleaved copies.
+               Every Stage-1 distance built before then is affected.
 
   UASOL:
       File   : img_depth.png (16-bit PNG)
@@ -33,23 +37,27 @@ DEPTH_SCALES = {
     "uasol": 0.256,   # uint16 PNG — raw × 0.256 = metres
 }
 
-# Common SANPO depth resolutions observed in the public bucket.
-# RGB frames are usually 2208x1242, while CRE-stereo depth can be 960x960.
+# Fallback shapes for headerless files (none seen in SANPO-Real so far).
 SANPO_DEPTH_SHAPES = (
+    (720, 1280),
     (1242, 2208),
-    (960, 960),
 )
 
 
-def _infer_sanpo_shape(raw: np.ndarray) -> tuple[int, int]:
+def decode_sanpo_depth(raw: np.ndarray) -> np.ndarray:
+    """
+    float16 values of one SANPO depth file -> float32 (H, W) metres. The file
+    starts with its own shape, [H, W], stored as two float16 values; the image
+    follows. A file without that header is reshaped to a known SANPO shape.
+    """
+    if raw.size > 2:
+        h, w = float(raw[0]), float(raw[1])
+        if h.is_integer() and w.is_integer() and h > 0 and w > 0 and int(h) * int(w) == raw.size - 2:
+            return raw[2:].reshape(int(h), int(w)).astype(np.float32)
     for h, w in SANPO_DEPTH_SHAPES:
-        n = h * w
-        if raw.size >= n and raw.size - n <= 4:
-            return h, w
-    side = int(round(raw.size ** 0.5))
-    if side * side <= raw.size and raw.size - side * side <= 4:
-        return side, side
-    raise ValueError(f"Cannot infer SANPO depth shape from {raw.size} float16 values")
+        if raw.size == h * w:
+            return raw.reshape(h, w).astype(np.float32)
+    raise ValueError(f"Cannot decode SANPO depth: {raw.size} float16 values, header {raw[:2].tolist()}")
 
 
 def scale_box_to_depth(
@@ -101,13 +109,10 @@ def load_depth_map(depth_path: Path, source: str = "sanpo") -> np.ndarray | None
     suffix = "".join(depth_path.suffixes).lower()   # e.g. ".float16.gz" or ".png"
 
     if suffix == ".float16.gz":
-        # SANPO: gzip-compressed raw float16 binary, row-major (H, W).
-        # Some public files include a couple of padding float16 values.
+        # SANPO: gzip-compressed float16, [H, W] header then the image, row-major.
         with gzip.open(depth_path, "rb") as f:
             raw = np.frombuffer(f.read(), dtype=np.float16)
-        h, w = _infer_sanpo_shape(raw)
-        depth = raw[: h * w].reshape(h, w).astype(np.float32)
-        return depth   # already in metres
+        return decode_sanpo_depth(raw)   # already in metres
 
     elif suffix == ".png":
         # UASOL: 16-bit PNG, scale to metres
