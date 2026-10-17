@@ -21,7 +21,7 @@ that any alert rate is acceptable.
 | 6.1 | Baseline ladder on the corridor label | **[PENDING: re-run on the corrected labels]** — the current table (`methodology.md` §4.14 on `v2-kalman-lidar`) predates the camera-intrinsics fix | teammate, after merging `v2-threat-engine` |
 | 6.2 | System replay at alert budgets | final for the declared tracker; **[PENDING: re-run with the fitted Kalman noise model]** | `threat_engine_replay/corridor_2026_10_17/`; teammate |
 | 6.3 | Scene context, oracle (SANPO masks) | final | `scene_context/oracle_gt_2026_10_17/`, `gt_train_*`, `gt_val_test_*` |
-| 6.4 | Edge-ahead alerts, oracle | final | `edge_alerts/gt_2026_10_17/` |
+| 6.4 | Edge-ahead alerts, oracle | final (rule not tuned) | `edge_alerts/gt_2026_10_17/`, `gt_sustained_2026_10_17/` |
 | 6.5 | Segmentation model (YOLO26s-sem) | **[PENDING: training on the M4]** | `v2-seg-training` |
 | 6.6 | Scene context with the model's masks, all 71 test sessions | **[PENDING: needs 6.5]** | `v2-seg-training` |
 | 6.7 | Depth-realism (LiDAR) bound | **[PENDING: re-run on corrected labels]** | teammate |
@@ -246,8 +246,20 @@ Data: 47 replay sessions have head-camera masks (32 train / 5 val / 10 test), gi
 
 ### 6.4 Edge-ahead alerts (oracle)
 
-**[Filled from `evaluation/benchmarks/edge_alerts/gt_2026_10_17/report.md`; see §6.4 numbers in
-`methodology.md` §4.14.]**
+Source: `evaluation/benchmarks/edge_alerts/gt_2026_10_17/` and `gt_sustained_2026_10_17/`. Data:
+53 head-masked sessions, 26.6 min at 2.5 Hz, with SANPO's masks as the class map.
+
+- **Rate.** The rule fires 0.79 [0.49, 1.12] times per minute.
+- **Warned.** 29% [13, 47] of mask-implied step-offs are warned, with a median lead of 1.2 s. This
+  rises to 35% [14, 59] when one-frame mask flicker is excluded (sensitivity, chosen post hoc).
+- **Stairs.** All 3 stairs step-offs are warned.
+- **Road.** Most road step-offs are missed. Either the edge is only seen beyond 5 m, or no edge is
+  in the centre band before the walker turns onto the road.
+- **Followed.** About half of alerts are followed by a step-off within 10 s; the rest are edges
+  the walker stopped at, turned from or walked along.
+- **Not tuned.** The rule wasn't tuned on these sessions. The obvious levers (range, band width,
+  confirmation) need a train-only sweep, and the model-mask re-run (§6.6) gives the
+  model-vs-oracle gap.
 
 ### 6.5 Segmentation model
 

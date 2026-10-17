@@ -2,6 +2,28 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, evening] - Near-boundary revision, edge-ahead alerts, paper draft, merge order
+
+Branch `v2-segmentation` (PR #7 into `v2-threat-engine`).
+
+### Changed
+- `CONTEXT_NEAR_BOUNDARY` 1.25 → **1.0** (`src/threat_engine/priority.py`). The decision rule was
+  fixed in advance and checked on train sessions only. "Near a boundary and approaching" (≥ 0.3 m/s
+  toward the centre line) didn't raise the arrival rate either: distance-adjusted RR 0.80
+  [0.21, 1.15]. Held-out: 1.04 [0.12, 6.22]. Oracle replay re-run
+  (`oracle_context_neutral_boundary_2026_10_17/`).
+- `evaluation/context_association.py`: `--splits`, an *approaching* control flag, and the combined
+  flag adjusted over distance × motion.
+
+### Added
+- `context.approach_speed`; `src/segmentation/edge_alert.py` (the "Curb ahead." rule);
+  `tools/evaluate_edge_alerts.py`. Oracle results on 53 sessions: 0.79 alerts/min, 29% of step-offs
+  warned (35% excluding one-frame flicker), all stairs warned, most road step-offs missed. Not tuned.
+- 6 tests (77 total).
+- `docs/paper_draft.md`: text, claim policy, final vs. pending results with owners, figure list.
+- `docs/pending_work.md`: merge order. `v2-kalman-lidar` predates the camera-intrinsics fix and
+  must re-run its label-dependent results after merging.
+
 ## [2026-10-17, later] - Walkable-surface segmentation: data, scene context, metrics, oracle check
 
 Branch `v2-segmentation` (from `v2-threat-engine`).

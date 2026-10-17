@@ -15,7 +15,9 @@ There is no annotated "stepped off the curb" event in SANPO, so the reference
 is the walker-surface change the masks imply: a *step-off* is a frame where
 the ground just ahead of the walker (bottom-centre patch) turns from walkable
 (walkable, crosswalk) to an announced kind (curb, stairs, road), after at
-least STEP_OFF_HOLD frames on walkable ground. Scores (session-bootstrap 95% CIs):
+least STEP_OFF_HOLD frames on walkable ground (--step-off-stay N: and stays off walkable ground for
+N frames; 1 = declared, 2 = the sensitivity variant that drops one-frame mask flicker at crosswalk
+edges, chosen after seeing the misses). Scores (session-bootstrap 95% CIs):
   alerts / min           every alert, by kind
   step-offs warned       share with an alert in the LOOKBACK_S before it; lead = step-off - alert
   alerts followed        share of alerts followed by a step-off within LOOKBACK_S; the rest
@@ -72,11 +74,17 @@ def session_track(sid: str, get_class_map) -> list[list]:
     return rows
 
 
-def score_session(rows: list[list]) -> dict:
+def stays_off(rows: list[list], i: int, n: int) -> bool:
+    """The walker's ground is not walkable for n frames from row i (frames with no ground visible skipped)."""
+    seen = [r[1] for r in rows[i:] if r[1] is not None][:n]
+    return len(seen) == n and not any(w in WALKABLE_CLASSES for w in seen)
+
+
+def score_session(rows: list[list], stay: int = 1) -> dict:
     alerter = EdgeAlerter()
     alerts, step_offs = [], []
     walkable_run = 0
-    for f, walker, kind, dist in rows:
+    for i, (f, walker, kind, dist) in enumerate(rows):
         t = f / SOURCE_FPS
         a = alerter.step(t, None if kind is None else EdgeAhead(kind, dist))
         if a is not None:
@@ -84,7 +92,7 @@ def score_session(rows: list[list]) -> dict:
         if walker in WALKABLE_CLASSES:
             walkable_run += 1
         elif walker in ALERT_KINDS:
-            if walkable_run >= STEP_OFF_HOLD:
+            if walkable_run >= STEP_OFF_HOLD and stays_off(rows, i, stay):
                 step_offs.append((t, CPE_CLASSES[walker]))
             walkable_run = 0
         # walker None (ground not visible): keep the run
@@ -107,6 +115,8 @@ def main() -> None:
     p.add_argument("--imgsz", type=int, default=1024)
     p.add_argument("--device", default=None)
     p.add_argument("--max-sessions", type=int, default=0)
+    p.add_argument("--step-off-stay", type=int, default=1,
+                   help="Frames the walker must stay off walkable ground for a step-off (1 = declared).")
     p.add_argument("--name", default=None)
     args = p.parse_args()
 
@@ -130,7 +140,7 @@ def main() -> None:
             tracks[sid] = rows
             print(f"  {i}/{len(ids)} {sid}  {len(rows)} frames  {time.time() - started:.0f} s", flush=True)
 
-    scored = {sid: score_session(rows) for sid, rows in tracks.items() if len(rows) > 1}
+    scored = {sid: score_session(rows, args.step_off_stay) for sid, rows in tracks.items() if len(rows) > 1}
     sessions = sorted(scored)
     rng = np.random.default_rng(0)
     draws = [rng.choice(sessions, len(sessions)) for _ in range(N_BOOT)]
@@ -155,7 +165,8 @@ def main() -> None:
     result = {"source": args.source, "sessions": len(sessions), "frame_step": FRAME_STEP,
               "rule": {"kinds": [CPE_CLASSES[k] for k in ALERT_KINDS], "alert_m": ALERT_M,
                        "confirm_frames": CONFIRM_FRAMES, "clear_s": CLEAR_S},
-              "lookback_s": LOOKBACK_S, "step_off_hold": STEP_OFF_HOLD, "overall": overall,
+              "lookback_s": LOOKBACK_S, "step_off_hold": STEP_OFF_HOLD, "step_off_stay": args.step_off_stay,
+              "overall": overall,
               "ci": {k: ci(k) for k in ("alerts_per_min", "warned", "followed", "median_lead_s")},
               "by_kind": {}, "by_official_split": {}, "sessions_detail": scored}
     for kind in (CPE_CLASSES[k] for k in ALERT_KINDS):
@@ -184,7 +195,8 @@ def main() -> None:
              f"{len(sessions)} sessions with head-camera masks, {overall['minutes']:.1f} min at 2.5 Hz; class maps from "
              f"`{args.source}`. Rule: announce {result['rule']['kinds']} within {ALERT_M:g} m, seen in "
              f"{CONFIRM_FRAMES} consecutive frames, one alert per edge episode ({CLEAR_S:g} s clear). Step-off: the "
-             f"ground just ahead turns from walkable to an announced kind after {STEP_OFF_HOLD} walkable frames. "
+             f"ground just ahead turns from walkable to an announced kind after {STEP_OFF_HOLD} walkable frames "
+             f"and stays off walkable ground for {args.step_off_stay} frame(s). "
              "95% CIs: session bootstrap.", "",
              "| alerts / min | step-offs | warned (alert ≤ 10 s before) | median lead (s) | alerts followed by a step-off |",
              "|---|---:|---|---|---|",
