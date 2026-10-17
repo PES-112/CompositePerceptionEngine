@@ -30,8 +30,9 @@ The direct comparison class for CPE's Introduction/Related Work section (`method
   ultrasonic-sensing split. **Use:** cites the "traditional sensory substitution devices lack semantic
   understanding" claim CPE's Introduction already makes — this is the paper that claim should point to.
 - **Liu, R. & Slade, P. (2026). "Improving outdoor navigation for people with blindness using an
-  AI-driven smartphone application and personalized audio guidance."** *Nature Biomedical
-  Engineering*. arXiv:2605.29120.
+  AI-driven smartphone application and personalized audio guidance."** arXiv:2605.29120. *Venue
+  unconfirmed:* an earlier draft of this file listed *Nature Biomedical Engineering*, which could not be
+  verified (2026-10-17); cite the arXiv version until a published version is found.
   A contemporary (2026) Harvard smartphone app ("Mobilio") combining ML, sensor fusion, and
   personalized audio guidance for blind/low-vision outdoor navigation — the closest published system
   to CPE's own premise. Their user survey of 100+ blind/low-vision people identifying turn-by-turn
@@ -73,8 +74,8 @@ The direct comparison class for CPE's Introduction/Related Work section (`method
 
 ## 3. Dataset
 
-- **Waqar, Z., et al. — Google Research (2023). "SANPO: A Scene Understanding, Accessibility,
-  Navigation, Pathfinding, Obstacle Avoidance Dataset."** arXiv:2309.12172.
+- **Waghmare, S. M., et al. — Google Research (2025). "SANPO: A Scene Understanding, Accessibility and
+  Human Navigation Dataset."** *WACV 2025*. Preprint arXiv:2309.12172 (2023).
   701 real + synthetic egocentric stereo video sessions with dense depth, panoptic masks, and camera
   pose, purpose-built for outdoor human-navigation assistive technology (used by Google's own Project
   Guideline). **Use:** this is CPE's primary training/evaluation corpus (`sanpo_dataset.md`) — cite
