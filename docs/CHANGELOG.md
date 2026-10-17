@@ -2,6 +2,31 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, later] - Walkable-surface segmentation: data, scene context, metrics, oracle check
+
+Branch `v2-segmentation` (from `v2-threat-engine`).
+
+### Added
+- `src/segmentation/labels.py`: SANPO 31 classes → 8 CPE classes + ignore; mask decoding.
+- `src/segmentation/context.py`: walker surface, surface under each object (from bearing + depth),
+  `SceneContext` flags, edge ahead (class + distance), flat-ground mask for the obstacle sweep.
+- `evaluation/segmentation_metrics.py`: mIoU, false-safe rate, road-as-walkable, curb/stairs
+  boundary F. `tests/test_segmentation.py` (12 tests).
+- `tools/build_sanpo_segmentation.py`: Ultralytics semantic dataset from all 237 masked SANPO-Real
+  sessions (train 150 / val 39 / test 48 sessions; 18,787 human-annotated frames).
+- `training/scripts/train_yolo26_sem_walkable.py`, `evaluate_yolo26_sem_walkable.py` (YOLO26s-sem,
+  imgsz 1024, FP16 Core ML; run on the lab server).
+- `tools/build_scene_context.py`: per-frame context for replay sessions from SANPO masks (oracle) or
+  a trained model. `tools/replay_threat_engine.py --context-dir`: context-on arms with paired
+  differences. `evaluation/context_association.py`: flag vs arrival-label risk ratios.
+
+### Found
+- Oracle (SANPO masks, 47 head-masked sessions): "in path" and "other surface" point the declared
+  way (distance-adjusted RR 1.56 [0.98, 4.17] and 0.70 [0.20, 1.06]); **"near a boundary" points the
+  wrong way** (0.83 [0.41, 0.99]) against its declared ×1.25. Not retuned (test sessions included).
+- Oracle replay, 10 test sessions / 20 arrivals: GRU warned +0.05 [0.00, +0.07] with context, same
+  false-alert rate. Underpowered.
+
 ## [2026-10-17] - Camera intrinsics fix (head ZED-M, not chest ZED 2i)
 
 ### Fixed

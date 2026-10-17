@@ -503,6 +503,64 @@ the world frame (median 0.52 m) than in the camera frame (0.32 m), which should 
 and box depth agree. No frame offset or axis sign fixes it. Ego-motion removal is therefore reported
 only as an ablation until this is explained (`pending_work.md` P0.2).
 
+### 4.14 Scene context from walkable-surface segmentation (2026-10-17)
+
+**Taxonomy and training data** (`src/segmentation/labels.py`, `tools/build_sanpo_segmentation.py`).
+SANPO's 31 panoptic classes map to 8: walkable (sidewalk, paved trail, other walkable surface),
+crosswalk, road (+ railway), curb, stairs, non-walkable ground (inaccessible surface, water,
+terrain, vegetation), obstacle (all vertical classes) and sky; unlabeled is ignored (255). Masks are
+stored as raw SANPO ids and remapped by the Ultralytics YAML's `label_mapping`, so the scheme can
+change without rebuilding. All 237 masked SANPO-Real sessions are used, each with masks on one
+camera (head ZED-M or chest ZED 2i): SANPO's official test sessions and the replay's test sessions
+form the test split, the replay's validation sessions plus a seeded 15% of other train sessions
+form validation. Validation and test hold HUMAN_ANNOTATED frames only (every 6th frame), as in the
+SANPO paper; training adds every 6th propagated frame.
+
+**Model and metrics** (`training/scripts/*_sem_walkable.py`, `evaluation/segmentation_metrics.py`).
+YOLO26s-sem from Cityscapes weights at imgsz 1024; not trained yet (lab server). Reported, per
+camera and overall, with session-bootstrap CIs: mIoU and per-class IoU; **false-safe rate** (unsafe
+ground, i.e. road, curb, stairs or non-walkable, predicted walkable or crosswalk, over all unsafe
+pixels), a generalisation of SENSATION-DS's road-as-sidewalk rate, which is reported too; the
+opposite (nuisance) error; and boundary F at ±3 px for curb and stairs, the thin edges that mIoU
+barely weighs.
+
+**From a class map to `SceneContext`** (`src/segmentation/context.py`). The ground under an object
+is the majority ground class among pixels in its image columns whose depth is within ±15% (at least
+±0.3 m) of the object's own depth. This needs only the object's bearing and distance, so it works on
+the GRU dataset without boxes. The walker's surface is the majority ground class in the bottom-centre
+of the image. Flags: *in path* = object and walker both on walkable ground; *near a boundary* = the
+object's (doubled-width) ground is at least 15% walkable and 15% unsafe, or 10% curb; *other surface*
+= walker on walkable ground, object on road or non-walkable ground. All thresholds are declared.
+
+**Oracle check: SANPO's own masks in place of a model.** Head-camera masks exist for 47 of the 364
+replay sessions (32 train / 5 val / 10 test); the tracks come from the head camera, so the 130
+chest-masked sessions can't be used without re-running Stage 1 on the chest stream.
+
+- *Do the flags point the right way?* (`evaluation/context_association.py`, all 47 sessions, 5,682
+  object-frames; `evaluation/benchmarks/scene_context/oracle_gt_2026_10_17/`.) P(arrive within 4 s)
+  by flag, as a risk ratio raw and Mantel-Haenszel-adjusted over distance bins (0/3/6/10 m),
+  session-bootstrap 95% CI:
+
+  | Flag | declared × | share | RR | RR, distance-adjusted |
+  |---|---:|---:|---|---|
+  | in path | 1.5 | 0.68 | 3.91 [1.73, 12.95] | 1.56 [0.98, 4.17] |
+  | near a boundary | 1.25 | 0.36 | 0.44 [0.17, 0.71] | **0.83 [0.41, 0.99]** |
+  | other surface | 0.5 | 0.21 | 0.29 [0.06, 0.67] | 0.70 [0.20, 1.06] |
+
+  "In path" and "other surface" agree in direction with their multipliers; much of their raw
+  effect is distance (objects on the walker's surface are closer). **"Near a boundary" points the
+  wrong way:** objects at a surface edge arrive *less* often, so its ×1.25 is contradicted. Most
+  such objects are at the sidewalk's edge, beside the walker's path, not crossing it; the flag
+  can't tell an object about to step off a curb from one standing beside it. "In path" holds 68% of
+  objects, so it separates little. The multipliers are not changed on this evidence, because 10 of
+  the 47 sessions are test sessions; a revision must be fitted on train sessions only and declared.
+- *Does context change the alerts?* (`tools/replay_threat_engine.py --context-dir`, 10 test / 5
+  val sessions, 20 arrivals; `evaluation/benchmarks/threat_engine_replay/oracle_context_2026_10_17/`.)
+  With the GRU at the validation-chosen threshold, context on vs. off: warned 0.40 vs 0.35, paired
+  difference +0.05 [0.00, +0.07], at the same false-alert rate (9.45/min). The physics arm is
+  unchanged. Twenty arrivals cannot settle it; the powered test needs the trained model's masks on
+  all 71 test sessions.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate
