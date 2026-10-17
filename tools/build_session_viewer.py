@@ -127,9 +127,18 @@ def main() -> None:
     scratch = PROJECT_ROOT / "data/viewer/_scratch" / sid
     print(f"session {sid}")
     camera = session_camera({"session_id": sid})
-    rgb_dir, depth_dir, rgb_objects = fetch_session_frames(
-        {"session_id": sid}, scratch,
-        SimpleNamespace(depth_kind="depth_maps", frame_stride=STRIDE, max_frames=args.frames, download_workers=8))
+    for attempt in range(1, 6):   # flaky links: finished files are skipped, so a retry resumes
+        try:
+            rgb_dir, depth_dir, rgb_objects = fetch_session_frames(
+                {"session_id": sid}, scratch,
+                SimpleNamespace(depth_kind="depth_maps", frame_stride=STRIDE, max_frames=args.frames,
+                                download_workers=4))
+            break
+        except OSError as exc:   # URLError, timeouts and connection resets are all OSErrors
+            if attempt == 5:
+                raise
+            print(f"download attempt {attempt} failed ({type(exc).__name__}: {exc}); retrying", flush=True)
+            time.sleep(5 * attempt)
     print(f"{len(rgb_objects)} frames downloaded ({time.time() - started:.0f} s); running Stage 1 on CPU...")
 
     from src.perception_stack import run_perception_stream
