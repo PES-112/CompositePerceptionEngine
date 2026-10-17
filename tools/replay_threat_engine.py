@@ -28,6 +28,10 @@ Arms, each with one sensitivity knob swept densely:
   v2_physics_nopose   same, camera-frame tracking (ego-motion ablation)
   v2_gru              v2 engine, GRU arrival predictor
   v2_gru_nopose       same, camera-frame tracking
+  v2_physics_ctx,     with --context-dir: the same arms with the scene-context multiplier
+  v2_gru_ctx          (priority.SceneContext from tools/build_scene_context.py) on, run on
+                      the sessions that have context; the context-off arms run on the same
+                      sessions, and the report adds paired session-bootstrap differences
 
 Every announcement is classed by the label of its object at that frame:
   true   the object enters the zone later within the horizon (tte >= 1)
@@ -47,6 +51,7 @@ arrival): warned rate and lead among arrivals with a window of >= 1 s and
 since first sighting (an arrival never warned is censored at arrival).
 
     python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_seed0
+    python tools/replay_threat_engine.py --gru-run ... --context-dir data/sanpo_scene_context/gt --name oracle_context
 """
 
 from __future__ import annotations
@@ -76,7 +81,8 @@ from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
 from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, sanpo_session_poses
-from src.threat_engine.priority import Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat
+from src.threat_engine.priority import (Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat,
+                                        SceneContext)
 from src.threat_prioritizer import build_threat_frame
 from tools.audit_sanpo_sessions import fetch, object_url
 from tools.download_sanpo_valid_streams import BASE_PREFIX
@@ -129,6 +135,13 @@ def session_rows(samples: list[dict], fx: float, width: float) -> dict[int, list
     return frames
 
 
+def session_contexts(path: Path) -> dict[int, dict[str, SceneContext]]:
+    """{frame_idx: {track_id: SceneContext}} from a tools/build_scene_context.py file."""
+    frames = json.loads(path.read_text(encoding="utf-8"))["frames"]
+    return {int(k): {tid: SceneContext(*map(bool, v[1:])) for tid, v in f["tracks"].items()}
+            for k, f in frames.items()}
+
+
 def legacy_row(row: dict) -> dict:
     """The row in the units the GRU was trained on."""
     return {**row, **row["_legacy"]}
@@ -162,13 +175,14 @@ class CachedPredictor:
         return self.cache[frame_idx]
 
 
-def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float):
+def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float,
+           contexts: dict[int, dict[str, SceneContext]] | None = None):
     engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(),
                           announcer=AnnouncementManager())
     log = []
     for k in sorted(frames):
         pose = poses[min(STRIDE * k, len(poses) - 1)] if poses else None
-        f = engine.step(k, k * STEP_S, frames[k], pose)
+        f = engine.step(k, k * STEP_S, frames[k], pose, contexts=(contexts or {}).get(k))
         if f.announcement:
             log.append((k, f.announcement.track_id, f.announcement.kind))
     return log
@@ -284,6 +298,20 @@ def aggregate(per_session: list[dict], boot: bool = True, seed: int = 0) -> dict
     return out
 
 
+def paired_difference(a: list[dict], b: list[dict], seed: int = 0) -> dict:
+    """a - b on the same sessions, with a paired session-bootstrap 95% CI."""
+    diff = point(a) - point(b)
+    rng = np.random.default_rng(seed)
+    n = len(a)
+    draws = []
+    for _ in range(N_BOOT):
+        idx = rng.integers(0, n, n)
+        draws.append(point([a[j] for j in idx]) - point([b[j] for j in idx]))
+    draws = np.array(draws)
+    return {k: (float(diff[i]), float(np.nanpercentile(draws[:, i], 2.5)), float(np.nanpercentile(draws[:, i], 97.5)))
+            for i, k in enumerate(KEYS)}
+
+
 def kaplan_meier(per_session: list[dict]) -> dict[float, float]:
     """S(t): share of arrivals not yet warned t seconds after first sighting (never-warned censored at arrival)."""
     rows = sorted((a["time_to_warn_s"], a["event"]) for s in per_session for a in s["arrivals"])
@@ -338,6 +366,8 @@ def main() -> None:
     p.add_argument("--out-dir", type=Path, default=PROJECT_ROOT / "evaluation/benchmarks/threat_engine_replay")
     p.add_argument("--name", default=None, help="Output folder name (default: <dataset label>_<date>).")
     p.add_argument("--max-sessions", type=int, default=0, help="Per split; 0 = all (smoke testing).")
+    p.add_argument("--context-dir", type=Path, default=None,
+                   help="tools/build_scene_context.py output; adds context-on arms, restricted to its sessions.")
     args = p.parse_args()
 
     manifest, splits = load_dataset(args.dataset, splits=("val", "test"))
@@ -352,9 +382,11 @@ def main() -> None:
         by = defaultdict(list)
         for s in samples:
             by[s["session"]].append(s)
-        ids = sorted(by)[: args.max_sessions or None]
+        ids = sorted(sid for sid in by if args.context_dir is None or (args.context_dir / f"{sid}.json").exists())
+        ids = ids[: args.max_sessions or None]
         sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
     all_ids = [sid for part in sessions.values() for sid in part]
+    contexts = {sid: session_contexts(args.context_dir / f"{sid}.json") for sid in all_ids} if args.context_dir else {}
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(all_ids, pool.map(session_poses, all_ids)))
 
@@ -367,6 +399,9 @@ def main() -> None:
         "v2_gru": (True, lambda: LegacyGRU(gru_path)),
         "v2_gru_nopose": (False, lambda: LegacyGRU(gru_path)),
     }
+    context_arms = {"v2_physics_ctx": "v2_physics", "v2_gru_ctx": "v2_gru"} if args.context_dir else {}
+    for arm, base in context_arms.items():
+        v2_arms[arm] = v2_arms[base]
     arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K, **{a: V2_THRESHOLDS for a in v2_arms}}
 
     def run(part: str, arm: str, knob: float) -> list[dict]:
@@ -376,8 +411,10 @@ def main() -> None:
                 log = run_v1(frames, announcer=arm.endswith("announcer"), low_k=knob)
             else:
                 use_pose, make = v2_arms[arm]
-                predictor = CachedPredictor(make(), caches[(arm, sid)])
-                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob)
+                base = context_arms.get(arm, arm)    # context arms reuse their base arm's arrival cache
+                predictor = CachedPredictor(make(), caches[(base, sid)])
+                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob,
+                             contexts[sid] if arm in context_arms else None)
             per.append(session_metrics(frames, log, horizon))
         return per
 
@@ -435,6 +472,21 @@ def main() -> None:
                          f"{cell(m['switches_per_min'])} | {cell(m['warned_window_ge1'])} | "
                          f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} |")
         lines.append("")
+    paired = {}
+    for arm, base in context_arms.items():
+        for rule in rules:
+            ka, kb = chosen[arm][rule], chosen[base][rule]
+            if ka is not None and kb is not None:
+                paired[(arm, rule)] = paired_difference(test_runs[arm][ka], test_runs[base][kb])
+    if context_arms:
+        lines += ["## Context on minus context off (test, same sessions, paired session-bootstrap 95% CI)", "",
+                  f"Context from `{args.context_dir.as_posix()}`. Each arm at its own validation-chosen knob.", "",
+                  "| Arm | rule | Δ warned | Δ false alerts/min | Δ precision | Δ median lead, window ≥ 1 s (s) |",
+                  "|---|---|---|---|---|---|"]
+        for (arm, rule), d in paired.items():
+            lines.append(f"| {arm} | {rule} | {cell(d['warned'])} | {cell(d['false_per_min'])} | "
+                         f"{cell(d['precision'])} | {cell(d['lead_ge1_s'])} |")
+        lines.append("")
     lines += ["## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, `budget_5`)", "",
               "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
     for arm in arms:
@@ -458,7 +510,9 @@ def main() -> None:
     (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
     (out / "curves.csv").write_text("\n".join(rows_csv) + "\n", encoding="utf-8")
     (out / "metrics.json").write_text(json.dumps({"chosen": chosen, "points": points, "kaplan_meier": km,
-                                                  "window_profile": windows}, indent=2, default=str), encoding="utf-8")
+                                                  "window_profile": windows,
+                                                  "paired_context": {f"{a}|{r}": d for (a, r), d in paired.items()}},
+                                                 indent=2, default=str), encoding="utf-8")
     print("\n".join(lines[:40]))
     print(f"-> {out}")
 
