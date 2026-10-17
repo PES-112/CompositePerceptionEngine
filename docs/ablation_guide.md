@@ -151,42 +151,52 @@ python evaluation/vlm_referee.py --run-dir $RUN --frames-dir data/processed/abla
 # kill it, serve the next model on the same port, repeat with --referee internvl3, then gemma3
 ```
 
-### 4b. Judge
+### 4b. Judge (protocol v2, 2026-10-17)
+
+The run directory holds `cases.json` + `cases_key.json` (v2: picks per engine). The v1 export,
+`disagreements.json` + `disagreements_key.json` from `kinetic_ablation.py`, is read too. The first
+call pre-registers the sample in `protocol.json` (default 250 cases, seed 0); later calls refuse to
+change it.
 
 ```bash
-RUN=evaluation/benchmarks/kinetic_score_eval/run_$(date +%Y_%m_%d)
+RUN=evaluation/benchmarks/referee/<name>
 
-# 5 cases first — check the replies parse before committing hours of GPU time
-python evaluation/vlm_referee.py --run-dir $RUN --frames-dir data/processed/ablation_30pct \
-    --referee qwen2.5-vl --limit 5
+# 5 cases first: check the replies parse before committing hours of GPU time (not scored)
+python evaluation/vlm_referee.py --run-dir $RUN --frames-dir data/processed/<frames>     --referee qwen2.5-vl --limit 5
 
-python evaluation/vlm_referee.py --run-dir $RUN --frames-dir data/processed/ablation_30pct \
-    --referee qwen2.5-vl --referee internvl3 --referee gemma3
+# Every referee, image condition, then the text-only control
+for r in qwen2.5-vl internvl3 gemma3; do
+  python evaluation/vlm_referee.py --run-dir $RUN --frames-dir data/processed/<frames> --referee $r
+  python evaluation/vlm_referee.py --run-dir $RUN --referee $r --condition text
+done
 ```
 
-Referees see the annotated frame and a neutral object list in randomised order — no scores, no
-formula names, no hint which object either arm picked. A reply that does not parse, or names an
-object that is not in the list, is recorded as `None` rather than guessed at. Ballots are written
-after every case, so an interrupted run resumes.
+Each case is asked twice, the second time with the numbered order reversed. Only a pick that names
+the same object both times counts, and the order-consistency rate is printed per referee. A reply
+that doesn't parse, or names a number out of range, is recorded as missing rather than guessed.
+Ballots are written after every call, so an interrupted run resumes. If a model's consistency is
+low, its instruction-following or position bias is the problem: swap the model rather than loosening
+the parser.
 
-If a model returns a low valid-vote count (printed at the end of its run), its instruction-following
-is the problem, not the formula. Swap the model rather than loosening the parser.
-
-### 4c. Human calibration — not optional
+### 4c. Human labels and the ceiling (not optional)
 
 ```bash
-python evaluation/vlm_referee.py --run-dir $RUN --human-template
-# label 100–150 cases in the template, save as $RUN/human_labels.json
+python evaluation/vlm_referee.py --run-dir $RUN --frames-dir data/processed/<frames> --human-template
+# writes $RUN/human/images/*.png (numbered boxes) + labels_template.json
+# two labellers each fill in "number" independently -> $RUN/human_labels_<name>.json (>= 50 cases in common)
 python evaluation/vlm_referee.py --run-dir $RUN --score-only
 ```
 
-Until `human_labels.json` exists the report prints `MISSING` where human κ belongs, and the VLM win
-rates are **not evidence** — three models agreeing can be one shared prior three times. Interpret:
-κ < 0.4 means the referees are not measuring what a human means by "top threat" and the numbers stay
-out of the paper; κ > 0.6 means the VLM win rates can stand in for a much larger human label set.
+The report gives:
+- each referee's order consistency and how often it picked each engine's object;
+- raw agreement against the chance level mean(1/k);
+- Gwet's AC1 for every pair, including human–human (the ceiling);
+- Krippendorff's α across the referees.
 
-Report pairwise referee κ too. Low inter-referee κ with high human κ for one model means use that
-model alone, and say so.
+All with session-bootstrap CIs. A referee stands in for human labels only if the lower 95% bound
+of its AC1 against every human is > 0.4 (the pre-registered gate). If a referee's text-only picks
+agree with its image picks as well as with humans, it's reading the distance column, not the image;
+say so.
 
 ---
 
