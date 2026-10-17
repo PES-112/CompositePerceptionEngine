@@ -5,7 +5,7 @@ import numpy as np
 
 from src.threat_engine.fusion import FusedTrack, GroundTracker, Measurement, NoiseModel
 from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
-from tools.replay_threat_engine import SPEED_FIX, lidarize, session_metrics
+from tools.replay_threat_engine import session_metrics
 
 DT = 0.2
 
@@ -22,45 +22,6 @@ def fused(**kw) -> FusedTrack:
                 position_std_m=0.1, speed_std_ms=0.1, hits=5, misses=0, confirmed=True, measured=True)
     base.update(kw)
     return FusedTrack(**base)
-
-
-class LidarizeTests(unittest.TestCase):
-    def setUp(self):
-        # one object walked toward from 9 m at 1.25 m/s, straight ahead
-        self.frames = {k: [row(k, "p", 9.0 - 0.25 * k, tte=max(-1, 24 - k) if k < 24 else 0)] for k in range(30)}
-
-    def test_range_cut_and_labels_kept(self):
-        out = lidarize(self.frames, 5.0, seed=1)
-        kept = [r for rows in out.values() for r in rows]
-        self.assertTrue(all(abs(r["distance_m"] - 9.0 + 0.25 * r["frame_idx"]) < 0.5 for r in kept))
-        self.assertTrue(all(9.0 - 0.25 * r["frame_idx"] <= 5.0 for r in kept))   # nothing beyond range
-        self.assertTrue(all(r["_tte"] == self.frames[r["frame_idx"]][0]["_tte"] for r in kept))
-        self.assertEqual(set(out), set(self.frames))                             # every frame still present
-        self.assertEqual(self.frames[0][0]["distance_m"], 9.0)                   # input not mutated
-
-    def test_speed_refitted_from_degraded_depth(self):
-        out = lidarize(self.frames, 10.0, seed=2)
-        late = [r for k in range(20, 30) for r in out[k]]
-        speeds = [r["velocity_ms"] for r in late]
-        self.assertAlmostEqual(float(np.median(speeds)), 1.25, delta=0.15)
-        for r in late:
-            self.assertAlmostEqual(r["_legacy"]["velocity_ms"], r["velocity_ms"] / SPEED_FIX)
-
-    def test_noise_grows_toward_the_image_edge(self):
-        def spread(bearing):
-            frames = {k: [row(k, f"o{k}", 3.0, bearing)] for k in range(4000)}
-            return np.std([r["distance_m"] for rows in lidarize(frames, 10.0, seed=3).values() for r in rows])
-        self.assertAlmostEqual(spread(0.0), 0.04, delta=0.005)                  # (0.01 + 0.03)
-        self.assertAlmostEqual(spread(30.0), 0.16, delta=0.02)                  # x (1 + 3)
-
-    def test_dropout_rate(self):
-        frames = {k: [row(k, f"o{k}", 2.0)] for k in range(4000)}
-        kept = sum(len(r) for r in lidarize(frames, 10.0, seed=4).values())
-        self.assertAlmostEqual(1 - kept / 4000, 0.05, delta=0.015)
-
-    def test_deterministic(self):
-        a, b = lidarize(self.frames, 5.0, seed=7), lidarize(self.frames, 5.0, seed=7)
-        self.assertEqual([r["distance_m"] for k in a for r in a[k]], [r["distance_m"] for k in b for r in b[k]])
 
 
 class LatencyTests(unittest.TestCase):

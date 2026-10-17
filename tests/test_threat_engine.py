@@ -85,7 +85,7 @@ class FusionTests(unittest.TestCase):
 
     def test_depth_outlier_is_gated(self):
         """The declared (Gaussian, hard-gate) model rejects a one-frame jump; the fitted Student-t
-        model down-weights it instead (tests/test_kalman_lidar.py)."""
+        model down-weights it instead (tests/test_kalman_latency.py)."""
         tracker = GroundTracker(noise=NoiseModel.declared())
         for k in range(8):
             tracker.step(k * DT, [Measurement("p", "person", 6.0, 0.0)])

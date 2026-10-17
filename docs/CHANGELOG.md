@@ -2,6 +2,34 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, decision] - SANPO depth used as is everywhere; no iPhone LiDAR
+
+Team decision: the product's depth comes from an **external LiDAR sensor**, and the demo replays
+pre-recorded video that already carries depth. The phone's own LiDAR is not used. SANPO's recorded
+depth (`depth_maps/`) is used as is by every engine, label and replay.
+
+### Removed
+- `tools/replay_threat_engine.py`: `lidarize()`, `--lidar-range`, `--lidar-seed` (the iPhone-LiDAR
+  degradation added earlier today) and its tests. The results folders
+  `corridor_kalman_2026_10_17_lidar{3,4,5}m` are removed too; their findings are superseded.
+- `ios/CPETiming`: the ARKit / LiDAR `sceneDepth` load, the camera permission and the ARKit
+  device-capability requirement. Benchmark blocks no longer alternate ARKit on/off. CSV columns
+  `ar_on` and `ar_fps` are dropped, and `analyze_timing.py` is updated to match.
+
+### Kept
+- The lead-based recall columns (`warned_before`, `warned_lead_ge1`) and their finding, measured on
+  SANPO depth: at the alert budgets only 0.08–0.14 of arrivals are warned ≥ 0.2 s ahead
+  (methodology §4.15, rewritten).
+- Latency-aware replay (`--latency-csv`), the Kalman work and the ladder: unchanged, all on SANPO
+  depth.
+
+### Changed
+- Docs: `architecture.md` §4 (product column: external LiDAR, not modelled; pose source not decided),
+  §6.2, §7, §9 item 6 (`zed_depth_maps/` not used), §10, §11; `methodology.md` §1, §4.15, §5.1 and
+  the drafting prompts; `pending_work.md` (depth-realism bound dropped); `README.md`;
+  `ios/CPETiming/README.md`.
+- `tests/test_kalman_lidar.py` renamed to `tests/test_kalman_latency.py`. Suite: 62 pass.
+
 ## [2026-10-17, later] - LiDAR depth-realism bound; lead-based recall
 
 ### Found

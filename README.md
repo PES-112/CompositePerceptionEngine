@@ -11,7 +11,7 @@ Max; evaluation replays the SANPO egocentric dataset.
 ## Pipeline (v2)
 
 ```
-SANPO replay: RGB + dataset depth + camera pose      (on the phone: camera + LiDAR + ARKit pose)
+SANPO replay: RGB + SANPO depth (as is) + camera pose   (product: phone camera + external LiDAR)
   → Perception        YOLO26n v3 + ByteTrack + depth per box                         ✅
   → Sensor fusion     Kalman track per object, ground plane, head motion removed      ✅ (pose unvalidated on SANPO)
   → Scene context     walkable-surface segmentation (road / curb / sidewalk), 2–5 Hz  ⬜
@@ -82,7 +82,7 @@ CompositePerceptionEngine/
 │   ├── generate_report_figures.py   # Regenerates evaluation/benchmarks/figures/
 │   └── benchmarks/
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
-│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics (incl. _lidar{3,4,5}m depth-realism runs)
+│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics (SANPO depth as is)
 │       ├── baseline_ladder/         # Held-out arrival ladder per label (cone, corridor): rules, Kalman, tabular, GRUs
 │       ├── kalman_noise_fit/        # Kalman noise model fitted on official-train sessions (fit_pose.json)
 │       ├── gru_encounter_eval/      # GRU cross-validation runs, one report.md per run
@@ -96,7 +96,7 @@ CompositePerceptionEngine/
 ├── tools/
 │   ├── stream_sanpo_perception.py   # Stage 1 over SANPO streamed from the public bucket (per-session fps / fx)
 │   ├── audit_sanpo_sessions.py      # FPS / intrinsics / official split / mask coverage for all 462 sessions
-│   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 engines; --lidar-range, --latency-csv
+│   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 engines; --latency-csv
 │   ├── fit_kalman_noise.py          # Fit the Kalman noise model by predictive likelihood on train sessions
 │   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler
 │   ├── run_perception.py            # Stage 1 on local frames
@@ -111,11 +111,11 @@ CompositePerceptionEngine/
 │   │                                #     export_gru_coreml.py (arrival GRU → Core ML)
 │   ├── configs/                     # 17-class taxonomy, Roboflow source manifest
 │   └── runs/                        # Ultralytics runs and checkpoints (v1, v2, v3)
-├── ios/CPETiming/                   # On-device latency harness (SwiftUI, XcodeGen): detector + GRU per stage, ARKit load,
+├── ios/CPETiming/                   # On-device latency harness (SwiftUI, XcodeGen): detector + GRU per stage on SANPO data,
 │                                    #     prepare_bundle.py, analyze_timing.py, TestFlight how-to in its README
 ├── notebooks/                       # sanpo_yolo_gap_analysis.ipynb + gap_analysis_output/
 ├── simulation/datasets/sanpo/       # valid_streams.json (462 sessions), session_audit.json, official_split.json
-├── tests/                           # Threat engine (fusion, envelope, priority, announcer), Kalman arrival, LiDAR/latency
+├── tests/                           # Threat engine (fusion, envelope, priority, announcer), Kalman arrival, latency-aware
 │                                    #     replay options, v1 routing, GRU, ensemble
 ├── data/                            # Local datasets (gitignored)
 └── requirements.txt

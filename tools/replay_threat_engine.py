@@ -12,6 +12,10 @@ CSVs needed). Camera poses come from each session's fixed_camera_poses.csv
 (public bucket; cached under data/sanpo_poses_fixed/). Processed frame k is
 source frame 3k (stride 3) and is replayed at t = 0.2·k s (15 FPS source).
 
+Depth is SANPO's own depth, as recorded, for every engine and every label
+(the demo replays pre-recorded video with depth; the product's depth sensor is
+an external LiDAR not modelled here).
+
 Units, corrected on the fly for everything except the GRU, which is fed the
 units it was trained in:
   speed    stored speeds are 2x too high (Stage 1 assumed 30 FPS) -> x0.5
@@ -49,18 +53,7 @@ arrival): warned rate and lead among arrivals with a window of >= 1 s and
 >= 2 s, lead / window, and a Kaplan-Meier "not yet warned" curve over time
 since first sighting (an arrival never warned is censored at arrival).
 
-LiDAR realism bound (--lidar-range R, default 0 = off). The phone measures depth
-with LiDAR, not SANPO's stereo. lidarize() degrades every engine's *inputs*:
-rows beyond R m are dropped (out of range), 5% of the rest at random
-(dropouts), and the rest get distance- and eccentricity-dependent noise,
-d + N(0, (0.01 + 0.01·d)·(1 + 3·min(1, |bearing| / 30°)²)) (centre error 1-2 cm
-at 1-3 m, ~0.2-0.3 m at the image edge at 3 m). Closing speed is re-estimated
-from the degraded depth (least squares over the last 6 processed steps, as
-Stage 1 does). Labels, arrivals and the opportunity window stay on SANPO's
-original depth, so only what the engines see changes.
-
     python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_seed0
-    python tools/replay_threat_engine.py --gru-run ... --lidar-range 5      # -> <name>_lidar5m
 
 Latency-aware replay (--latency-csv, or a fixed --latency-ms): each
 announcement is heard that long after the frame that triggered it, using the
@@ -93,7 +86,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from dataset.GRU.samples import load_dataset
 from src.narration.pipeline import NarrationPipeline
 from src.narration.tts import CachedClipTTS
-from src.perception_stack.physics import compute_velocity
 from src.pipeline.orchestrator import process_frame
 from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
@@ -118,9 +110,6 @@ V1_LOW_K = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0)
 BUDGETS = (2.0, 5.0, 10.0)
 KM_TIMES = (0.5, 1.0, 2.0, 3.0, 4.0)
 N_BOOT = 1000
-LIDAR_DROP = 0.05          # random dropouts on top of the range cut
-LIDAR_EDGE_DEG = 30.0      # noise reaches 4x the centre value at this bearing
-LIDAR_SPEED_STEPS = 6      # processed steps in the closing-speed fit
 
 
 # ── Inputs ───────────────────────────────────────────────────────────────────
@@ -154,35 +143,6 @@ def session_rows(samples: list[dict], fx: float, width: float) -> dict[int, list
             })
         frames[s["frame_idx"]] = rows
     return frames
-
-
-def lidarize(frames: dict[int, list[dict]], range_m: float, seed: int) -> dict[int, list[dict]]:
-    """
-    The engines' inputs as an iPhone LiDAR would give them (module docstring):
-    range cut, random dropouts, distance- and eccentricity-dependent depth noise,
-    and closing speed re-fitted on the degraded depth. Labels (_tte) are kept.
-    """
-    rng = np.random.default_rng(seed)
-    out: dict[int, list[dict]] = {}
-    history: dict[str, list[tuple[int, float]]] = defaultdict(list)
-    for k in sorted(frames):
-        rows = []
-        for r in frames[k]:
-            d = r["distance_m"]
-            keep = rng.random() >= LIDAR_DROP
-            ecc = min(1.0, abs(r["bearing_deg"]) / LIDAR_EDGE_DEG)
-            noisy = d + rng.normal(0.0, (0.01 + 0.01 * d) * (1 + 3 * ecc ** 2))
-            if d > range_m or not keep or noisy <= 0:
-                continue
-            h = history[r["track_id"]]
-            h.append((STRIDE * k, noisy))
-            del h[:-LIDAR_SPEED_STEPS]
-            recent = [(f, x) for f, x in h if f > STRIDE * (k - LIDAR_SPEED_STEPS)]
-            speed = compute_velocity(recent, fps=STRIDE / STEP_S)
-            rows.append({**r, "distance_m": noisy, "velocity_ms": speed,
-                         "_legacy": {**r["_legacy"], "velocity_ms": speed / SPEED_FIX}})
-        out[k] = rows
-    return out
 
 
 def load_latencies(paths: list[Path]) -> np.ndarray:
@@ -314,8 +274,7 @@ KEYS = ("warned", "precision", "late_share", "false_per_min", "alerts_per_min", 
         "overrides_per_min", "median_lead_s", "warned_window_ge1", "warned_window_ge2", "lead_ge1_s",
         "lead_over_window", "warned_before", "warned_lead_ge1")
 # warned counts an announcement on the arrival frame itself (lead 0). warned_before needs at least
-# one processed step (0.2 s) of lead and warned_lead_ge1 at least 1 s: these are what a range-limited
-# sensor (--lidar-range) can lose while "warned" stays flat.
+# one processed step (0.2 s) of lead and warned_lead_ge1 at least 1 s.
 
 
 def point(sessions: list[dict]) -> np.ndarray:
@@ -415,9 +374,6 @@ def main() -> None:
     p.add_argument("--out-dir", type=Path, default=PROJECT_ROOT / "evaluation/benchmarks/threat_engine_replay")
     p.add_argument("--name", default=None, help="Output folder name (default: <dataset label>_<date>).")
     p.add_argument("--max-sessions", type=int, default=0, help="Per split; 0 = all (smoke testing).")
-    p.add_argument("--lidar-range", type=float, default=0.0,
-                   help="Degrade the engines' depth to iPhone-LiDAR quality with this range in m (0 = off).")
-    p.add_argument("--lidar-seed", type=int, default=0)
     p.add_argument("--latency-ms", type=float, default=0.0,
                    help="Add this fixed on-device latency to every announcement (ms).")
     p.add_argument("--latency-csv", type=Path, nargs="*", default=[],
@@ -439,10 +395,6 @@ def main() -> None:
             by[s["session"]].append(s)
         ids = sorted(by)[: args.max_sessions or None]
         sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
-    # What the engines see; metrics always use `sessions` (SANPO depth).
-    inputs = {part: {sid: (lidarize(frames, args.lidar_range, zlib.crc32(sid.encode()) + args.lidar_seed)
-                           if args.lidar_range > 0 else frames) for sid, frames in by_sid.items()}
-              for part, by_sid in sessions.items()}
     all_ids = [sid for part in sessions.values() for sid in part]
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(all_ids, pool.map(session_poses, all_ids)))
@@ -470,13 +422,12 @@ def main() -> None:
     def run(part: str, arm: str, knob: float) -> list[dict]:
         per = []
         for sid, frames in sessions[part].items():
-            seen = inputs[part][sid]
             if arm.startswith("v1"):
-                log = run_v1(seen, announcer=arm.endswith("announcer"), low_k=knob)
+                log = run_v1(frames, announcer=arm.endswith("announcer"), low_k=knob)
             else:
                 use_pose, make = v2_arms[arm]
                 predictor = CachedPredictor(make(), caches[(arm, sid)])
-                log = run_v2(seen, poses[sid] if use_pose else None, predictor, knob)
+                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob)
             per.append(session_metrics(frames, log, horizon, delays_for(sid, len(log))))
         return per
 
@@ -505,8 +456,6 @@ def main() -> None:
 
     stats = manifest["stats"]
     name = args.name or f"{manifest['label'].get('kind', 'cone')}_{time.strftime('%Y_%m_%d')}"
-    if args.lidar_range > 0:
-        name += f"_lidar{args.lidar_range:g}m"
     if latency_pool is not None or args.latency_ms:
         name += "_latency"
     out = args.out_dir / name
@@ -519,11 +468,6 @@ def main() -> None:
         f"sessions, then scored once on test. GRU: `{args.gru_run.as_posix()}`. Generated "
         f"{time.strftime('%Y-%m-%d')} by `python tools/replay_threat_engine.py` ({time.time() - started:.0f} s).", "",
     ]
-    if args.lidar_range > 0:
-        lines += [f"Depth: LiDAR-degraded inputs (`--lidar-range {args.lidar_range:g}`, seed {args.lidar_seed}): rows "
-                  f"beyond {args.lidar_range:g} m and {LIDAR_DROP:.0%} at random dropped, noise N(0, (0.01 + 0.01·d)·"
-                  f"(1 + 3·min(1, |bearing|/{LIDAR_EDGE_DEG:g}°)²)) m, closing speed re-fitted over "
-                  f"{LIDAR_SPEED_STEPS} steps. Labels, arrivals and windows use SANPO depth.", ""]
     if latency_pool is not None:
         lines += [f"Latency: each announcement is heard after an on-device total drawn from {len(latency_pool)} "
                   f"measured frames ({', '.join(p.name for p in args.latency_csv)}; median "

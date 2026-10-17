@@ -27,8 +27,8 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 - Kalman noise fitted on train (Student-t); Kalman arrival predictor; replay before/after
   (methodology §4.13).
 - Baseline ladder on the corridor label (methodology §4.14).
-- LiDAR depth-realism bound at 5 / 4 / 3 m, plus lead-based recall columns (methodology §4.15). This
-  covers P2.5.
+- Lead-based recall columns in the replay (methodology §4.15). Depth stays SANPO's, as is; the
+  LiDAR-range simulation was removed.
 - On-device timing harness, GRU Core ML export and the latency-aware replay. This covers P3.1 (the
   GRU part), P3.3 and the tooling for P3.2.
 - VLM referee protocol v2 (P2.4 tooling) and the BLV listening-study plan.
@@ -88,8 +88,8 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
      K0's and from nearest-in-cone's.
    - Plus a 100–150-frame human calibration set with Cohen's κ.
    - Needs GPU-served local VLMs. Run guide: `ablation_guide.md` §4.
-5. **Optional: depth realism bound.** Re-run with SANPO depth truncated at 5 m and downsampled to
-   approximate iPhone LiDAR.
+5. **Dropped: depth realism bound.** Depth stays SANPO's, as is. The product uses an external
+   LiDAR, so an iPhone-LiDAR simulation doesn't apply. Revisit once the sensor is chosen.
 6. **Optional: chest camera.** Re-run Stage 1 on SANPO `camera_chest/` for the more phone-like
    mounting.
 

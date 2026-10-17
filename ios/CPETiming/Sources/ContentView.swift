@@ -12,10 +12,10 @@ struct ContentView: View {
                     Text(runner.bundleSummary).font(.footnote).textSelection(.enabled)
                 }
                 Section("Runs") {
-                    Button("Benchmark: warm-up + 10 interleaved blocks") { runner.start(.benchmark) }
+                    Button("Benchmark: warm-up + 10 blocks") { runner.start(.benchmark) }
                         .disabled(runner.running)
                     VStack(alignment: .leading) {
-                        Text("Sustained run: \(Int(sustainedMinutes)) min at 15 FPS, ARKit on")
+                        Text("Sustained run: \(Int(sustainedMinutes)) min at 15 FPS")
                         Slider(value: $sustainedMinutes, in: 5...40, step: 5)
                     }
                     Button("Start sustained run") { runner.start(.sustained(minutes: Int(sustainedMinutes))) }

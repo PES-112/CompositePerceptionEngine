@@ -51,21 +51,25 @@ end-to-end by replaying the SANPO dataset.
 
 ## 4. Simulation vs. deployment
 
-All results come from replaying SANPO-Real sessions. We **do not** run a depth model and **do not**
-run a live instance. Depth is read from SANPO. The right-hand column states how each input would be
-obtained on the phone; none of it is implemented.
+All results come from replaying SANPO-Real sessions, and the demo replays pre-recorded video that
+already carries depth. We **do not** run a depth model and **do not** run a live instance. **Depth is
+SANPO's own depth, used as is, everywhere**: no engine, label or replay degrades, truncates or
+replaces it. The phone's own LiDAR is not used. The product's depth comes from an **external LiDAR
+sensor**, which is not modelled yet. The right-hand column states how each input would be obtained
+in the product; none of it is implemented.
 
-| Input | In the simulation (what we run) | On iPhone 17 Pro Max (stated, not built) |
+| Input | In the simulation (what we run) | In the product (stated, not built) |
 |---|---|---|
-| RGB video | SANPO `camera_head/left` frames, 2208×1242 | Rear wide camera (AVFoundation / ARKit) |
-| Metric depth | SANPO `depth_maps/` (dataset stereo depth) | LiDAR scene depth via ARKit: low resolution (~256×192), reliable to ~5 m |
-| Ego-motion | SANPO `camera_poses.csv` (implemented; not yet reconciled with box depth, §9) | ARKit camera pose / Core Motion gyroscope |
-| Camera intrinsics | SANPO `description.json`, per session: 15 FPS, fx 1910–1993 px (51–60° HFOV) | ARKit camera intrinsics, per frame |
+| RGB video | SANPO `camera_head/left` frames, 2208×1242 | Phone camera (AVFoundation) |
+| Metric depth | SANPO `depth_maps/` (dataset stereo depth) | External LiDAR sensor (model and interface not decided) |
+| Ego-motion | SANPO `fixed_camera_poses.csv` (implemented; object-level reconciliation inconclusive, §9) | Not decided (phone IMU / Core Motion, or the sensor's own pose) |
+| Camera intrinsics | SANPO `description.json`, per session: 15 FPS, fx 1910–1993 px (51–60° HFOV) | Phone camera intrinsics |
 | Model execution | PyTorch on the development host | Core ML on the Apple Neural Engine; **latency measured on the device** (§7) |
 | Audio | Synthesised bytes, logged | Pre-rendered clips played locally |
 
-**Statement for the paper.** Depth comes from the dataset, so results are an upper bound on what
-phone depth would allow. The LiDAR's shorter range (~5 m vs. SANPO's tens of metres) is the main gap.
+**Statement for the paper.** Depth is SANPO's recorded depth, used as is. How the external LiDAR's
+range and noise compare with it is unknown until that sensor is chosen, and is stated as a
+limitation, not simulated.
 It can be bounded by re-running the evaluation with SANPO depth truncated at 5 m and downsampled
 (optional experiment, `pending_work.md`).
 
@@ -127,7 +131,7 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 
 | | |
 |---|---|
-| Input | Per track: depth and box bearing; per frame: camera pose (SANPO) or ARKit pose / gyroscope (phone) |
+| Input | Per track: depth and box bearing; per frame: camera pose (SANPO; the product's pose source is not decided) |
 | Method | Constant-velocity Kalman filter per track in ground-plane coordinates (x sideways, z forward); before each update, rotate tracks by the camera's own motion |
 | Output | Smoothed position, velocity (signed, so retreat is visible) and an uncertainty, per track |
 | Replaces | Least-squares closing speed over 5 depth samples (`physics.compute_velocity`); the unimplemented `scene_stable` flag |
@@ -234,7 +238,8 @@ override repeat 2 s, stale after 0.6 s; declared values). `src/threat_engine/eng
 | Narration | per announcement | ~0 ms (template + pre-rendered clip) | Template measured at ~0 ms |
 
 On-device numbers come from `ios/CPETiming`. This SwiftUI timing app runs YOLO26n v3 and the
-arrival GRU (both FP16 Core ML) on bundled SANPO frames, with ARKit + LiDAR depth live. It's built by
+arrival GRU (both FP16 Core ML) on bundled SANPO frames and recorded SANPO features; the phone's own
+camera and LiDAR aren't used. It's built by
 GitHub Actions on macOS and installed through TestFlight, so no team Mac is needed. The replay then
 delays each alert by the measured latency (`--latency-csv`, "latency-aware replay"), so the reported
 timeline matches the device. Status: the harness, the GRU export and the replay option are built.
@@ -290,17 +295,16 @@ Open:
    out in many sessions; both are handled. Still, neither pose file makes static objects stationary
    in the world frame, so ego-motion removal is unvalidated on SANPO (an ablation in the replay).
 6. **Labels and inputs share one depth source.** "Predicts arrival" means "predicts what the depth
-   will measure". Optionally, use SANPO's real-time `zed_depth_maps/` as the model input and the
+   will measure". Decision (2026-10-17): SANPO's `depth_maps/` are used as is everywhere; the
+   `zed_depth_maps/` split below is not used. (Was: optionally use SANPO's real-time `zed_depth_maps/` as the model input and the
    offline `depth_maps/` for labels.
 
 ## 10. Limitations to state in the paper
 
 - **Replay, not deployment.** Evaluation is open-loop. No user study was run, and no live device
   was used.
-- **Depth.** Depth comes from SANPO, not phone LiDAR (§4). The LiDAR bound (`--lidar-range`,
-  methodology §4.15) shows no measurable cost at a 5 m or 4 m range. At 3 m (the direct-sun
-  stand-in), warnings ≥ 1 s ahead vanish. The bound is box-level: range, dropouts and noise, not a
-  pixel-level 256×192 resample.
+- **Depth.** All results use SANPO's recorded depth as is (§4). The product's external LiDAR is not
+  modelled; its range and noise relative to SANPO depth are unknown until the sensor is chosen.
 - **Lead time.** Even on SANPO depth, at the alert budgets only 0.08–0.14 of arrivals are warned at
   least 0.2 s ahead, and ≤ 0.06 at least 1 s ahead. The headline "warned" counts announcements on
   the arrival frame itself (methodology §4.15).
@@ -318,7 +322,7 @@ Open:
 | `src/pipeline/orchestrator.py` | `V2Pipeline` (v2 engine + narration) and `process_frame` (v1 baseline) |
 | `src/narration/` | Narration (§6.6). Keep; add the clip library |
 | `models/GRU/`, `models/Ensemble/`, `dataset/GRU/` | "When" component (§6.4): training, held-out evaluation (`models/Ensemble/heldout.py`), official-split datasets (`dataset/GRU/resplit.py`) |
-| `tools/audit_sanpo_sessions.py`, `tools/replay_threat_engine.py` | Data audit (§9) and the end-to-end replay (§8); the replay's `--lidar-range` degrades inputs to iPhone-LiDAR quality, `--latency-csv` adds measured on-device latency |
+| `tools/audit_sanpo_sessions.py`, `tools/replay_threat_engine.py` | Data audit (§9) and the end-to-end replay (§8); the replay's `--latency-csv` adds measured on-device latency; depth is always SANPO's, as is |
 | `tools/fit_kalman_noise.py` | Fits the fusion noise model (§6.2) on official-train sessions |
 | `src/threat_engine/kalman_arrival.py` | Kalman arrival predictor: P(enter the corridor) over the fused track's covariance (replay arm `v2_kalman`, ladder rung `cv_kalman`) |
 | `evaluation/kinetic_ablation.py`, `evaluation/vlm_referee.py` | Metric definitions and the referee (protocol v2: numbered boxes, order swap, text-only control, AC1 / α), reused for v2 evaluation |

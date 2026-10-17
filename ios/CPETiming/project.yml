@@ -30,9 +30,7 @@ targets:
       properties:
         CFBundleDisplayName: CPE Timing
         UILaunchScreen: {}
-        UIRequiredDeviceCapabilities: [arkit]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        NSCameraUsageDescription: "ARKit runs with LiDAR depth during the timing run so the measurement includes the load it adds. Nothing is recorded or uploaded."
         UIFileSharingEnabled: true                 # timing CSVs appear in the Files app
         LSSupportsOpeningDocumentsInPlace: true
         ITSAppUsesNonExemptEncryption: false

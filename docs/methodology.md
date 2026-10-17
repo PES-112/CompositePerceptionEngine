@@ -25,8 +25,8 @@ from pre-rendered audio. There is no language model at runtime; the v1 design's 
 narrator layers were dropped.
 
 The target device is an iPhone 17 Pro Max. All results come from **replaying SANPO-Real sessions**,
-with depth read from the dataset rather than from the phone's LiDAR (`architecture.md` §4); no live
-deployment or user study is run.
+with SANPO's recorded depth used as is everywhere (`architecture.md` §4; the product's depth sensor
+is an external LiDAR, not modelled); no live deployment or user study is run.
 
 This document covers the methodology for the parts that are implemented and measured: the
 **YOLO26n hazard detector** (§3), the **K0 kinetic-score ablation** that motivated the v2 design (§4.1–4.9),
@@ -642,65 +642,38 @@ session bootstrap (1,000 draws), two-sided p from the bootstrap SE, Holm within 
 - **A statistics caveat.** For hist4 the percentile CI excludes 0, but the SE-based p does not
   survive Holm. The bootstrap distribution is skewed; treat it as a tie.
 
-### 4.15 LiDAR depth-realism bound, and lead-based recall (2026-10-17)
+### 4.15 Lead-based recall (2026-10-17)
 
-**Degradation.** `tools/replay_threat_engine.py --lidar-range R` degrades every engine's *inputs* to
-what an iPhone LiDAR would give. Labels, arrivals and the opportunity window stay on SANPO depth, so
-only what the engines see changes.
-- **Range cut:** rows beyond R m are dropped.
-- **Dropouts:** 5% of the remaining rows are dropped at random.
-- **Noise:** d + N(0, (0.01 + 0.01·d)·(1 + 3·min(1, |bearing|/30°)²)), i.e. centre error 1–2 cm at
-  1–3 m and about 0.2–0.3 m at the image edge at 3 m.
-- **Closing speed** is re-fitted by least squares over the last 6 processed steps.
-- **Runs:** R = 5 m (Apple's figure), plus 4 and 3 m for sensitivity; 3 m stands in for direct sun.
+All numbers use SANPO's recorded depth as is. A LiDAR-range simulation that briefly existed on
+2026-10-17 was removed: the product uses an external LiDAR, not the phone's, and depth stays as
+recorded.
 
-This is a box-level approximation of the pixel-level plan: the 4:3 crop and 256×192 block-median
-aren't applied. The added noise is small next to the box-median noise SANPO depth already has (§4.13),
-so the bound mostly tests **range and dropouts**.
-
-**How much opportunity is left** (test, 63 arrivals). 73% of all tracked rows lie beyond 5 m, and
-arrivals are first sighted at a median 5.8 m.
-
-| Depth | median opportunity window | seen before arrival | window ≥ 1 s | window ≥ 2 s |
-|---|---:|---:|---:|---:|
-| SANPO | 2.6 s | 100% | 75% | 62% |
-| LiDAR 5 m | 1.2 s | 81% | 54% | 41% |
-| LiDAR 4 m | 0.4 s | 62% | 37% | 27% |
-| LiDAR 3 m | 0.0 s | 21% | 13% | 5% |
-
-**"Warned" hides this.** The replay's `warned` counts an announcement made on the arrival frame
-itself (lead 0). An object that first enters LiDAR range already inside the zone is announced at
-once and counts as warned, so `warned` doesn't fall, and even rises, as range shrinks. Two
-lead-based columns were added to every operating-point table:
+**"Warned" includes lead-0 announcements.** The replay's `warned` counts an announcement made on the
+arrival frame itself. Two lead-based columns were added to every operating-point table:
 - `warned_before`: warned at least one processed step (0.2 s) before arrival;
 - `warned_lead_ge1`: warned at least 1 s before.
 
-**Results**, at `budget_5`, test (thresholds chosen on validation within each depth condition):
+**Results**, test, operating points chosen on validation
+(`evaluation/benchmarks/threat_engine_replay/corridor_kalman_2026_10_17/`):
 
-| Arm | depth | warned | warned ≥ 0.2 s before | warned ≥ 1 s before | false alerts/min | precision |
+| Arm | budget | warned | warned ≥ 0.2 s before | warned ≥ 1 s before | false alerts/min | precision |
 |---|---|---|---|---|---|---|
-| v2_gru | SANPO | 0.32 [0.24, 0.50] | 0.08 [0.00, 0.11] | 0.00 [0.00, 0.00] | 4.1 [2.1, 6.5] | 0.66 [0.55, 0.74] |
-| v2_gru | LiDAR 5 m | 0.37 [0.27, 0.63] | 0.11 [0.00, 0.23] | 0.03 [0.00, 0.08] | 4.0 [2.0, 6.0] | 0.65 [0.53, 0.76] |
-| v2_gru | LiDAR 4 m | 0.37 [0.27, 0.62] | 0.08 [0.00, 0.15] | 0.02 [0.00, 0.04] | 4.1 [2.0, 6.2] | 0.63 [0.52, 0.74] |
-| v2_gru | LiDAR 3 m | 0.41 [0.31, 0.65] | 0.05 [0.00, 0.09] | 0.00 [0.00, 0.00] | 3.5 [1.7, 5.2] | 0.71 [0.57, 0.82] |
-| v2_kalman | SANPO | 0.22 [0.11, 0.44] | 0.06 [0.00, 0.16] | 0.02 [0.00, 0.07] | 4.7 [2.3, 7.3] | 0.54 [0.39, 0.66] |
-| v2_kalman | LiDAR 5 m | 0.30 [0.19, 0.58] | 0.10 [0.03, 0.23] | 0.03 [0.00, 0.08] | 3.3 [1.2, 5.6] | 0.65 [0.54, 0.78] |
-| v2_kalman | LiDAR 3 m | 0.40 [0.27, 0.73] | 0.03 [0.00, 0.05] | 0.00 [0.00, 0.00] | 4.1 [2.2, 6.4] | 0.66 [0.55, 0.76] |
-
-Full tables: `evaluation/benchmarks/threat_engine_replay/corridor_kalman_2026_10_17{,_lidar5m,_lidar4m,_lidar3m}/`.
+| v2_gru | 5 | 0.32 [0.24, 0.50] | 0.08 [0.00, 0.11] | 0.00 [0.00, 0.00] | 4.1 [2.1, 6.5] | 0.66 [0.55, 0.74] |
+| v2_gru | 10 | 0.38 [0.26, 0.67] | 0.13 [0.03, 0.29] | 0.02 [0.00, 0.07] | 5.5 [3.1, 7.9] | 0.62 [0.48, 0.72] |
+| v2_gru_nopose | 5 | 0.37 [0.25, 0.63] | 0.11 [0.00, 0.23] | 0.02 [0.00, 0.07] | 2.9 [1.4, 4.4] | 0.73 [0.64, 0.82] |
+| v2_kalman | 5 | 0.22 [0.11, 0.44] | 0.06 [0.00, 0.16] | 0.02 [0.00, 0.07] | 4.7 [2.3, 7.3] | 0.54 [0.39, 0.66] |
+| v2_physics_nopose | 10 | 0.29 [0.20, 0.50] | 0.08 [0.00, 0.11] | 0.06 [0.00, 0.09] | 5.1 [3.1, 6.9] | 0.53 [0.46, 0.60] |
+| nearest_in_corridor | 10 | 0.19 [0.11, 0.32] | 0.08 [0.03, 0.14] | 0.02 [0.00, 0.03] | 7.2 [3.7, 10.8] | 0.47 [0.37, 0.57] |
 
 **Reading.**
-1. **At 5 m and 4 m there's no measurable cost** on any metric; every CI overlaps SANPO's. The range
-   cut also removes far, noisy tracks, which is why false alerts and precision don't get worse.
-2. **At 3 m, warnings ≥ 1 s ahead vanish (0.00 for every arm)** and warnings ≥ 0.2 s ahead halve.
-   This is the realism cost the plan expected, but it shows only at 3 m, the direct-sun stand-in.
-3. **The bigger finding holds even on SANPO depth.** Only 0.08–0.14 of arrivals are warned at least
-   one step ahead, and at most 0.06 at least 1 s ahead, at any engine's `budget_5` / `budget_10`
-   point. Most of the headline `warned` (0.32–0.38 for the GRU) is announcements on the arrival frame.
-   - Operating points were chosen to maximise `warned`, which rewards those lead-0 announcements.
-   - They should be re-chosen on `warned_before`, or on lead-conditional recall, before any lead or
-     recall claim goes in the paper.
-   - The opportunity window (median 2.6 s) is not the limit; the engines are.
+- At every arm's alert-budget point, only 0.08–0.14 of arrivals are warned at least one step ahead,
+  and at most 0.06 at least 1 s ahead. Most of the headline `warned` is announcements on the arrival
+  frame.
+- The opportunity window isn't the limit: the median is 2.6 s, and 75% of arrivals are seen ≥ 1 s
+  before they arrive. The engines are.
+- Operating points were chosen to maximise `warned`, which rewards lead-0 announcements. They should
+  be re-chosen on `warned_before` (or lead-conditional recall) before any lead or recall claim goes
+  in the paper.
 
 ## 5. Latency methodology
 
@@ -720,11 +693,11 @@ Three kinds of latency number exist and must never be conflated in a paper:
     softmax in the graph) on recorded SANPO test-split features.
 
   It writes per-stage times (decode/resize, detector, output read, GRU, total) as CSV rows and
-  `os_signpost` intervals, with the thermal state, battery and ARKit frame rate. Protocol:
+  `os_signpost` intervals, with the thermal state and battery. The phone's camera and LiDAR are not
+  used: frames and depth-derived inputs come from SANPO. Protocol:
   - a 60-frame warm-up, excluded;
-  - 10 blocks of 150 frames paced at 15 FPS, alternating ARKit (world tracking + LiDAR `sceneDepth`)
-    off and on, so ARKit's load is measured without a time-order confound;
-  - a 20–40 min sustained run with ARKit on.
+  - 10 blocks of 150 frames paced at 15 FPS;
+  - a 20–40 min sustained run.
 
   Reported: median, p95 and p99 per stage; p95 per 5-minute window; time in each thermal state;
   battery drop per hour (`ios/CPETiming/analyze_timing.py`). This is the only number that supports a
@@ -796,7 +769,8 @@ section of this document (§1–6 above) as additional grounding context first.
 > deterministic physics safety envelope: an object with time-to-collision under 1 s in the walking
 > path always triggers an alert. Alerts are scripted phrases from pre-rendered audio; there is no
 > language model at runtime. The target device is an iPhone 17 Pro Max; evaluation replays the
-> SANPO egocentric dataset with dataset depth standing in for phone LiDAR, and no human ground-truth
+> SANPO egocentric dataset with its recorded depth used as is (the product uses an external LiDAR),
+> and no human ground-truth
 > labels are needed except a small calibration set for a blinded referee.
 >
 > Please write an Academic Abstract (250 words max) and an Introduction. The Introduction should
@@ -839,8 +813,8 @@ section of this document (§1–6 above) as additional grounding context first.
 >   against base YOLO26n with explicit class-name remapping. This repaired the v2 retained-class
 >   regression while preserving custom hazard improvements.
 > - We process every 3rd source frame. Between processed frames, tracks are carried by the tracker.
-> - Depth comes from the SANPO dataset in our replay; on the target iPhone 17 Pro Max it would come
->   from the LiDAR scene depth via ARKit. State this substitution explicitly. Distance (d) is the
+> - Depth is SANPO's recorded depth, used as is; the product will use an external LiDAR sensor,
+>   which is not modelled. State this explicitly. Distance (d) is the
 >   median depth in the central patch of each box, masking closer overlapping objects. Object bearing
 >   is computed from the box centroid pixel and the camera's horizontal field of view:
 >   `bearing_deg = ((cx_px − frame_width/2) / (frame_width/2)) × (hfov_deg/2)`.
@@ -979,6 +953,6 @@ section of this document (§1–6 above) as additional grounding context first.
 > announces 17 times a minute with precision 0.59 vs. v1's 119 at 0.24, but warns about 26% of
 > arrivals vs. 65%. Discuss that the ceiling is set by the input features, motivating scene context,
 > and that the camera-pose check failed (§4.13), so ego-motion removal is not claimed. State the
-> limitations: open-loop replay, dataset depth standing in for phone LiDAR, head-mounted camera, no
+> limitations: open-loop replay, SANPO depth used as is (external LiDAR not modelled), head-mounted camera, no
 > user study, declared severity / announcer parameters. Do not claim a live deployment, phone FPS that
 > was not measured, or results for components that have not been run."

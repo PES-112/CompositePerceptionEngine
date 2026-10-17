@@ -1,12 +1,12 @@
-import ARKit
 import CoreML
 import Foundation
 import os
 import UIKit
 
-/// What a run does. Benchmark: a warm-up block (discarded in analysis), then 10 blocks of
-/// `blockFrames` frames alternating ARKit off / on, so ARKit's load is measured without a
-/// time-order confound. Sustained: one paced loop with ARKit on for `minutes`.
+/// What a run does. Benchmark: a warm-up block (discarded in analysis), then 10 paced blocks of
+/// 150 frames. Sustained: one paced loop for `minutes`. Frames and depth-derived GRU inputs come
+/// from the bundled SANPO data; the phone's own camera and LiDAR are not used (the product's depth
+/// sensor is an external LiDAR).
 enum RunMode {
     case benchmark
     case sustained(minutes: Int)
@@ -22,7 +22,6 @@ enum RunMode {
 /// One timed iteration, one CSV row.
 struct Sample {
     var block: String
-    var arOn: Bool
     var iter: Int
     var frame: Int
     var t: Double
@@ -33,12 +32,11 @@ struct Sample {
     var totalMs: Double
     var thermal: Int
     var battery: Float
-    var arFps: Int
 
-    static let header = "block,ar_on,iter,frame,t_s,pre_ms,det_ms,det_post_ms,gru_ms,total_ms,thermal_state,battery,ar_fps"
+    static let header = "block,iter,frame,t_s,pre_ms,det_ms,det_post_ms,gru_ms,total_ms,thermal_state,battery"
     var csv: String {
-        String(format: "%@,%d,%d,%d,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%d",
-               block, arOn ? 1 : 0, iter, frame, t, preMs, detMs, detPostMs, gruMs, totalMs, thermal, battery, arFps)
+        String(format: "%@,%d,%d,%.4f,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%.3f",
+               block, iter, frame, t, preMs, detMs, detPostMs, gruMs, totalMs, thermal, battery)
     }
 }
 
@@ -51,7 +49,6 @@ final class TimingRunner: ObservableObject {
     let bundleSummary: String
 
     private var worker: Task<Void, Never>?
-    private let ar = ARLoad()
 
     init() {
         bundleSummary = (try? Workload.load().description) ?? "Bundle incomplete: run prepare_bundle.py before building."
@@ -62,11 +59,10 @@ final class TimingRunner: ObservableObject {
         guard !running else { return }
         running = true
         summary = ""
-        let ar = self.ar
         worker = Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 let workload = try Workload.load()
-                let url = try await Self.run(mode, workload: workload, ar: ar) { text in
+                let url = try await Self.run(mode, workload: workload) { text in
                     await MainActor.run { self?.status = text }
                 }
                 let report = try Summary.of(csv: url)
@@ -79,7 +75,6 @@ final class TimingRunner: ObservableObject {
                 await MainActor.run { self?.status = "Error: \(error.localizedDescription)" }
             }
             await MainActor.run { self?.running = false }
-            ar.stop()
         }
     }
 
@@ -87,7 +82,7 @@ final class TimingRunner: ObservableObject {
 
     // MARK: - The timed loop (off the main actor)
 
-    nonisolated static func run(_ mode: RunMode, workload: Workload, ar: ARLoad,
+    nonisolated static func run(_ mode: RunMode, workload: Workload,
                                 progress: @escaping (String) async -> Void) async throws -> URL {
         let signposter = OSSignposter(subsystem: "edu.pes.cpe.timing", category: .pointsOfInterest)
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -96,23 +91,21 @@ final class TimingRunner: ObservableObject {
         var out = "# device=\(Device.model) os=\(Device.os) detector=\(workload.detectorName) gru=\(workload.gruName) " +
                   "frames=\(workload.frames.count) mode=\(mode.name)\n" + Sample.header + "\n"
 
-        // (block label, ARKit on, iterations, paced at 15 FPS)
-        var plan: [(String, Bool, Int, Bool)] = []
+        // (block label, iterations, paced at 15 FPS)
+        var plan: [(String, Int, Bool)] = []
         switch mode {
         case .benchmark:
-            plan.append(("warmup", false, 60, false))
-            for b in 0..<10 { plan.append(("block\(b)", b % 2 == 1, 150, true)) }
+            plan.append(("warmup", 60, false))
+            for b in 0..<10 { plan.append(("block\(b)", 150, true)) }
         case .sustained(let minutes):
-            plan.append(("warmup", true, 60, false))
-            plan.append(("sustained", true, minutes * 60 * 15, true))
+            plan.append(("warmup", 60, false))
+            plan.append(("sustained", minutes * 60 * 15, true))
         }
 
         let start = DispatchTime.now().uptimeNanoseconds
         var iter = 0
         var battery: Float = -1
-        for (label, arOn, count, paced) in plan {
-            if arOn { ar.start() } else { ar.stop() }
-            if arOn { try await Task.sleep(nanoseconds: 1_000_000_000) }   // let ARKit reach steady state
+        for (label, count, paced) in plan {
             var next = DispatchTime.now().uptimeNanoseconds
             for i in 0..<count {
                 if Task.isCancelled { break }
@@ -125,10 +118,9 @@ final class TimingRunner: ObservableObject {
                     battery = await MainActor.run { UIDevice.current.batteryLevel }
                 }
                 let t = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
-                out += Sample(block: label, arOn: arOn, iter: iter, frame: frame, t: t, preMs: s.pre, detMs: s.det,
+                out += Sample(block: label, iter: iter, frame: frame, t: t, preMs: s.pre, detMs: s.det,
                               detPostMs: s.post, gruMs: s.gru, totalMs: s.total,
-                              thermal: ProcessInfo.processInfo.thermalState.rawValue, battery: battery,
-                              arFps: ar.framesLastSecond).csv + "\n"
+                              thermal: ProcessInfo.processInfo.thermalState.rawValue, battery: battery).csv + "\n"
                 iter += 1
                 if i % 75 == 0 {
                     await progress(String(format: "%@ %d/%d  total %.1f ms  thermal %d", label, i, count, s.total,
@@ -143,7 +135,6 @@ final class TimingRunner: ObservableObject {
             }
             if Task.isCancelled { break }
         }
-        ar.stop()
         try out.write(to: url, atomically: true, encoding: .utf8)
         return url
     }
@@ -301,51 +292,6 @@ enum PixelBuffer {
     }
 }
 
-// MARK: - ARKit with LiDAR scene depth, running only to load the phone as the real app would
-
-final class ARLoad: NSObject, ARSessionDelegate, @unchecked Sendable {
-    private let session = ARSession()
-    private let queue = DispatchQueue(label: "edu.pes.cpe.ar")
-    private let lock = NSLock()
-    private var stamps: [TimeInterval] = []
-    private var isRunning = false
-
-    override init() {
-        super.init()
-        session.delegate = self
-        session.delegateQueue = queue
-    }
-
-    func start() {
-        lock.lock(); defer { lock.unlock() }
-        guard !isRunning, ARWorldTrackingConfiguration.isSupported else { return }
-        let config = ARWorldTrackingConfiguration()
-        if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) { config.frameSemantics.insert(.sceneDepth) }
-        session.run(config)
-        isRunning = true
-    }
-
-    func stop() {
-        lock.lock(); defer { lock.unlock() }
-        guard isRunning else { return }
-        session.pause()
-        isRunning = false
-        stamps.removeAll()
-    }
-
-    var framesLastSecond: Int {
-        lock.lock(); defer { lock.unlock() }
-        let now = ProcessInfo.processInfo.systemUptime
-        stamps.removeAll { now - $0 > 1.0 }
-        return stamps.count
-    }
-
-    func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        _ = frame.sceneDepth?.depthMap                    // touch the LiDAR depth, as the app would
-        lock.lock(); stamps.append(frame.timestamp); lock.unlock()
-    }
-}
-
 // MARK: - Summary shown in the app (the full analysis is ios/CPETiming/analyze_timing.py)
 
 enum Summary {
@@ -353,8 +299,8 @@ enum Summary {
         let rows = try String(contentsOf: url, encoding: .utf8).split(separator: "\n")
             .filter { !$0.hasPrefix("#") && !$0.hasPrefix("block") }.map { $0.split(separator: ",") }
         var groups: [String: [Double]] = [:]
-        for r in rows where r.count > 9 && r[0] != "warmup" {
-            groups[r[1] == "1" ? "ARKit on " : "ARKit off", default: []].append(Double(r[9]) ?? .nan)
+        for r in rows where r.count > 8 && r[0] != "warmup" {
+            groups[r[0] == "sustained" ? "sustained" : "benchmark", default: []].append(Double(r[8]) ?? .nan)
         }
         return groups.keys.sorted().map { key in
             let v = groups[key]!.sorted()

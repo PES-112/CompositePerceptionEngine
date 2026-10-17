@@ -4,10 +4,10 @@ analyze_timing.py
 Summarise CSVs written by the CPE Timing app (ios/CPETiming) into the numbers
 the paper reports (docs/methodology.md §5):
 
-  per stage (pre / det / det_post / gru / total): median, p95, p99, with ARKit off and on,
-      warm-up excluded; blocks alternate ARKit off/on, so the difference is ARKit's load
+  per stage (pre / det / det_post / gru / total): median, p95, p99 for the benchmark blocks and
+      the sustained run, warm-up excluded
   sustained run: p95 of total per 5-minute window, time in each thermal state per window,
-      battery drop per hour, ARKit frame rate
+      battery drop per hour
 
     python ios/CPETiming/analyze_timing.py cpe_timing_benchmark_*.csv cpe_timing_sustained30min_*.csv
         --out evaluation/benchmarks/ondevice_latency/<device>_<date>
@@ -36,24 +36,24 @@ def load(path: Path) -> tuple[pd.DataFrame, str]:
 
 
 def stage_table(df: pd.DataFrame) -> list[str]:
-    lines = ["| stage | ARKit | n | median ms | p95 ms | p99 ms |", "|---|---|---:|---:|---:|---:|"]
+    lines = ["| stage | run | n | median ms | p95 ms | p99 ms |", "|---|---|---:|---:|---:|---:|"]
+    kind = np.where(df["block"] == "sustained", "sustained", "benchmark")
     for stage in STAGES:
-        for ar, g in df.groupby("ar_on"):
+        for run, g in df.groupby(kind):
             v = g[stage].to_numpy()
-            lines.append(f"| {stage.removesuffix('_ms')} | {'on' if ar else 'off'} | {len(v)} | "
+            lines.append(f"| {stage.removesuffix('_ms')} | {run} | {len(v)} | "
                          f"{np.median(v):.2f} | {np.percentile(v, 95):.2f} | {np.percentile(v, 99):.2f} |")
     return lines
 
 
 def sustained_table(df: pd.DataFrame) -> list[str]:
     df = df.assign(window=(df["t_s"] - df["t_s"].min()) // WINDOW_S)
-    lines = ["| window (min) | n | median total ms | p95 total ms | thermal (share of frames) | battery | ARKit fps |",
-             "|---|---:|---:|---:|---|---:|---:|"]
+    lines = ["| window (min) | n | median total ms | p95 total ms | thermal (share of frames) | battery |",
+             "|---|---:|---:|---:|---|---:|"]
     for w, g in df.groupby("window"):
         shares = ", ".join(f"{THERMAL.get(int(k), k)} {v:.0%}" for k, v in g["thermal_state"].value_counts(normalize=True).sort_index().items())
         lines.append(f"| {int(w) * 5}-{int(w) * 5 + 5} | {len(g)} | {g['total_ms'].median():.2f} | "
-                     f"{np.percentile(g['total_ms'], 95):.2f} | {shares} | {g['battery'].iloc[-1]:.2f} | "
-                     f"{g['ar_fps'].median():.0f} |")
+                     f"{np.percentile(g['total_ms'], 95):.2f} | {shares} | {g['battery'].iloc[-1]:.2f} |")
     hours = (df["t_s"].max() - df["t_s"].min()) / 3600
     valid = df[df["battery"] >= 0]
     if hours > 0 and len(valid) > 1:

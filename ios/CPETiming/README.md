@@ -2,8 +2,10 @@
 
 A minimal SwiftUI app that times CPE's two learned models on the phone, per stage, under the load the
 real app would add. It is a **latency benchmark, not the navigation app**:
-- It runs YOLO26n v3 on bundled SANPO frames, and the arrival GRU on recorded SANPO features.
-- It does not use the camera image, and does not speak.
+- It runs YOLO26n v3 on bundled SANPO frames, and the arrival GRU on recorded SANPO features
+  (built from SANPO's depth, as is).
+- It doesn't use the phone's camera or LiDAR (the product's depth comes from an external LiDAR),
+  and it doesn't speak.
 
 It exists because "fits the 50 ms alert budget" is the one headline claim with no measurement yet
 (`reports/CPE v2 next steps.md`, move 7). No one on the team has a Mac, so the app is built on a
@@ -12,17 +14,14 @@ GitHub Actions macOS runner and installed through TestFlight.
 ## What it measures
 
 Per frame it writes one CSV row: `pre_ms` (JPEG decode + resize), `det_ms` (detector),
-`det_post_ms` (reading the detector output), `gru_ms` and `total_ms`, plus the thermal state,
-battery level and ARKit frame rate. Each stage is also an `os_signpost` interval in Instruments'
+`det_post_ms` (reading the detector output), `gru_ms` and `total_ms`, plus the thermal state and
+battery level. Each stage is also an `os_signpost` interval in Instruments'
 Points of Interest.
 
-- **Benchmark run:**
-  1. A warm-up block (60 frames, excluded from analysis).
-  2. 10 blocks of 150 frames paced at 15 FPS, **alternating ARKit off / on**. With ARKit on, an
-     `ARSession` runs world tracking with LiDAR `sceneDepth`, so visual-inertial odometry (VIO) and
-     depth compete for resources as they would in use.
-- **Sustained run:** 5–40 min (default 30) at 15 FPS with ARKit on throughout. This exposes thermal
-  throttling: report the p95 per 5-minute window.
+- **Benchmark run:** a warm-up block (60 frames, excluded from analysis), then 10 blocks of 150
+  frames paced at 15 FPS.
+- **Sustained run:** 5–40 min (default 30) at 15 FPS. This exposes thermal throttling: report the p95
+  per 5-minute window.
 
 Models: `CPEDetector` is YOLO26n v3 FP16 Core ML from `training/scripts/export_yolo26n_edge.py`.
 `CPEArrivalGRU` is `corridor_h8_seed0` FP16 from `training/scripts/export_gru_coreml.py`, softmax
@@ -68,7 +67,7 @@ One-time setup by the account holder (needs a paid Apple Developer Program membe
 On the phone:
 
 1. Charge to > 80 %, then unplug. Close other apps, keep the phone at room temperature, case off.
-2. Open **CPE Timing** and allow camera access; ARKit needs it, and nothing is recorded.
+2. Open **CPE Timing**. It needs no permissions.
 3. Run **Benchmark** twice. Then run **Sustained** for 30 min without touching the phone; the screen
    stays on.
 4. Share the CSVs (the share button, or Files → On My iPhone → CPE Timing) and commit them under
@@ -83,7 +82,7 @@ python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_s
     --latency-csv evaluation/benchmarks/ondevice_latency/<dir>/raw/cpe_timing_sustained30min_*.csv
 ```
 
-Report median, p95 and p99 per stage with ARKit on and off, the p95 per 5-minute window, the
+Report median, p95 and p99 per stage, the p95 per 5-minute window, the
 thermal timeline and battery drop per hour. Also report the latency-aware replay. State the
 following as limitations:
 - These are isolated per-frame timings of two models, not the whole app.
