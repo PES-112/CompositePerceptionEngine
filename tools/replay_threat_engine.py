@@ -1,16 +1,16 @@
 """
 replay_threat_engine.py
 =======================
-End-to-end SANPO replay of the runtime engines (pending_work.md P2.1):
-v1 (K0 routing -> stub -> PhysicsVerification) against the v2 threat engine,
-on SANPO's official split, with system-level metrics.
+End-to-end SANPO replay of the runtime engines: v1 (K0 routing -> stub ->
+PhysicsVerification) against the v2 threat engine, on SANPO's official split,
+as full operating curves rather than single points.
 
-Input. The GRU arrival dataset already stores, for every processed frame, every
-tracked object's Stage-1 values (distance, bearing, closing speed, confidence,
-box size) and its arrival label, so the replay rebuilds Stage-1 rows from it
-(no CSVs needed). Camera poses come from each session's camera_poses.csv
-(public bucket; cached under data/sanpo_poses/). Processed frame k is source
-frame 3k (stride 3) and is replayed at t = 0.2·k s (15 FPS source).
+Input. The GRU arrival dataset stores, for every processed frame, every tracked
+object's Stage-1 values (distance, bearing, closing speed, confidence, box
+size) and its arrival label, so the replay rebuilds Stage-1 rows from it (no
+CSVs needed). Camera poses come from each session's fixed_camera_poses.csv
+(public bucket; cached under data/sanpo_poses_fixed/). Processed frame k is
+source frame 3k (stride 3) and is replayed at t = 0.2·k s (15 FPS source).
 
 Units, corrected on the fly for everything except the GRU, which is fed the
 units it was trained in:
@@ -18,27 +18,35 @@ units it was trained in:
   bearing  stored bearings assumed a 70 deg linear FOV -> pinhole angle from
            the session's real fx (simulation/datasets/sanpo/session_audit.json)
 
-Arms (all on the same frames):
-  v1_k0               the v1 chain as built; it speaks on every frame with an event
-  v1_k0_announcer     v1's pick fed through the v2 announcement manager
-  nearest_in_cone     v2 engine, P(arrive) from distance rank inside the cone only
-  v2_physics          v2 engine, physics arrival predictor, ego-motion removed
+Arms, each with one sensitivity knob swept densely:
+  v1_k0               the v1 chain as built (speaks whenever the judge emits an
+                      event); knob = K0's low routing threshold
+  v1_k0_announcer     v1's pick through the v2 announcement manager; same knob
+  nearest_in_corridor v2 engine, P(arrive) = exp(-distance / 3 m) for objects in
+                      the walking corridor, 0 otherwise; knob = ignore threshold
+  v2_physics          v2 engine, physics (constant-velocity) arrival predictor
   v2_physics_nopose   same, camera-frame tracking (ego-motion ablation)
-  v2_gru              v2 engine, GRU arrival predictor, ego-motion removed
+  v2_gru              v2 engine, GRU arrival predictor
   v2_gru_nopose       same, camera-frame tracking
 
-Metrics (per arrival: a track's first frame inside 3 m in the ±30° cone, among
-tracks seen at least one frame earlier):
-  warned          an announcement about that track in the 4 s before it arrived
-  lead_s          median warning lead time over warned arrivals
-  precision       announcements whose object is within 3 m in the cone now or
-                  within the next 4 s (the arrival label at that frame)
-  alerts_per_min, overrides_per_min, switches_per_min (announced track changed)
-Session-bootstrap 95% CIs. The ignore threshold of each v2 arm is chosen on the
-official validation sessions (best F1 of warned vs. precision) and then applied
-once to the test sessions.
+Every announcement is classed by the label of its object at that frame:
+  true   the object enters the zone later within the horizon (tte >= 1)
+  late   it is already inside the zone (tte == 0)
+  false  it doesn't enter the zone within the horizon (tte == -1)
+An arrival is a track's first frame inside the zone, counted if the track was
+seen at least one frame earlier (a warning was possible). warned = an
+announcement about it in the 4 s up to and including arrival.
 
-    python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/official462_2026_10_14_seed0
+Operating points are chosen on the official validation sessions, then scored
+once on test with session-bootstrap 95% CIs:
+  budget_2 / budget_5 / budget_10   most arrivals warned with <= 2 / 5 / 10 false alerts per minute
+  recall_50                         fewest false alerts with >= 50% of arrivals warned
+Lead time is reported against the opportunity window (first sighting ->
+arrival): warned rate and lead among arrivals with a window of >= 1 s and
+>= 2 s, lead / window, and a Kaplan-Meier "not yet warned" curve over time
+since first sighting (an arrival never warned is censored at arrival).
+
+    python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_seed0
 """
 
 from __future__ import annotations
@@ -67,13 +75,13 @@ from src.pipeline.orchestrator import process_frame
 from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
-from src.threat_engine.fusion import EgoPose, GroundTracker, sanpo_session_poses
+from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, sanpo_session_poses
 from src.threat_engine.priority import Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat
 from src.threat_prioritizer import build_threat_frame
 from tools.audit_sanpo_sessions import fetch, object_url
 from tools.download_sanpo_valid_streams import BASE_PREFIX
 
-DEFAULT_DATASET = PROJECT_ROOT / "dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_official"
+DEFAULT_DATASET = PROJECT_ROOT / "dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20"
 AUDIT = PROJECT_ROOT / "simulation/datasets/sanpo/session_audit.json"
 POSE_CACHE = PROJECT_ROOT / "data/sanpo_poses_fixed"
 STEP_S = 0.2
@@ -81,7 +89,10 @@ STRIDE = 3
 LEGACY_HALF_FOV = 35.0
 SPEED_FIX = 0.5
 WARN_WINDOW_S = 4.0
-THRESHOLDS = (0.05, 0.1, 0.15, 0.25, 0.4, 0.6)
+V2_THRESHOLDS = (0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
+V1_LOW_K = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0)
+BUDGETS = (2.0, 5.0, 10.0)
+KM_TIMES = (0.5, 1.0, 2.0, 3.0, 4.0)
 N_BOOT = 1000
 
 
@@ -125,21 +136,30 @@ def legacy_row(row: dict) -> dict:
 
 # ── Arms ─────────────────────────────────────────────────────────────────────
 
-class NearestInConePredictor:
-    """P(arrive) = 1 for the nearest object in the cone, decaying with distance rank; 0 outside it."""
+class NearestInCorridorPredictor:
+    """P(arrive) = exp(-distance / 3 m) for objects in the walking corridor ahead; 0 elsewhere."""
 
     def predict(self, frame_idx, tracks):
-        inside = sorted((t for t in tracks if envelope.in_cone(t)), key=lambda t: t.distance_m)
-        out = {t.track_id: Arrival(0.0, 5.0) for t in tracks}
-        for rank_, t in enumerate(inside):
-            out[t.track_id] = Arrival(1.0 / (1 + rank_), t.distance_m)
-        return out
+        return {t.track_id: Arrival(math.exp(-t.distance_m / 3.0) if envelope.in_corridor(
+            t.lateral_m, t.forward_m, t.class_name) else 0.0, t.distance_m) for t in tracks}
 
 
 class LegacyGRU(GRUArrivalPredictor):
     def observe(self, frame_idx, tracks):
         swapped = [t.__class__(**{**t.__dict__, "row": legacy_row(t.row)}) if t.row else t for t in tracks]
         super().observe(frame_idx, swapped)
+
+
+class CachedPredictor:
+    """Replays the arrivals an inner predictor gave on the first pass (the tracker is deterministic)."""
+
+    def __init__(self, inner, cache: dict):
+        self.inner, self.cache = inner, cache
+
+    def predict(self, frame_idx, tracks):
+        if frame_idx not in self.cache:
+            self.cache[frame_idx] = self.inner.predict(frame_idx, tracks)
+        return self.cache[frame_idx]
 
 
 def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float):
@@ -150,96 +170,161 @@ def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor
         pose = poses[min(STRIDE * k, len(poses) - 1)] if poses else None
         f = engine.step(k, k * STEP_S, frames[k], pose)
         if f.announcement:
-            log.append((f.t, f.announcement.track_id, f.announcement.kind))
+            log.append((k, f.announcement.track_id, f.announcement.kind))
     return log
 
 
-def run_v1(frames: dict[int, list[dict]], announcer: bool):
+def run_v1(frames: dict[int, list[dict]], announcer: bool, low_k: float):
     narration = NarrationPipeline(tts=CachedClipTTS(fallback=b""), critical_tts=CachedClipTTS(fallback=b""))
     mgr = AnnouncementManager() if announcer else None
+    high_k = max(5.0, 2 * low_k)
     log = []
     for k in sorted(frames):
         rows = [{**r, "bbox_x1": 0, "bbox_y1": 0, "bbox_x2": 0, "bbox_y2": 0, "cx_px": 0, "source": "sanpo"}
                 for r in frames[k]]
-        result = process_frame(build_threat_frame(rows), narration)
+        result = process_frame(build_threat_frame(rows, low_k_threshold=low_k, high_k_threshold=high_k), narration)
         ev = result.narrator_event
         if ev is None:
             continue
-        t = k * STEP_S
         if mgr is None:
-            log.append((t, ev.track_id, "override" if ev.is_override else "threat"))
+            log.append((k, ev.track_id, "override" if ev.is_override else "threat"))
             continue
         dummy = _ranked_stub(ev.track_id, ev.object_class)   # the announcer only needs the id and kind
         overrides = [envelope.Override(dummy.track, 0.0, ev.reason)] if ev.is_override else []
-        a = mgr.step(t, overrides, [] if ev.is_override else [dummy])
+        a = mgr.step(k * STEP_S, overrides, [] if ev.is_override else [dummy])
         if a:
-            log.append((t, a.track_id, a.kind))
+            log.append((k, a.track_id, a.kind))
     return log
 
 
 def _ranked_stub(track_id: str, class_name: str) -> RankedThreat:
-    from src.threat_engine.fusion import FusedTrack
     tr = FusedTrack(track_id, class_name, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, (0.0, 0.0), 0.0, 0.0, 1, 0, True, True)
     return RankedThreat(tr, 1.0, Arrival(1.0, 0.0), 1.0, 1.0)
 
 
 # ── Metrics ──────────────────────────────────────────────────────────────────
 
-def arrivals(frames: dict[int, list[dict]]) -> dict[str, float]:
-    """{track: arrival time} for tracks first seen before they arrive (a warning was possible)."""
+def arrivals(frames: dict[int, list[dict]]) -> dict[str, tuple[int, int]]:
+    """{track: (first seen frame, arrival frame)} for tracks first seen before they arrive."""
     first_seen, arrive = {}, {}
     for k in sorted(frames):
         for r in frames[k]:
             first_seen.setdefault(r["track_id"], k)
             if r["_tte"] == 0 and r["track_id"] not in arrive:
                 arrive[r["track_id"]] = k
-    return {tid: k * STEP_S for tid, k in arrive.items() if first_seen[tid] < k}
+    return {tid: (first_seen[tid], k) for tid, k in arrive.items() if first_seen[tid] < k}
 
 
-def session_metrics(frames, log) -> dict:
+def session_metrics(frames, log, horizon_frames: int) -> dict:
     arr = arrivals(frames)
-    duration_min = max(1, len(frames)) * STEP_S / 60
-    warned, leads = 0, []
-    for tid, ta in arr.items():
-        times = [t for t, a, _ in log if a == tid and ta - WARN_WINDOW_S <= t <= ta]
-        if times:
-            warned += 1
-            leads.append(ta - min(times))
-    # precision: the announced object is within 3 m in the cone now or within the next 4 s
-    # (the arrival label at that frame, y = 1)
-    label = {(k, r["track_id"]): r["_tte"] >= 0 for k, rows in frames.items() for r in rows}
-    hits = sum(1 for t, a, _ in log if label.get((round(t / STEP_S), a), False))
+    label = {(k, r["track_id"]): r["_tte"] for k, rows in frames.items() for r in rows}
+    window_frames = round(WARN_WINDOW_S / STEP_S)
+    per_arrival = []
+    for tid, (seen, ka) in arr.items():
+        times = [k for k, a, _ in log if a == tid and ka - window_frames <= k <= ka]
+        warn = min(times) if times else None
+        per_arrival.append({"window_s": (ka - seen) * STEP_S,
+                            "lead_s": (ka - warn) * STEP_S if warn is not None else None,
+                            # time from first sighting to first warning (Kaplan-Meier event), or censored at arrival
+                            "time_to_warn_s": ((warn - seen) * STEP_S) if warn is not None else (ka - seen) * STEP_S,
+                            "event": warn is not None})
+    kinds = {"true": 0, "late": 0, "false": 0}
+    for k, a, _ in log:
+        tte = label.get((k, a), -1)
+        kinds["true" if tte >= 1 else "late" if tte == 0 else "false"] += 1
     switches = sum(1 for (_, a, _), (_, b, _) in zip(log, log[1:]) if a != b)
-    return {"arrivals": len(arr), "warned": warned, "leads": leads, "announcements": len(log),
-            "hits": hits, "overrides": sum(1 for *_, kind in log if kind == "override"),
-            "switches": switches, "minutes": duration_min}
+    return {"arrivals": per_arrival, "announcements": len(log), **kinds,
+            "overrides": sum(1 for *_, kind in log if kind == "override"),
+            "switches": switches, "minutes": max(1, len(frames)) * STEP_S / 60}
 
 
-def aggregate(per_session: list[dict], seed: int = 0) -> dict:
-    def point(idx):
-        s = [per_session[i] for i in idx]
-        arr, ann, mins = sum(x["arrivals"] for x in s), sum(x["announcements"] for x in s), sum(x["minutes"] for x in s)
-        leads = [v for x in s for v in x["leads"]]
-        return np.array([
-            sum(x["warned"] for x in s) / arr if arr else np.nan,
-            sum(x["hits"] for x in s) / ann if ann else np.nan,
-            np.median(leads) if leads else np.nan,
-            ann / mins, sum(x["overrides"] for x in s) / mins, sum(x["switches"] for x in s) / mins,
-        ])
+KEYS = ("warned", "precision", "late_share", "false_per_min", "alerts_per_min", "switches_per_min",
+        "overrides_per_min", "median_lead_s", "warned_window_ge1", "warned_window_ge2", "lead_ge1_s",
+        "lead_over_window")
+
+
+def point(sessions: list[dict]) -> np.ndarray:
+    arr = [a for s in sessions for a in s["arrivals"]]
+    ann = sum(s["announcements"] for s in sessions)
+    mins = sum(s["minutes"] for s in sessions)
+    warned = [a for a in arr if a["event"]]
+    ge1 = [a for a in arr if a["window_s"] >= 1.0]
+    ge2 = [a for a in arr if a["window_s"] >= 2.0]
+
+    def rate(xs):
+        return sum(a["event"] for a in xs) / len(xs) if xs else np.nan
+
+    leads_ge1 = [a["lead_s"] for a in ge1 if a["event"]]
+    return np.array([
+        rate(arr),
+        sum(s["true"] + s["late"] for s in sessions) / ann if ann else np.nan,
+        sum(s["late"] for s in sessions) / ann if ann else np.nan,
+        sum(s["false"] for s in sessions) / mins,
+        ann / mins,
+        sum(s["switches"] for s in sessions) / mins,
+        sum(s["overrides"] for s in sessions) / mins,
+        float(np.median([a["lead_s"] for a in warned])) if warned else np.nan,
+        rate(ge1), rate(ge2),
+        float(np.median(leads_ge1)) if leads_ge1 else np.nan,
+        float(np.median([a["lead_s"] / a["window_s"] for a in warned])) if warned else np.nan,
+    ])
+
+
+def aggregate(per_session: list[dict], boot: bool = True, seed: int = 0) -> dict:
+    full = point(per_session)
+    out = {"arrivals": sum(len(s["arrivals"]) for s in per_session)}
+    if not boot:
+        out.update({k: (float(full[i]),) for i, k in enumerate(KEYS)})
+        return out
     rng = np.random.default_rng(seed)
     n = len(per_session)
-    full = point(range(n))
-    boot = np.array([point(rng.integers(0, n, n)) for _ in range(N_BOOT)])
-    keys = ("warned", "precision", "lead_s", "alerts_per_min", "overrides_per_min", "switches_per_min")
-    out = {k: (float(full[i]), float(np.nanpercentile(boot[:, i], 2.5)), float(np.nanpercentile(boot[:, i], 97.5)))
-           for i, k in enumerate(keys)}
-    out["arrivals"] = int(sum(x["arrivals"] for x in per_session))
+    draws = np.array([point([per_session[j] for j in rng.integers(0, n, n)]) for _ in range(N_BOOT)])
+    out.update({k: (float(full[i]), float(np.nanpercentile(draws[:, i], 2.5)), float(np.nanpercentile(draws[:, i], 97.5)))
+                for i, k in enumerate(KEYS)})
     return out
 
 
-def f1(m: dict) -> float:
-    w, p = m["warned"][0], m["precision"][0]
-    return 0.0 if not (w and p) or not (np.isfinite(w) and np.isfinite(p)) else 2 * w * p / (w + p)
+def kaplan_meier(per_session: list[dict]) -> dict[float, float]:
+    """S(t): share of arrivals not yet warned t seconds after first sighting (never-warned censored at arrival)."""
+    rows = sorted((a["time_to_warn_s"], a["event"]) for s in per_session for a in s["arrivals"])
+    surv, at_risk, out, i = 1.0, len(rows), {}, 0
+    for t_query in KM_TIMES:
+        while i < len(rows) and rows[i][0] <= t_query:
+            t = rows[i][0]
+            events = removed = 0
+            while i < len(rows) and rows[i][0] == t:
+                events += rows[i][1]
+                removed += 1
+                i += 1
+            if at_risk:
+                surv *= 1 - events / at_risk
+            at_risk -= removed
+        out[t_query] = surv
+    return out
+
+
+def window_profile(per_session: list[dict]) -> dict:
+    w = np.array([a["window_s"] for s in per_session for a in s["arrivals"]])
+    return {"arrivals": int(len(w)), "median_window_s": float(np.median(w)),
+            "share_lt_1s": float(np.mean(w < 1.0)), "share_lt_2s": float(np.mean(w < 2.0)),
+            "share_ge_4s": float(np.mean(w >= 4.0))}
+
+
+def pick(curve: dict, rule: str) -> float | None:
+    """Knob value for an operating rule from a {knob: aggregate} validation curve."""
+    items = list(curve.items())
+    if rule.startswith("budget_"):
+        budget = float(rule.split("_")[1])
+        ok = [(k, m) for k, m in items if m["false_per_min"][0] <= budget]
+        if not ok:
+            return None
+        return max(ok, key=lambda km: (np.nan_to_num(km[1]["warned"][0]), -km[1]["false_per_min"][0]))[0]
+    if rule == "recall_50":
+        ok = [(k, m) for k, m in items if np.nan_to_num(m["warned"][0]) >= 0.5]
+        if not ok:
+            return None
+        return min(ok, key=lambda km: km[1]["false_per_min"][0])[0]
+    raise ValueError(rule)
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -251,13 +336,15 @@ def main() -> None:
     p.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     p.add_argument("--gru-run", type=Path, required=True, help="A models/GRU run trained on --dataset's train split.")
     p.add_argument("--out-dir", type=Path, default=PROJECT_ROOT / "evaluation/benchmarks/threat_engine_replay")
+    p.add_argument("--name", default=None, help="Output folder name (default: <dataset label>_<date>).")
     p.add_argument("--max-sessions", type=int, default=0, help="Per split; 0 = all (smoke testing).")
     args = p.parse_args()
 
     manifest, splits = load_dataset(args.dataset, splits=("val", "test"))
     cfg = json.loads((args.gru_run / "config.json").read_text(encoding="utf-8"))
-    if cfg["split"] != manifest["split"]:
-        raise SystemExit(f"{args.gru_run} was not trained on {manifest['name']}'s split")
+    if cfg["split"] != manifest["split"] or cfg["dataset_name"] != manifest["name"]:
+        raise SystemExit(f"{args.gru_run} was not trained on {manifest['name']}")
+    horizon = int(manifest["label"]["HORIZON_FRAMES"])
     audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
 
     sessions = {}
@@ -266,81 +353,113 @@ def main() -> None:
         for s in samples:
             by[s["session"]].append(s)
         ids = sorted(by)[: args.max_sessions or None]
-        sessions[part] = {sid: by[sid] for sid in ids}
+        sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
     all_ids = [sid for part in sessions.values() for sid in part]
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(all_ids, pool.map(session_poses, all_ids)))
 
-    def arms(threshold):
-        return {
-            "nearest_in_cone": lambda fr, ps: run_v2(fr, ps, NearestInConePredictor(), threshold),
-            "v2_physics": lambda fr, ps: run_v2(fr, ps, PhysicsArrivalPredictor(), threshold),
-            "v2_physics_nopose": lambda fr, ps: run_v2(fr, None, PhysicsArrivalPredictor(), threshold),
-            "v2_gru": lambda fr, ps: run_v2(fr, ps, LegacyGRU(args.gru_run / "model.pt"), threshold),
-            "v2_gru_nopose": lambda fr, ps: run_v2(fr, None, LegacyGRU(args.gru_run / "model.pt"), threshold),
-        }
+    caches: dict[tuple, dict] = defaultdict(dict)
+    gru_path = args.gru_run / "model.pt"
+    v2_arms = {
+        "nearest_in_corridor": (True, lambda: NearestInCorridorPredictor()),
+        "v2_physics": (True, lambda: PhysicsArrivalPredictor()),
+        "v2_physics_nopose": (False, lambda: PhysicsArrivalPredictor()),
+        "v2_gru": (True, lambda: LegacyGRU(gru_path)),
+        "v2_gru_nopose": (False, lambda: LegacyGRU(gru_path)),
+    }
+    arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K, **{a: V2_THRESHOLDS for a in v2_arms}}
 
-    def evaluate(part: str, arm: str, threshold: float | None) -> dict:
+    def run(part: str, arm: str, knob: float) -> list[dict]:
         per = []
-        for sid, samples in sessions[part].items():
-            a = audit[sid]
-            frames = session_rows(samples, a["fx"], a["image_width"])
-            if arm == "v1_k0":
-                log = run_v1(frames, announcer=False)
-            elif arm == "v1_k0_announcer":
-                log = run_v1(frames, announcer=True)
+        for sid, frames in sessions[part].items():
+            if arm.startswith("v1"):
+                log = run_v1(frames, announcer=arm.endswith("announcer"), low_k=knob)
             else:
-                log = arms(threshold)[arm](frames, poses[sid])
-            per.append(session_metrics(frames, log))
-        return aggregate(per)
+                use_pose, make = v2_arms[arm]
+                predictor = CachedPredictor(make(), caches[(arm, sid)])
+                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob)
+            per.append(session_metrics(frames, log, horizon))
+        return per
 
     started = time.time()
-    chosen, val_table = {}, {}
-    for arm in arms(0.0):
-        val_table[arm] = {th: evaluate("val", arm, th) for th in THRESHOLDS}
-        chosen[arm] = max(THRESHOLDS, key=lambda th: f1(val_table[arm][th]))
-        print(f"val  {arm:18s} threshold {chosen[arm]} (F1 {f1(val_table[arm][chosen[arm]]):.3f})", flush=True)
+    rules = [f"budget_{b:g}" for b in BUDGETS] + ["recall_50"]
+    curves = {"val": {}, "test": {}}
+    test_runs: dict[str, dict[float, list[dict]]] = {}
+    chosen: dict[str, dict[str, float | None]] = {}
+    for arm, knobs in arms.items():
+        curves["val"][arm] = {k: aggregate(run("val", arm, k), boot=False) for k in knobs}
+        test_runs[arm] = {k: run("test", arm, k) for k in knobs}
+        curves["test"][arm] = {k: aggregate(v, boot=False) for k, v in test_runs[arm].items()}
+        chosen[arm] = {r: pick(curves["val"][arm], r) for r in rules}
+        print(f"{arm:20s} {time.time() - started:5.0f} s  chosen on val: {chosen[arm]}", flush=True)
 
-    test = {"v1_k0": evaluate("test", "v1_k0", None), "v1_k0_announcer": evaluate("test", "v1_k0_announcer", None)}
-    for arm, th in chosen.items():
-        test[arm] = evaluate("test", arm, th)
-        print(f"test {arm:18s} done", flush=True)
+    points = {arm: {r: (aggregate(test_runs[arm][k]) if k is not None else None) for r, k in by_rule.items()}
+              for arm, by_rule in chosen.items()}
+    km = {arm: {r: (kaplan_meier(test_runs[arm][k]) if k is not None else None) for r, k in by_rule.items()}
+          for arm, by_rule in chosen.items()}
+    windows = window_profile(next(iter(next(iter(test_runs.values())).values())))
 
-    def cell(v):
-        pt, lo, hi = v
-        return f"{pt:.2f} [{lo:.2f}, {hi:.2f}]" if np.isfinite(pt) else "n/a"
+    def cell(v, fmt="{:.2f}"):
+        if v is None or not np.isfinite(v[0]):
+            return "n/a"
+        return (fmt.format(v[0]) + (f" [{fmt.format(v[1])}, {fmt.format(v[2])}]" if len(v) == 3 else ""))
 
-    out = args.out_dir / f"official_{time.strftime('%Y_%m_%d')}"
+    stats = manifest["stats"]
+    name = args.name or f"{manifest['label'].get('kind', 'cone')}_{time.strftime('%Y_%m_%d')}"
+    out = args.out_dir / name
     out.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# Threat-engine replay - SANPO official test split", "",
-        f"{len(sessions['test'])} official test sessions with tracked objects, "
-        f"{test['v1_k0']['arrivals']} arrivals (a track first seen before it came within 3 m in the ±30° cone). "
-        f"Thresholds chosen on {len(sessions['val'])} validation sessions. GRU: `{args.gru_run.as_posix()}`. "
-        f"Generated {time.strftime('%Y-%m-%d')} by `python tools/replay_threat_engine.py` "
-        f"({time.time() - started:.0f} s).", "",
-        "| Arm | ignore threshold | warned ↑ | precision ↑ | median lead (s) ↑ | alerts/min | overrides/min | switches/min ↓ |",
-        "|---|---:|---|---|---|---|---|---|",
+        f"# Threat-engine replay - {name}", "",
+        f"Label: {manifest['label']['definition']}.", "",
+        f"SANPO official test split: {len(sessions['test'])} sessions, {windows['arrivals']} arrivals (a track "
+        f"first seen before it entered the zone). Operating points chosen on {len(sessions['val'])} validation "
+        f"sessions, then scored once on test. GRU: `{args.gru_run.as_posix()}`. Generated "
+        f"{time.strftime('%Y-%m-%d')} by `python tools/replay_threat_engine.py` ({time.time() - started:.0f} s).", "",
+        "## Opportunity window (first sighting -> arrival), test", "",
+        f"Median {windows['median_window_s']:.1f} s; {windows['share_lt_1s']:.0%} of arrivals were first seen less "
+        f"than 1 s before arriving, {windows['share_lt_2s']:.0%} less than 2 s, {windows['share_ge_4s']:.0%} at least "
+        "4 s before. Lead time can't exceed the window, so lead is reported conditionally below.", "",
     ]
-    for arm, m in test.items():
-        lines.append(f"| {arm} | {chosen.get(arm, '—')} | {cell(m['warned'])} | {cell(m['precision'])} | "
-                     f"{cell(m['lead_s'])} | {cell(m['alerts_per_min'])} | {cell(m['overrides_per_min'])} | "
-                     f"{cell(m['switches_per_min'])} |")
-    lines += ["", "95% CIs resample whole sessions. warned: arrivals with an announcement about that track in the "
-              "4 s before it arrived. precision: announcements whose object is within 3 m in the cone now or within "
-              "the next 4 s (the arrival label at that frame).", "",
-              "## Threshold selection (validation sessions, F1 of warned and precision)", "",
-              "| Arm | " + " | ".join(str(t) for t in THRESHOLDS) + " |", "|---|" + "---:|" * len(THRESHOLDS)]
-    for arm, by_th in val_table.items():
-        lines.append(f"| {arm} | " + " | ".join(f"{f1(by_th[t]):.3f}" for t in THRESHOLDS) + " |")
-    lines += ["", "Open-loop: the recorded walker never heard these alerts. Labels and inputs share SANPO's depth.",
-              "Only YOLO-tracked objects are replayed (depth-sweep pseudo-objects have no identity to warn about).", ""]
-    report = "\n".join(lines)
-    (out / "report.md").write_text(report, encoding="utf-8")
-    (out / "metrics.json").write_text(json.dumps({"test": test, "chosen_thresholds": chosen,
-                                                  "val": {a: {str(t): m for t, m in v.items()} for a, v in val_table.items()}},
-                                                 indent=2), encoding="utf-8")
-    print(report)
+    for rule in rules:
+        lines += [f"## Operating point `{rule}` (test, 95% session-bootstrap CI)", "",
+                  "| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ "
+                  "| warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |",
+                  "|---|---:|---|---|---|---|---|---|---|---|---|"]
+        for arm in arms:
+            m = points[arm][rule]
+            if m is None:
+                lines.append(f"| {arm} | — | no setting meets the rule on validation |||||||||")
+                continue
+            lines.append(f"| {arm} | {chosen[arm][rule]:g} | {cell(m['warned'])} | {cell(m['false_per_min'])} | "
+                         f"{cell(m['precision'])} | {cell(m['late_share'])} | {cell(m['alerts_per_min'])} | "
+                         f"{cell(m['switches_per_min'])} | {cell(m['warned_window_ge1'])} | "
+                         f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} |")
+        lines.append("")
+    lines += ["## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, `budget_5`)", "",
+              "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
+    for arm in arms:
+        k = km[arm]["budget_5"]
+        lines.append(f"| {arm} | " + (" | ".join(f"{k[t]:.2f}" for t in KM_TIMES) if k else "n/a") + " |")
+    lines += ["", "## Operating curves (test; every knob value)", "",
+              "Recall (warned) against false alerts per minute; the CSV next to this report has every column.", "",
+              "| Arm | knob | warned | false/min | precision | alerts/min |", "|---|---:|---:|---:|---:|---:|"]
+    rows_csv = ["split,arm,knob," + ",".join(KEYS)]
+    for split in ("val", "test"):
+        for arm, curve in curves[split].items():
+            for k, m in curve.items():
+                rows_csv.append(f"{split},{arm},{k:g}," + ",".join(f"{m[key][0]:.4f}" for key in KEYS))
+                if split == "test":
+                    lines.append(f"| {arm} | {k:g} | {m['warned'][0]:.2f} | {m['false_per_min'][0]:.1f} | "
+                                 f"{m['precision'][0]:.2f} | {m['alerts_per_min'][0]:.1f} |")
+    lines += ["", "Classes: true = the object enters the zone later within the horizon; late = it is already in the "
+              "zone; false = it doesn't enter within the horizon. precision = (true + late) / all. warned = an "
+              "announcement about the arriving track in the 4 s up to and including arrival.",
+              "Open-loop: the recorded walker never heard these alerts. Labels and inputs share SANPO's depth.", ""]
+    (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
+    (out / "curves.csv").write_text("\n".join(rows_csv) + "\n", encoding="utf-8")
+    (out / "metrics.json").write_text(json.dumps({"chosen": chosen, "points": points, "kaplan_meier": km,
+                                                  "window_profile": windows}, indent=2, default=str), encoding="utf-8")
+    print("\n".join(lines[:40]))
     print(f"-> {out}")
 
 
