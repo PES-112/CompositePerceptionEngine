@@ -160,9 +160,9 @@ stands on, where the walkable area ends, and which depth pixels are just ground.
 | walker surface | per frame | majority ground class, bottom-centre of the image | the flags below |
 | surface under the object | per track | majority ground class in the object's columns at its depth (±15%, ≥ 0.3 m); needs only bearing + distance | context, GRU input (later) |
 | in path | per track | object on walkable ground and the walker is too | priority ×1.5 |
-| near a boundary | per track | the object's ground mixes walkable and unsafe ground, or has curb | priority ×1.25 |
+| near a boundary | per track | the object's ground mixes walkable and unsafe ground, or has curb | ×1.0: reported, not weighted (was ×1.25; contradicted by the oracle, methodology §4.14) |
 | other surface | per track | walker on walkable ground, object on road / non-walkable ground | priority ×0.5 |
-| edge ahead | per scene | first unsafe-ground row up the image centre after walkable ground; class + median depth | its own scripted alert (to do) |
+| edge ahead | per scene | first unsafe-ground row up the image centre after walkable ground; class + median depth | "Curb ahead." alert (`edge_alert.py`): curb, stairs or road within 5 m, 2 consecutive frames, once per episode (2 s clear) |
 | flat-ground mask | per frame | walkable, crosswalk, road, non-walkable (curbs and stairs stay in) | obstacle sweep (§6.1) |
 
 **Oracle check (SANPO's own masks).** Only 53 curated sessions have masks on the head camera that

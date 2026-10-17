@@ -3,7 +3,8 @@ import unittest
 import numpy as np
 
 from evaluation.segmentation_metrics import SegmentationScore
-from src.segmentation.context import ObjectRef, flat_ground, scene_frame, walker_surface
+from src.segmentation.context import EdgeAhead, ObjectRef, approach_speed, flat_ground, scene_frame, walker_surface
+from src.segmentation.edge_alert import EdgeAlerter
 from src.segmentation.labels import (CROSSWALK, CURB, IGNORE, OBSTACLE, ROAD, SANPO_TO_CPE, SKY, STAIRS, WALKABLE,
                                      remap, ultralytics_label_mapping)
 from src.threat_engine.priority import SceneContext, context_multiplier
@@ -80,6 +81,55 @@ class ContextTests(unittest.TestCase):
     def test_flat_ground_keeps_curbs_and_stairs(self):
         cls = np.array([[WALKABLE, ROAD, CURB, STAIRS, OBSTACLE, SKY]], np.uint8)
         np.testing.assert_array_equal(flat_ground(cls), [[True, True, False, False, False, False]])
+
+
+class ApproachTests(unittest.TestCase):
+    def test_closing_on_the_centre_line_is_positive(self):
+        d = np.full(4, 5.0)
+        b = np.degrees(np.arcsin([1.6, 1.4, 1.2, 1.0] / d))   # lateral 1.6 -> 1.0 m over 0.6 s
+        self.assertAlmostEqual(approach_speed(d, b), 1.0)
+        self.assertAlmostEqual(approach_speed(d, -b), 1.0)     # same from the left
+        self.assertAlmostEqual(approach_speed(d, b[::-1]), -1.0)
+
+    def test_gaps_use_the_real_time_step(self):
+        d = np.array([5.0, np.nan, np.nan, 5.0])
+        b = np.degrees(np.arcsin(np.array([1.6, 0, 0, 1.0]) / 5.0))
+        self.assertAlmostEqual(approach_speed(d, b), 1.0)
+        self.assertEqual(approach_speed(np.array([np.nan, 5.0]), np.array([np.nan, 10.0])), 0.0)
+
+
+class EdgeAlertTests(unittest.TestCase):
+    def test_confirmed_once_per_episode(self):
+        a = EdgeAlerter(confirm_frames=2, clear_s=2.0)
+        self.assertIsNone(a.step(0.0, EdgeAhead(CURB, 4.0)))
+        alert = a.step(0.4, EdgeAhead(CURB, 3.6))
+        self.assertEqual((alert.kind, alert.distance_m), ("curb", 3.6))
+        self.assertIsNone(a.step(0.8, EdgeAhead(CURB, 3.2)))
+        self.assertIsNone(a.step(1.2, EdgeAhead(ROAD, 2.8)))     # same episode: curb then road
+        self.assertIsNone(a.step(1.6, EdgeAhead(ROAD, 2.4)))
+
+    def test_far_edges_and_unannounced_kinds_are_silent(self):
+        a = EdgeAlerter(confirm_frames=2)
+        for t in (0.0, 0.4, 0.8):
+            self.assertIsNone(a.step(t, EdgeAhead(CURB, 8.0)))
+        b = EdgeAlerter(confirm_frames=2)
+        for t in (0.0, 0.4, 0.8):
+            self.assertIsNone(b.step(t, EdgeAhead(SANPO_TO_CPE[16], 2.0)))   # non-walkable ground
+
+    def test_flicker_is_not_confirmed(self):
+        a = EdgeAlerter(confirm_frames=2)
+        for i, edge in enumerate([EdgeAhead(CURB, 3.0), None, EdgeAhead(STAIRS, 3.0), EdgeAhead(CURB, 3.0)]):
+            self.assertIsNone(a.step(0.4 * i, edge))
+
+    def test_rearms_after_clear(self):
+        a = EdgeAlerter(confirm_frames=2, clear_s=2.0)
+        a.step(0.0, EdgeAhead(CURB, 3.0))
+        self.assertIsNotNone(a.step(0.4, EdgeAhead(CURB, 3.0)))
+        self.assertIsNone(a.step(1.0, None))
+        self.assertIsNone(a.step(2.0, EdgeAhead(CURB, 3.0)))     # 1.6 s gap: same episode
+        self.assertIsNone(a.step(4.4, None))                     # 2.4 s clear: re-armed
+        a.step(4.8, EdgeAhead(STAIRS, 4.0))
+        self.assertEqual(a.step(5.2, EdgeAhead(STAIRS, 3.5)).kind, "stairs")
 
 
 class MetricTests(unittest.TestCase):
