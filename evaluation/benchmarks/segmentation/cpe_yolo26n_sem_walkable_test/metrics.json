@@ -1,0 +1,90 @@
+{
+  "weights": "training/runs/cpe_yolo26n_sem_walkable/weights/best.pt",
+  "split": "test",
+  "imgsz": 640,
+  "sessions": 48,
+  "overall": {
+    "frames": 3850,
+    "pixels": 2254374021,
+    "miou": 0.6150200233536229,
+    "pixel_accuracy": 0.8531904897248637,
+    "iou": {
+      "walkable": 0.8284927641174463,
+      "crosswalk": 0.5901161129035151,
+      "road": 0.4939878898682522,
+      "curb": 0.23878852486135255,
+      "stairs": 0.47419199215177754,
+      "non-walkable ground": 0.6856313041864052,
+      "obstacle": 0.7408022992901974,
+      "sky": 0.8681492994500366
+    },
+    "false_safe_rate": 0.043752644880600176,
+    "road_as_walkable_rate": 0.17289158066472432,
+    "walkable_as_unsafe_rate": 0.05619428363419952,
+    "boundary_f": {
+      "curb": 0.2954030441749693,
+      "stairs": 0.061821076496226444
+    },
+    "boundary_tol_px": 3
+  },
+  "by_camera": {
+    "chest": {
+      "frames": 2561,
+      "pixels": 1496076995,
+      "miou": 0.6037491447629695,
+      "pixel_accuracy": 0.8510161564244894,
+      "iou": {
+        "walkable": 0.8274477092854103,
+        "crosswalk": 0.593220611036939,
+        "road": 0.49223757761128567,
+        "curb": 0.2513012463634799,
+        "stairs": 0.4924618265756438,
+        "non-walkable ground": 0.654489700802233,
+        "obstacle": 0.7589502509375653,
+        "sky": 0.7598842354911987
+      },
+      "false_safe_rate": 0.05846248627935508,
+      "road_as_walkable_rate": 0.1625473136643737,
+      "walkable_as_unsafe_rate": 0.053465867447019456,
+      "boundary_f": {
+        "curb": 0.3050925949002118,
+        "stairs": 0.06713851032000726
+      },
+      "boundary_tol_px": 3
+    },
+    "head": {
+      "frames": 1289,
+      "pixels": 758297026,
+      "miou": 0.5535445131514073,
+      "pixel_accuracy": 0.8574803259217847,
+      "iou": {
+        "walkable": 0.8322900512842529,
+        "crosswalk": 0.5551964078568972,
+        "road": 0.5034566870293247,
+        "curb": 0.21502937481079837,
+        "stairs": 0.0,
+        "non-walkable ground": 0.7165113677326104,
+        "obstacle": 0.7009878815627717,
+        "sky": 0.9048843349346036
+      },
+      "false_safe_rate": 0.026360379579313573,
+      "road_as_walkable_rate": 0.22163029236403448,
+      "walkable_as_unsafe_rate": 0.06674713896916515,
+      "boundary_f": {
+        "curb": 0.2834840376700329,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    }
+  },
+  "ci95": {
+    "miou": [
+      0.5403745086841397,
+      0.6405829486105027
+    ],
+    "false_safe_rate": [
+      0.029057247858068312,
+      0.06220477875744911
+    ]
+  }
+}
