@@ -2,7 +2,7 @@
 
 Label: in the walking corridor (width 0.75 m + class half-width, 0 < forward <= 3 m along the direction of travel from fixed_camera_poses.csv) within 20 steps (4 s); tracked objects only.
 
-SANPO official test split: 71 sessions, 63 arrivals (a track first seen before it entered the zone). Operating points chosen on 41 validation sessions, then scored once on test. GRU: `models/GRU/GRU/runs/corridor_h8_seed0`. Generated 2026-10-17 by `python tools/replay_threat_engine.py` (827 s).
+SANPO official test split: 71 sessions, 63 arrivals (a track first seen before it entered the zone). Operating points chosen on 41 validation sessions, then scored once on test. GRU: `models/GRU/GRU/runs/corridor_h8_seed0`. Generated 2026-10-17 by `python tools/replay_threat_engine.py` (916 s).
 
 ## Opportunity window (first sighting -> arrival), test
 
@@ -10,59 +10,59 @@ Median 2.6 s; 25% of arrivals were first seen less than 1 s before arriving, 38%
 
 ## Operating point `budget_2` (test, 95% session-bootstrap CI)
 
-| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |
-|---|---:|---|---|---|---|---|---|---|---|---|
-| v1_k0 | — | no setting meets the rule on validation |||||||||
-| v1_k0_announcer | — | no setting meets the rule on validation |||||||||
-| nearest_in_corridor | 0.95 | 0.03 [0.00, 0.09] | 2.34 [0.85, 3.94] | 0.35 [0.18, 0.50] | 0.31 [0.12, 0.49] | 3.59 [1.30, 6.01] | 1.93 [0.35, 3.70] | 0.04 [0.00, 0.12] | 0.03 [0.00, 0.08] | 0.20 [0.20, 0.20] |
-| v2_physics | — | no setting meets the rule on validation |||||||||
-| v2_physics_nopose | — | no setting meets the rule on validation |||||||||
-| v2_kalman | — | no setting meets the rule on validation |||||||||
-| v2_kalman_nopose | — | no setting meets the rule on validation |||||||||
-| v2_gru | — | no setting meets the rule on validation |||||||||
-| v2_gru_nopose | 0.7 | 0.27 [0.17, 0.48] | 1.93 [0.56, 3.69] | 0.77 [0.62, 0.90] | 0.65 [0.51, 0.83] | 8.28 [4.07, 12.66] | 5.93 [2.06, 10.24] | 0.26 [0.16, 0.50] | 0.28 [0.15, 0.56] | 0.00 [0.00, 0.60] |
+| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) | warned ≥ 0.2 s before | warned ≥ 1 s before |
+|---|---:|---|---|---|---|---|---|---|---|---|---|---|
+| v1_k0 | — | no setting meets the rule on validation |||||||||||
+| v1_k0_announcer | — | no setting meets the rule on validation |||||||||||
+| nearest_in_corridor | 0.95 | 0.03 [0.00, 0.09] | 2.34 [0.85, 3.94] | 0.35 [0.18, 0.50] | 0.31 [0.12, 0.49] | 3.59 [1.30, 6.01] | 1.93 [0.35, 3.70] | 0.04 [0.00, 0.12] | 0.03 [0.00, 0.08] | 0.20 [0.20, 0.20] | 0.02 [0.00, 0.04] | 0.00 [0.00, 0.00] |
+| v2_physics | — | no setting meets the rule on validation |||||||||||
+| v2_physics_nopose | — | no setting meets the rule on validation |||||||||||
+| v2_kalman | — | no setting meets the rule on validation |||||||||||
+| v2_kalman_nopose | — | no setting meets the rule on validation |||||||||||
+| v2_gru | — | no setting meets the rule on validation |||||||||||
+| v2_gru_nopose | 0.7 | 0.27 [0.17, 0.48] | 1.93 [0.56, 3.69] | 0.77 [0.62, 0.90] | 0.65 [0.51, 0.83] | 8.28 [4.07, 12.66] | 5.93 [2.06, 10.24] | 0.26 [0.16, 0.50] | 0.28 [0.15, 0.56] | 0.00 [0.00, 0.60] | 0.06 [0.00, 0.11] | 0.00 [0.00, 0.00] |
 
 ## Operating point `budget_5` (test, 95% session-bootstrap CI)
 
-| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |
-|---|---:|---|---|---|---|---|---|---|---|---|
-| v1_k0 | — | no setting meets the rule on validation |||||||||
-| v1_k0_announcer | — | no setting meets the rule on validation |||||||||
-| nearest_in_corridor | 0.7 | 0.05 [0.00, 0.12] | 4.14 [1.68, 6.79] | 0.40 [0.23, 0.60] | 0.36 [0.18, 0.59] | 6.90 [3.27, 10.60] | 4.14 [1.41, 7.10] | 0.04 [0.00, 0.12] | 0.03 [0.00, 0.08] | 0.20 [0.20, 0.20] |
-| v2_physics | — | no setting meets the rule on validation |||||||||
-| v2_physics_nopose | — | no setting meets the rule on validation |||||||||
-| v2_kalman | 0.95 | 0.22 [0.11, 0.44] | 4.69 [2.31, 7.27] | 0.54 [0.39, 0.66] | 0.46 [0.33, 0.59] | 10.21 [5.42, 14.99] | 6.76 [2.91, 10.84] | 0.28 [0.15, 0.54] | 0.28 [0.12, 0.58] | 0.00 [0.00, 0.40] |
-| v2_kalman_nopose | 0.6 | 0.27 [0.17, 0.52] | 4.55 [2.55, 6.58] | 0.58 [0.49, 0.68] | 0.48 [0.34, 0.61] | 10.90 [6.65, 14.99] | 6.34 [2.82, 10.09] | 0.28 [0.18, 0.50] | 0.31 [0.20, 0.57] | 0.00 [0.00, 0.80] |
-| v2_gru | 0.6 | 0.32 [0.24, 0.50] | 4.14 [2.06, 6.46] | 0.66 [0.55, 0.74] | 0.55 [0.42, 0.70] | 12.00 [6.24, 17.83] | 8.41 [3.46, 13.69] | 0.32 [0.24, 0.50] | 0.33 [0.24, 0.57] | 0.00 [0.00, 0.40] |
-| v2_gru_nopose | 0.5 | 0.37 [0.25, 0.63] | 2.90 [1.43, 4.40] | 0.73 [0.64, 0.82] | 0.58 [0.49, 0.72] | 10.90 [5.60, 16.27] | 7.86 [3.30, 12.68] | 0.38 [0.26, 0.68] | 0.44 [0.30, 0.75] | 0.00 [0.00, 0.50] |
+| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) | warned ≥ 0.2 s before | warned ≥ 1 s before |
+|---|---:|---|---|---|---|---|---|---|---|---|---|---|
+| v1_k0 | — | no setting meets the rule on validation |||||||||||
+| v1_k0_announcer | — | no setting meets the rule on validation |||||||||||
+| nearest_in_corridor | 0.7 | 0.05 [0.00, 0.12] | 4.14 [1.68, 6.79] | 0.40 [0.23, 0.60] | 0.36 [0.18, 0.59] | 6.90 [3.27, 10.60] | 4.14 [1.41, 7.10] | 0.04 [0.00, 0.12] | 0.03 [0.00, 0.08] | 0.20 [0.20, 0.20] | 0.02 [0.00, 0.04] | 0.00 [0.00, 0.00] |
+| v2_physics | — | no setting meets the rule on validation |||||||||||
+| v2_physics_nopose | — | no setting meets the rule on validation |||||||||||
+| v2_kalman | 0.95 | 0.22 [0.11, 0.44] | 4.69 [2.31, 7.27] | 0.54 [0.39, 0.66] | 0.46 [0.33, 0.59] | 10.21 [5.42, 14.99] | 6.76 [2.91, 10.84] | 0.28 [0.15, 0.54] | 0.28 [0.12, 0.58] | 0.00 [0.00, 0.40] | 0.06 [0.00, 0.16] | 0.02 [0.00, 0.07] |
+| v2_kalman_nopose | 0.6 | 0.27 [0.17, 0.52] | 4.55 [2.55, 6.58] | 0.58 [0.49, 0.68] | 0.48 [0.34, 0.61] | 10.90 [6.65, 14.99] | 6.34 [2.82, 10.09] | 0.28 [0.18, 0.50] | 0.31 [0.20, 0.57] | 0.00 [0.00, 0.80] | 0.11 [0.03, 0.23] | 0.05 [0.00, 0.09] |
+| v2_gru | 0.6 | 0.32 [0.24, 0.50] | 4.14 [2.06, 6.46] | 0.66 [0.55, 0.74] | 0.55 [0.42, 0.70] | 12.00 [6.24, 17.83] | 8.41 [3.46, 13.69] | 0.32 [0.24, 0.50] | 0.33 [0.24, 0.57] | 0.00 [0.00, 0.40] | 0.08 [0.00, 0.11] | 0.00 [0.00, 0.00] |
+| v2_gru_nopose | 0.5 | 0.37 [0.25, 0.63] | 2.90 [1.43, 4.40] | 0.73 [0.64, 0.82] | 0.58 [0.49, 0.72] | 10.90 [5.60, 16.27] | 7.86 [3.30, 12.68] | 0.38 [0.26, 0.68] | 0.44 [0.30, 0.75] | 0.00 [0.00, 0.50] | 0.11 [0.00, 0.23] | 0.02 [0.00, 0.07] |
 
 ## Operating point `budget_10` (test, 95% session-bootstrap CI)
 
-| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |
-|---|---:|---|---|---|---|---|---|---|---|---|
-| v1_k0 | — | no setting meets the rule on validation |||||||||
-| v1_k0_announcer | — | no setting meets the rule on validation |||||||||
-| nearest_in_corridor | 0.4 | 0.19 [0.11, 0.32] | 7.17 [3.71, 10.79] | 0.47 [0.37, 0.57] | 0.40 [0.29, 0.53] | 13.52 [7.37, 19.68] | 8.28 [3.46, 13.53] | 0.21 [0.13, 0.35] | 0.21 [0.11, 0.39] | 0.00 [0.00, 0.80] |
-| v2_physics | — | no setting meets the rule on validation |||||||||
-| v2_physics_nopose | 0.9 | 0.29 [0.20, 0.50] | 5.10 [3.09, 6.89] | 0.53 [0.46, 0.60] | 0.47 [0.39, 0.56] | 10.90 [6.69, 14.91] | 7.03 [3.32, 10.71] | 0.30 [0.22, 0.50] | 0.33 [0.25, 0.56] | 0.00 [0.00, 0.60] |
-| v2_kalman | 0.8 | 0.27 [0.16, 0.48] | 6.21 [3.23, 9.04] | 0.49 [0.35, 0.60] | 0.41 [0.28, 0.53] | 12.14 [6.85, 17.39] | 7.72 [3.48, 12.36] | 0.32 [0.20, 0.59] | 0.33 [0.19, 0.63] | 0.00 [0.00, 0.40] |
-| v2_kalman_nopose | 0.4 | 0.32 [0.21, 0.61] | 8.41 [5.54, 11.16] | 0.44 [0.33, 0.54] | 0.33 [0.22, 0.45] | 15.03 [10.14, 19.58] | 9.24 [4.93, 13.47] | 0.30 [0.21, 0.54] | 0.36 [0.26, 0.60] | 0.40 [0.00, 1.60] |
-| v2_gru | 0.4 | 0.38 [0.26, 0.67] | 5.52 [3.12, 7.89] | 0.62 [0.48, 0.72] | 0.50 [0.41, 0.59] | 14.34 [7.88, 20.66] | 9.52 [4.36, 14.73] | 0.38 [0.26, 0.67] | 0.38 [0.24, 0.67] | 0.00 [0.00, 0.40] |
-| v2_gru_nopose | 0.4 | 0.37 [0.24, 0.67] | 4.14 [2.21, 6.17] | 0.66 [0.52, 0.77] | 0.52 [0.39, 0.64] | 12.00 [6.84, 17.08] | 8.69 [4.01, 13.41] | 0.36 [0.24, 0.67] | 0.38 [0.24, 0.67] | 0.00 [0.00, 0.60] |
+| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) | warned ≥ 0.2 s before | warned ≥ 1 s before |
+|---|---:|---|---|---|---|---|---|---|---|---|---|---|
+| v1_k0 | — | no setting meets the rule on validation |||||||||||
+| v1_k0_announcer | — | no setting meets the rule on validation |||||||||||
+| nearest_in_corridor | 0.4 | 0.19 [0.11, 0.32] | 7.17 [3.71, 10.79] | 0.47 [0.37, 0.57] | 0.40 [0.29, 0.53] | 13.52 [7.37, 19.68] | 8.28 [3.46, 13.53] | 0.21 [0.13, 0.35] | 0.21 [0.11, 0.39] | 0.00 [0.00, 0.80] | 0.08 [0.03, 0.14] | 0.02 [0.00, 0.03] |
+| v2_physics | — | no setting meets the rule on validation |||||||||||
+| v2_physics_nopose | 0.9 | 0.29 [0.20, 0.50] | 5.10 [3.09, 6.89] | 0.53 [0.46, 0.60] | 0.47 [0.39, 0.56] | 10.90 [6.69, 14.91] | 7.03 [3.32, 10.71] | 0.30 [0.22, 0.50] | 0.33 [0.25, 0.56] | 0.00 [0.00, 0.60] | 0.08 [0.00, 0.11] | 0.06 [0.00, 0.09] |
+| v2_kalman | 0.8 | 0.27 [0.16, 0.48] | 6.21 [3.23, 9.04] | 0.49 [0.35, 0.60] | 0.41 [0.28, 0.53] | 12.14 [6.85, 17.39] | 7.72 [3.48, 12.36] | 0.32 [0.20, 0.59] | 0.33 [0.19, 0.63] | 0.00 [0.00, 0.40] | 0.10 [0.03, 0.19] | 0.03 [0.00, 0.07] |
+| v2_kalman_nopose | 0.4 | 0.32 [0.21, 0.61] | 8.41 [5.54, 11.16] | 0.44 [0.33, 0.54] | 0.33 [0.22, 0.45] | 15.03 [10.14, 19.58] | 9.24 [4.93, 13.47] | 0.30 [0.21, 0.54] | 0.36 [0.26, 0.60] | 0.40 [0.00, 1.60] | 0.17 [0.08, 0.33] | 0.08 [0.03, 0.12] |
+| v2_gru | 0.4 | 0.38 [0.26, 0.67] | 5.52 [3.12, 7.89] | 0.62 [0.48, 0.72] | 0.50 [0.41, 0.59] | 14.34 [7.88, 20.66] | 9.52 [4.36, 14.73] | 0.38 [0.26, 0.67] | 0.38 [0.24, 0.67] | 0.00 [0.00, 0.40] | 0.13 [0.03, 0.29] | 0.02 [0.00, 0.07] |
+| v2_gru_nopose | 0.4 | 0.37 [0.24, 0.67] | 4.14 [2.21, 6.17] | 0.66 [0.52, 0.77] | 0.52 [0.39, 0.64] | 12.00 [6.84, 17.08] | 8.69 [4.01, 13.41] | 0.36 [0.24, 0.67] | 0.38 [0.24, 0.67] | 0.00 [0.00, 0.60] | 0.14 [0.05, 0.29] | 0.02 [0.00, 0.07] |
 
 ## Operating point `recall_50` (test, 95% session-bootstrap CI)
 
-| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |
-|---|---:|---|---|---|---|---|---|---|---|---|
-| v1_k0 | 1 | 0.62 [0.54, 0.76] | 81.10 [66.45, 94.66] | 0.21 [0.10, 0.32] | 0.11 [0.04, 0.18] | 102.34 [87.16, 117.98] | 53.24 [42.78, 64.40] | 0.62 [0.52, 0.80] | 0.59 [0.48, 0.82] | 1.40 [0.90, 2.60] |
-| v1_k0_announcer | — | no setting meets the rule on validation |||||||||
-| nearest_in_corridor | — | no setting meets the rule on validation |||||||||
-| v2_physics | — | no setting meets the rule on validation |||||||||
-| v2_physics_nopose | — | no setting meets the rule on validation |||||||||
-| v2_kalman | — | no setting meets the rule on validation |||||||||
-| v2_kalman_nopose | — | no setting meets the rule on validation |||||||||
-| v2_gru | — | no setting meets the rule on validation |||||||||
-| v2_gru_nopose | — | no setting meets the rule on validation |||||||||
+| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ | warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) | warned ≥ 0.2 s before | warned ≥ 1 s before |
+|---|---:|---|---|---|---|---|---|---|---|---|---|---|
+| v1_k0 | 1 | 0.62 [0.54, 0.76] | 81.10 [66.45, 94.66] | 0.21 [0.10, 0.32] | 0.11 [0.04, 0.18] | 102.34 [87.16, 117.98] | 53.24 [42.78, 64.40] | 0.62 [0.52, 0.80] | 0.59 [0.48, 0.82] | 1.40 [0.90, 2.60] | 0.44 [0.36, 0.56] | 0.30 [0.22, 0.42] |
+| v1_k0_announcer | — | no setting meets the rule on validation |||||||||||
+| nearest_in_corridor | — | no setting meets the rule on validation |||||||||||
+| v2_physics | — | no setting meets the rule on validation |||||||||||
+| v2_physics_nopose | — | no setting meets the rule on validation |||||||||||
+| v2_kalman | — | no setting meets the rule on validation |||||||||||
+| v2_kalman_nopose | — | no setting meets the rule on validation |||||||||||
+| v2_gru | — | no setting meets the rule on validation |||||||||||
+| v2_gru_nopose | — | no setting meets the rule on validation |||||||||||
 
 ## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, `budget_5`)
 

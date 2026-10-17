@@ -2,6 +2,31 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, later] - LiDAR depth-realism bound; lead-based recall
+
+### Found
+- **Most "warned" arrivals are warned on the arrival frame itself.** At every arm's `budget_5` /
+  `budget_10` point on SANPO depth, only 0.08–0.14 of arrivals are warned ≥ 0.2 s ahead and ≤ 0.06
+  ≥ 1 s ahead. For example, `v2_gru` at `budget_5`: warned 0.32, ≥ 0.2 s ahead 0.08 [0.00, 0.11],
+  ≥ 1 s ahead 0.00. Operating points were picked on `warned`, which rewards this.
+- **LiDAR range:** no measurable cost at 5 m or 4 m. At 3 m, warnings ≥ 1 s ahead go to 0.00 for every
+  arm. A 5 m range leaves a median 1.2 s opportunity window (SANPO 2.6 s), and 81% of arrivals are
+  seen before they arrive (21% at 3 m).
+
+### Added
+- `tools/replay_threat_engine.py`: `lidarize()` and `--lidar-range` / `--lidar-seed` (range cut, 5%
+  dropouts, distance/eccentricity noise, closing speed re-fitted over 6 steps; labels stay on SANPO
+  depth); new metrics `warned_before` (lead ≥ 0.2 s) and `warned_lead_ge1` (lead ≥ 1 s) in every
+  operating-point table.
+- Replays `corridor_kalman_2026_10_17_lidar{5,4,3}m`; `corridor_kalman_2026_10_17` regenerated with
+  the new columns.
+
+### Changed
+- `.github/workflows/ios-timing.yml`: torch 2.7.0 and coremltools 9.0 pinned. The first CI run failed
+  at the export step; the newest torch is untested with coremltools.
+- Docs: `methodology.md` §4.15 (new), `architecture.md` §10, `pending_work.md` (next three, done
+  2026-10-17).
+
 ## [2026-10-17] - Kalman noise fitted on train, Kalman arrival predictor, corridor baseline ladder, on-device timing harness, referee v2
 
 Branch `v2-kalman-lidar` (from `v2-threat-engine` a5fd0aa).

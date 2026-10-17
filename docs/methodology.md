@@ -642,6 +642,66 @@ session bootstrap (1,000 draws), two-sided p from the bootstrap SE, Holm within 
 - **A statistics caveat.** For hist4 the percentile CI excludes 0, but the SE-based p does not
   survive Holm. The bootstrap distribution is skewed; treat it as a tie.
 
+### 4.15 LiDAR depth-realism bound, and lead-based recall (2026-10-17)
+
+**Degradation.** `tools/replay_threat_engine.py --lidar-range R` degrades every engine's *inputs* to
+what an iPhone LiDAR would give. Labels, arrivals and the opportunity window stay on SANPO depth, so
+only what the engines see changes.
+- **Range cut:** rows beyond R m are dropped.
+- **Dropouts:** 5% of the remaining rows are dropped at random.
+- **Noise:** d + N(0, (0.01 + 0.01·d)·(1 + 3·min(1, |bearing|/30°)²)), i.e. centre error 1–2 cm at
+  1–3 m and about 0.2–0.3 m at the image edge at 3 m.
+- **Closing speed** is re-fitted by least squares over the last 6 processed steps.
+- **Runs:** R = 5 m (Apple's figure), plus 4 and 3 m for sensitivity; 3 m stands in for direct sun.
+
+This is a box-level approximation of the pixel-level plan: the 4:3 crop and 256×192 block-median
+aren't applied. The added noise is small next to the box-median noise SANPO depth already has (§4.13),
+so the bound mostly tests **range and dropouts**.
+
+**How much opportunity is left** (test, 63 arrivals). 73% of all tracked rows lie beyond 5 m, and
+arrivals are first sighted at a median 5.8 m.
+
+| Depth | median opportunity window | seen before arrival | window ≥ 1 s | window ≥ 2 s |
+|---|---:|---:|---:|---:|
+| SANPO | 2.6 s | 100% | 75% | 62% |
+| LiDAR 5 m | 1.2 s | 81% | 54% | 41% |
+| LiDAR 4 m | 0.4 s | 62% | 37% | 27% |
+| LiDAR 3 m | 0.0 s | 21% | 13% | 5% |
+
+**"Warned" hides this.** The replay's `warned` counts an announcement made on the arrival frame
+itself (lead 0). An object that first enters LiDAR range already inside the zone is announced at
+once and counts as warned, so `warned` doesn't fall, and even rises, as range shrinks. Two
+lead-based columns were added to every operating-point table:
+- `warned_before`: warned at least one processed step (0.2 s) before arrival;
+- `warned_lead_ge1`: warned at least 1 s before.
+
+**Results**, at `budget_5`, test (thresholds chosen on validation within each depth condition):
+
+| Arm | depth | warned | warned ≥ 0.2 s before | warned ≥ 1 s before | false alerts/min | precision |
+|---|---|---|---|---|---|---|
+| v2_gru | SANPO | 0.32 [0.24, 0.50] | 0.08 [0.00, 0.11] | 0.00 [0.00, 0.00] | 4.1 [2.1, 6.5] | 0.66 [0.55, 0.74] |
+| v2_gru | LiDAR 5 m | 0.37 [0.27, 0.63] | 0.11 [0.00, 0.23] | 0.03 [0.00, 0.08] | 4.0 [2.0, 6.0] | 0.65 [0.53, 0.76] |
+| v2_gru | LiDAR 4 m | 0.37 [0.27, 0.62] | 0.08 [0.00, 0.15] | 0.02 [0.00, 0.04] | 4.1 [2.0, 6.2] | 0.63 [0.52, 0.74] |
+| v2_gru | LiDAR 3 m | 0.41 [0.31, 0.65] | 0.05 [0.00, 0.09] | 0.00 [0.00, 0.00] | 3.5 [1.7, 5.2] | 0.71 [0.57, 0.82] |
+| v2_kalman | SANPO | 0.22 [0.11, 0.44] | 0.06 [0.00, 0.16] | 0.02 [0.00, 0.07] | 4.7 [2.3, 7.3] | 0.54 [0.39, 0.66] |
+| v2_kalman | LiDAR 5 m | 0.30 [0.19, 0.58] | 0.10 [0.03, 0.23] | 0.03 [0.00, 0.08] | 3.3 [1.2, 5.6] | 0.65 [0.54, 0.78] |
+| v2_kalman | LiDAR 3 m | 0.40 [0.27, 0.73] | 0.03 [0.00, 0.05] | 0.00 [0.00, 0.00] | 4.1 [2.2, 6.4] | 0.66 [0.55, 0.76] |
+
+Full tables: `evaluation/benchmarks/threat_engine_replay/corridor_kalman_2026_10_17{,_lidar5m,_lidar4m,_lidar3m}/`.
+
+**Reading.**
+1. **At 5 m and 4 m there's no measurable cost** on any metric; every CI overlaps SANPO's. The range
+   cut also removes far, noisy tracks, which is why false alerts and precision don't get worse.
+2. **At 3 m, warnings ≥ 1 s ahead vanish (0.00 for every arm)** and warnings ≥ 0.2 s ahead halve.
+   This is the realism cost the plan expected, but it shows only at 3 m, the direct-sun stand-in.
+3. **The bigger finding holds even on SANPO depth.** Only 0.08–0.14 of arrivals are warned at least
+   one step ahead, and at most 0.06 at least 1 s ahead, at any engine's `budget_5` / `budget_10`
+   point. Most of the headline `warned` (0.32–0.38 for the GRU) is announcements on the arrival frame.
+   - Operating points were chosen to maximise `warned`, which rewards those lead-0 announcements.
+   - They should be re-chosen on `warned_before`, or on lead-conditional recall, before any lead or
+     recall claim goes in the paper.
+   - The opportunity window (median 2.6 s) is not the limit; the engines are.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate

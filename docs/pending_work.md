@@ -10,15 +10,28 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## Next three
 
-1. **Measure on the iPhone (P3.1–P3.2).** It's the one headline claim with no number yet. Needs a
-   Mac with Xcode; the Core ML export option is already in place.
-2. **Pick the announcement operating point (P2.2).** v2 is precise but quiet (26% of arrivals warned
-   at 17 alerts/min). Sweep the announcer and threshold on validation sessions and present the
-   precision/recall curve, not one point.
+1. **Measure on the iPhone (P3.1–P3.2).** It's the one headline claim with no number yet. The
+   timing app, the GRU export and the CI workflow exist (`ios/CPETiming/README.md`). What's left: an
+   Apple Developer account, the App Store Connect secrets, a green CI run, and the phone.
+2. **Re-choose operating points on lead, not `warned` (P2.2).** `warned` counts announcements on the
+   arrival frame. At the current budgets only 0.08–0.14 of arrivals are warned ≥ 0.2 s ahead, and
+   ≤ 0.06 ≥ 1 s ahead (methodology §4.15). Pick budgets on `warned_before`, and sweep the announcer
+   (cooldown, switch margin, stale drop) as well as the threshold.
 3. **Walkable-surface segmentation (P1.1).** It's the missing "what" and the real fix for the
    ground pseudo-objects. 53 sessions have SANPO masks (43 train / 10 test).
 
 ---
+
+## Done on 2026-10-17 (branch `v2-kalman-lidar`)
+
+- Kalman noise fitted on train (Student-t); Kalman arrival predictor; replay before/after
+  (methodology §4.13).
+- Baseline ladder on the corridor label (methodology §4.14).
+- LiDAR depth-realism bound at 5 / 4 / 3 m, plus lead-based recall columns (methodology §4.15). This
+  covers P2.5.
+- On-device timing harness, GRU Core ML export and the latency-aware replay. This covers P3.1 (the
+  GRU part), P3.3 and the tooling for P3.2.
+- VLM referee protocol v2 (P2.4 tooling) and the BLV listening-study plan.
 
 ## Done on 2026-10-14 (moved to `progress.md`)
 

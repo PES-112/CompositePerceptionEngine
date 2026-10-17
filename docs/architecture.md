@@ -297,8 +297,13 @@ Open:
 
 - **Replay, not deployment.** Evaluation is open-loop. No user study was run, and no live device
   was used.
-- **Depth.** Depth comes from SANPO, not phone LiDAR (§4). Results are an upper bound for the
-  LiDAR's range and resolution.
+- **Depth.** Depth comes from SANPO, not phone LiDAR (§4). The LiDAR bound (`--lidar-range`,
+  methodology §4.15) shows no measurable cost at a 5 m or 4 m range. At 3 m (the direct-sun
+  stand-in), warnings ≥ 1 s ahead vanish. The bound is box-level: range, dropouts and noise, not a
+  pixel-level 256×192 resample.
+- **Lead time.** Even on SANPO depth, at the alert budgets only 0.08–0.14 of arrivals are warned at
+  least 0.2 s ahead, and ≤ 0.06 at least 1 s ahead. The headline "warned" counts announcements on
+  the arrival frame itself (methodology §4.15).
 - **Declared choices.** λ and the behaviour multipliers are declared design choices.
 - **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
   the chest; SANPO's `camera_chest/` stream exists but is unused.

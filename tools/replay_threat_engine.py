@@ -312,7 +312,10 @@ def session_metrics(frames, log, horizon_frames: int, delays: np.ndarray | None 
 
 KEYS = ("warned", "precision", "late_share", "false_per_min", "alerts_per_min", "switches_per_min",
         "overrides_per_min", "median_lead_s", "warned_window_ge1", "warned_window_ge2", "lead_ge1_s",
-        "lead_over_window")
+        "lead_over_window", "warned_before", "warned_lead_ge1")
+# warned counts an announcement on the arrival frame itself (lead 0). warned_before needs at least
+# one processed step (0.2 s) of lead and warned_lead_ge1 at least 1 s: these are what a range-limited
+# sensor (--lidar-range) can lose while "warned" stays flat.
 
 
 def point(sessions: list[dict]) -> np.ndarray:
@@ -339,6 +342,8 @@ def point(sessions: list[dict]) -> np.ndarray:
         rate(ge1), rate(ge2),
         float(np.median(leads_ge1)) if leads_ge1 else np.nan,
         float(np.median([a["lead_s"] / a["window_s"] for a in warned])) if warned else np.nan,
+        sum(a["event"] and a["lead_s"] >= STEP_S - 1e-9 for a in arr) / len(arr) if arr else np.nan,
+        sum(a["event"] and a["lead_s"] >= 1.0 - 1e-9 for a in arr) / len(arr) if arr else np.nan,
     ])
 
 
@@ -534,17 +539,19 @@ def main() -> None:
     for rule in rules:
         lines += [f"## Operating point `{rule}` (test, 95% session-bootstrap CI)", "",
                   "| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ "
-                  "| warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |",
-                  "|---|---:|---|---|---|---|---|---|---|---|---|"]
+                  "| warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) "
+                  "| warned ≥ 0.2 s before | warned ≥ 1 s before |",
+                  "|---|---:|---|---|---|---|---|---|---|---|---|---|---|"]
         for arm in arms:
             m = points[arm][rule]
             if m is None:
-                lines.append(f"| {arm} | — | no setting meets the rule on validation |||||||||")
+                lines.append(f"| {arm} | — | no setting meets the rule on validation |||||||||||")
                 continue
             lines.append(f"| {arm} | {chosen[arm][rule]:g} | {cell(m['warned'])} | {cell(m['false_per_min'])} | "
                          f"{cell(m['precision'])} | {cell(m['late_share'])} | {cell(m['alerts_per_min'])} | "
                          f"{cell(m['switches_per_min'])} | {cell(m['warned_window_ge1'])} | "
-                         f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} |")
+                         f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} | "
+                         f"{cell(m['warned_before'])} | {cell(m['warned_lead_ge1'])} |")
         lines.append("")
     lines += ["## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, `budget_5`)", "",
               "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
