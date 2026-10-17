@@ -3,7 +3,7 @@
   "dataset": "dataset\\GRU\\sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20",
   "run_name": "corridor_hist4",
   "out_root": null,
-  "overwrite": false,
+  "overwrite": true,
   "device": "cpu",
   "time_bins": 4,
   "history_steps": 4,
@@ -422,9 +422,9 @@
     "val": 988,
     "test": 2175
   },
-  "pos_weight": 11.656495094299316,
+  "pos_weight": 14.576180458068848,
   "parameters": 30741,
   "best_epoch": 19,
-  "best_val_loss": 0.4317028948804708,
-  "train_seconds": 67.6
+  "best_val_loss": 0.36882833557660116,
+  "train_seconds": 77.2
 }
