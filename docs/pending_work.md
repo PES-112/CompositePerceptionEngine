@@ -57,6 +57,11 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
    4. Refit the Kalman noise (`tools/fit_kalman_noise.py`).
    5. Re-run the ladder, the replays and the before/after comparison.
 
+   Steps 1–5 are one run of `notebooks/colab_rebuild.ipynb` (Colab T4, resumable via Google Drive).
+   After it: drop `ViewerGRU`'s legacy bearing/2× speed shim in `tools/build_session_viewer.py`
+   (the new checkpoints are trained on pinhole bearings at the true rate), update the numbers in
+   methodology §4.13–4.15 and architecture §6.2, and re-tune operating points on `warned_before`.
+
    Until then, treat every Stage-1-based number as provisional.
 1. **Rebuild Stage-1 CSVs at the correct rate (optional).** Existing CSVs work once converted (×0.5
    speed, pinhole bearing), and every ranking metric is unaffected. A rebuild with the updated

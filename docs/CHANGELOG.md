@@ -2,6 +2,17 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17, Colab rebuild] - One notebook redoes everything on correct depth
+
+### Added
+- `notebooks/colab_rebuild.ipynb`: the P0.0 rebuild on a free Colab T4. Part A runs Stage 1 on all
+  462 walks (`tools/stream_sanpo_perception.py`, 300 frames, stride 3) with CSVs written to Google
+  Drive; Part B rebuilds the arrival dataset, official split and six corridor labels, refits the
+  Kalman noise and writes it into `NoiseModel`'s defaults, retrains the four corridor GRU variants
+  (3 seeds), and re-runs the ladder, the replay (`corridor_depthfix`) and the Kalman before/after.
+  Finished walks and steps are kept on Drive and skipped, so a disconnect costs one walk or one
+  step. Results come back as one zip; docs and numbers are updated locally after it.
+
 ## [2026-10-17, depth bug] - SANPO depth maps were decoded wrong; loader and occlusion fixed
 
 ### Found

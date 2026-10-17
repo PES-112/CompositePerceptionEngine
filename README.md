@@ -116,6 +116,7 @@ CompositePerceptionEngine/
 ├── ios/CPETiming/                   # On-device latency harness (SwiftUI, XcodeGen): detector + GRU per stage on SANPO data,
 │                                    #     prepare_bundle.py, analyze_timing.py, TestFlight how-to in its README
 ├── notebooks/                       # sanpo_yolo_gap_analysis.ipynb + gap_analysis_output/
+│                                    #     colab_rebuild.ipynb: Stage 1 + datasets + GRUs + Kalman + results on Colab
 ├── simulation/datasets/sanpo/       # valid_streams.json (462 sessions), session_audit.json, official_split.json
 ├── tests/                           # Threat engine (fusion, envelope, priority, announcer), Kalman arrival, latency-aware
 │                                    #     replay options, v1 routing, GRU, ensemble
