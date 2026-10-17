@@ -136,21 +136,42 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
 | Status | Built and unit-tested. On SANPO the camera poses don't yet reconcile with box depth (§9), so the replay reports ego-motion removal as an ablation (`v2_*_nopose`) |
 
-### 6.3 Scene context: walkable-surface segmentation ⬜
+### 6.3 Scene context: walkable-surface segmentation 🟨 (data, context, metrics, oracle ✅; model to train)
 
-- **Model.** A small segmentation network (SegFormer-B0 class or a YOLO segmentation variant).
+The 17-class detector finds the objects; this model covers the ground: which surface each object
+stands on, where the walkable area ends, and which depth pixels are just ground.
+
+- **Model.** YOLO26s-sem (Ultralytics semantic task, Cityscapes-pretrained), imgsz 1024 for thin
+  curb and stair edges, FP16 Core ML with the argmax in the graph. YOLO26n-sem measures 4.9 ms on an
+  iPhone 17 Pro (Ultralytics, iOS 27); s is ~4× the FLOPs. Training:
+  `training/scripts/train_yolo26_sem_walkable.py` (lab server; not trained yet).
 - **Rate.** Runs asynchronously at 2–5 Hz, because ground layout changes slowly.
-- **Training data.** SANPO's own labels (`labelmap.json`): `road`, `curb`, `sidewalk`,
-  `crosswalk`, `stairs`, `paved trail`, `other walkable surface`, `inaccessible surface`. No new
-  annotation is needed.
+- **Labels.** SANPO's 31 panoptic classes remapped to 8 (`src/segmentation/labels.py`): walkable
+  (sidewalk, paved trail, other walkable), crosswalk, road (+ railway), curb, stairs, non-walkable
+  ground (inaccessible, water, terrain, vegetation), obstacle (everything vertical), sky; unlabeled
+  → ignore. Walkable = {walkable, crosswalk}; unsafe ground = {road, curb, stairs, non-walkable}.
+- **Data.** 237 SANPO-Real sessions have masks, each on one camera (chest ZED 2i or head ZED-M):
+  train 150 sessions (11,691 human-annotated + 9,703 propagated frames), val 39 (3,246 human),
+  test 48 (3,850 human). The replay's val/test sessions are never trained on.
+  `tools/build_sanpo_segmentation.py`.
 
-| Output | Level | Used by |
-|---|---|---|
-| surface under the object (road / sidewalk / crosswalk / other) | per track | fusion context, GRU input |
-| in walking path (inside the walkable corridor ahead) | per track | fusion context |
-| near a boundary (close to curb or road edge) | per track | fusion context (about to cross) |
-| distance to the nearest walkable edge ahead (curb, stairs, drop-off) | per scene | its own scripted alert |
-| walkable-ground mask | per frame | obstacle sweep (§6.1) |
+| Output | Level | Definition (`src/segmentation/context.py`) | Used by |
+|---|---|---|---|
+| walker surface | per frame | majority ground class, bottom-centre of the image | the flags below |
+| surface under the object | per track | majority ground class in the object's columns at its depth (±15%, ≥ 0.3 m); needs only bearing + distance | context, GRU input (later) |
+| in path | per track | object on walkable ground and the walker is too | priority ×1.5 |
+| near a boundary | per track | the object's ground mixes walkable and unsafe ground, or has curb | priority ×1.25 |
+| other surface | per track | walker on walkable ground, object on road / non-walkable ground | priority ×0.5 |
+| edge ahead | per scene | first unsafe-ground row up the image centre after walkable ground; class + median depth | its own scripted alert (to do) |
+| flat-ground mask | per frame | walkable, crosswalk, road, non-walkable (curbs and stairs stay in) | obstacle sweep (§6.1) |
+
+**Oracle check (SANPO's own masks).** Only 53 curated sessions have masks on the head camera that
+the tracks come from (32 train / 5 val / 10 test). `tools/build_scene_context.py --source gt` builds
+context for them; `tools/replay_threat_engine.py --context-dir` runs the context-on arms and
+`evaluation/context_association.py` tests each flag against the arrival label. Results:
+methodology §4.14. Chest masks (130 more curated sessions) need Stage 1 re-run on the chest
+stream: the two cameras' poses are in separate world frames, so head tracks can't be projected
+into chest masks.
 
 ### 6.4 Threat engine
 

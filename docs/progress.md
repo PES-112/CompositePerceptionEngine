@@ -41,7 +41,7 @@ Full design and diagram: `architecture.md` §3, §5.
 | Announcement manager (cooldown, hysteresis, preemption, stale drop) | ✅ Built + tested | `src/threat_engine/announcer.py` |
 | End-to-end SANPO replay, v1 vs v2, official test split | ✅ Done | §7 |
 | Scripted narration, distance buckets, phrase list for pre-rendering | ✅ Done | `src/narration/` |
-| Walkable-surface segmentation | ⬜ Not started (53 sessions have SANPO masks) | `pending_work.md` P1 |
+| Walkable-surface segmentation | 🟨 Data, context, metrics, oracle check built; model not trained yet | `src/segmentation/`, `pending_work.md` P1.1 |
 | Pre-rendered audio clips | ⬜ Phrase list ready, audio not rendered | `pending_work.md` P4 |
 | On-iPhone latency | ⬜ Not started (Core ML export option added) | `pending_work.md` P3 |
 
