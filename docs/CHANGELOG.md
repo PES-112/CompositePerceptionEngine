@@ -19,7 +19,7 @@ Branch `v2-segmentation` (PR #7 into `v2-threat-engine`).
 - `context.approach_speed`; `src/segmentation/edge_alert.py` (the "Curb ahead." rule);
   `tools/evaluate_edge_alerts.py`. Oracle results on 53 sessions: 0.79 alerts/min, 29% of step-offs
   warned (35% excluding one-frame flicker), all stairs warned, most road step-offs missed. Not tuned.
-- 6 tests (77 total).
+- 6 tests (71 total).
 - `docs/paper_draft.md`: text, claim policy, final vs. pending results with owners, figure list.
 - `docs/pending_work.md`: merge order. `v2-kalman-lidar` predates the camera-intrinsics fix and
   must re-run its label-dependent results after merging.
