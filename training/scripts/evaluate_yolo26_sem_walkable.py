@@ -56,7 +56,7 @@ def main() -> None:
     p.add_argument("--data", type=Path, default=PROJECT_ROOT / "data/sanpo_walkable_seg")
     p.add_argument("--split", default="test", choices=["val", "test"])
     p.add_argument("--imgsz", type=int, default=1024)
-    p.add_argument("--device", default="0")
+    p.add_argument("--device", default="0", help="0 = first CUDA GPU, mps = Apple silicon GPU, cpu.")
     p.add_argument("--name", default=None)
     args = p.parse_args()
 

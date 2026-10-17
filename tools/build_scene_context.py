@@ -19,6 +19,7 @@ re-running Stage 1 on the chest stream.
 
     python tools/build_scene_context.py --source gt
     python tools/build_scene_context.py --source training/runs/cpe_yolo26s_sem_walkable/weights/best.pt --all-sessions
+    python tools/build_scene_context.py --source .../best.pt --all-sessions --device mps --imgsz 768   # Apple silicon
 
 Writes data/sanpo_scene_context/<source name>/<session>.json:
     {"frames": {k: {"walker": cls|null, "edge": [cls, m]|null,
@@ -63,7 +64,7 @@ def depth_map(sid: str, frame: int) -> np.ndarray:
     return raw[: h * w].reshape(h, w).astype(np.float32)
 
 
-def class_map_source(source: str):
+def class_map_source(source: str, imgsz: int = 1024, device: str | None = None):
     if source == "gt":
         def gt(sid: str, frame: int) -> np.ndarray | None:
             try:
@@ -80,7 +81,7 @@ def class_map_source(source: str):
     def predicted(sid: str, frame: int) -> np.ndarray | None:
         img = cv2.imdecode(np.frombuffer(fetch(object_url(
             f"{BASE_PREFIX}/{sid}/camera_head/left/video_frames/{frame:06d}.png")), np.uint8), cv2.IMREAD_COLOR)
-        r = model.predict(img, imgsz=1024, verbose=False)[0]
+        r = model.predict(img, imgsz=imgsz, device=device, verbose=False)[0]
         m = r.semantic_mask.data.cpu().numpy().astype(np.uint8)
         return cv2.resize(m, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
     return predicted
@@ -121,6 +122,8 @@ def main() -> None:
                    help="Every session in --splits, not only those with head-camera masks (model sources only).")
     p.add_argument("--max-sessions", type=int, default=0)
     p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--imgsz", type=int, default=1024, help="Model sources: the size the model was trained at.")
+    p.add_argument("--device", default=None, help="Model sources: 0 (CUDA), mps (Apple GPU) or cpu.")
     args = p.parse_args()
 
     if args.source == "gt" and args.all_sessions:
@@ -136,7 +139,7 @@ def main() -> None:
     name = "gt" if args.source == "gt" else Path(args.source).parents[1].name
     out = OUT_ROOT / name
     out.mkdir(parents=True, exist_ok=True)
-    get_class_map = class_map_source(args.source)
+    get_class_map = class_map_source(args.source, args.imgsz, args.device)
     print(f"{len(ids)} sessions -> {out}", flush=True)
     started = time.time()
 
