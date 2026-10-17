@@ -42,8 +42,12 @@ HORIZON_S = 4.0              # 20 steps at SANPO's true 5 Hz processing rate
 PHYSICS_SOFTNESS_S = 0.75    # width of the physics predictor's sigmoid around the horizon
 
 # Context multipliers for §6.3's per-track outputs. Declared, not fitted.
+# Near a boundary was ×1.25 until 2026-10-17; SANPO's own masks showed it points
+# the wrong way (objects at a sidewalk edge are mostly beside the path) and on
+# train sessions neither it nor "near a boundary and approaching" raised the
+# arrival rate (methodology §4.14), so it is neutral: reported, not weighted.
 CONTEXT_IN_PATH = 1.5
-CONTEXT_NEAR_BOUNDARY = 1.25
+CONTEXT_NEAR_BOUNDARY = 1.0
 CONTEXT_OTHER_SURFACE = 0.5  # e.g. a car on the road while the walker is on the sidewalk
 
 

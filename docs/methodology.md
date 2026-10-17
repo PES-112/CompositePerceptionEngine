@@ -503,6 +503,127 @@ the world frame (median 0.52 m) than in the camera frame (0.32 m), which should 
 and box depth agree. No frame offset or axis sign fixes it. Ego-motion removal is therefore reported
 only as an ablation until this is explained (`pending_work.md` P0.2).
 
+### 4.14 Scene context from walkable-surface segmentation (2026-10-17)
+
+**Taxonomy and training data** (`src/segmentation/labels.py`, `tools/build_sanpo_segmentation.py`).
+SANPO's 31 panoptic classes map to 8: walkable (sidewalk, paved trail, other walkable surface),
+crosswalk, road (+ railway), curb, stairs, non-walkable ground (inaccessible surface, water,
+terrain, vegetation), obstacle (all vertical classes) and sky; unlabeled is ignored (255). Masks are
+stored as raw SANPO ids and remapped by the Ultralytics YAML's `label_mapping`, so the scheme can
+change without rebuilding. All 237 masked SANPO-Real sessions are used, each with masks on one
+camera (head ZED-M or chest ZED 2i): SANPO's official test sessions and the replay's test sessions
+form the test split, the replay's validation sessions plus a seeded 15% of other train sessions
+form validation. Validation and test hold HUMAN_ANNOTATED frames only (every 6th frame), as in the
+SANPO paper; training adds every 6th propagated frame.
+
+**Model and metrics** (`training/scripts/*_sem_walkable.py`, `evaluation/segmentation_metrics.py`).
+YOLO26s-sem from Cityscapes weights at imgsz 1024; not trained yet (lab server). Reported, per
+camera and overall, with session-bootstrap CIs: mIoU and per-class IoU; **false-safe rate** (unsafe
+ground, i.e. road, curb, stairs or non-walkable, predicted walkable or crosswalk, over all unsafe
+pixels), a generalisation of SENSATION-DS's road-as-sidewalk rate, which is reported too; the
+opposite (nuisance) error; and boundary F at ±3 px for curb and stairs, the thin edges that mIoU
+barely weighs.
+
+**From a class map to `SceneContext`** (`src/segmentation/context.py`). The ground under an object
+is the majority ground class among pixels in its image columns whose depth is within ±15% (at least
+±0.3 m) of the object's own depth. This needs only the object's bearing and distance, so it works on
+the GRU dataset without boxes. The walker's surface is the majority ground class in the bottom-centre
+of the image. Flags: *in path* = object and walker both on walkable ground; *near a boundary* = the
+object's (doubled-width) ground is at least 15% walkable and 15% unsafe, or 10% curb; *other surface*
+= walker on walkable ground, object on road or non-walkable ground. All thresholds are declared.
+
+**Oracle check: SANPO's own masks in place of a model.** Head-camera masks exist for 47 of the 364
+replay sessions (32 train / 5 val / 10 test); the tracks come from the head camera, so the 130
+chest-masked sessions can't be used without re-running Stage 1 on the chest stream.
+
+- *Do the flags point the right way?* (`evaluation/context_association.py`, all 47 sessions, 5,682
+  object-frames; `evaluation/benchmarks/scene_context/oracle_gt_2026_10_17/`.) P(arrive within 4 s)
+  by flag, as a risk ratio raw and Mantel-Haenszel-adjusted over distance bins (0/3/6/10 m),
+  session-bootstrap 95% CI:
+
+  | Flag | declared × | share | RR | RR, distance-adjusted |
+  |---|---:|---:|---|---|
+  | in path | 1.5 | 0.68 | 3.91 [1.73, 12.95] | 1.56 [0.98, 4.17] |
+  | near a boundary | 1.25 | 0.36 | 0.44 [0.17, 0.71] | **0.83 [0.41, 0.99]** |
+  | other surface | 0.5 | 0.21 | 0.29 [0.06, 0.67] | 0.70 [0.20, 1.06] |
+
+  "In path" and "other surface" agree in direction with their multipliers; much of their raw
+  effect is distance (objects on the walker's surface are closer). **"Near a boundary" points the
+  wrong way:** objects at a surface edge arrive *less* often, so its ×1.25 is contradicted. Most
+  such objects are at the sidewalk's edge, beside the walker's path, not crossing it; the flag
+  can't tell an object about to step off a curb from one standing beside it. "In path" holds 68% of
+  objects, so it separates little. The multipliers are not changed on this evidence, because 10 of
+  the 47 sessions are test sessions; a revision must be fitted on train sessions only and declared.
+- *Does context change the alerts?* (`tools/replay_threat_engine.py --context-dir`, 10 test / 5
+  val sessions, 20 arrivals; `evaluation/benchmarks/threat_engine_replay/oracle_context_2026_10_17/`.)
+  With the GRU at the validation-chosen threshold, context on vs. off: warned 0.40 vs 0.35, paired
+  difference +0.05 [0.00, +0.07], at the same false-alert rate (9.45/min). The physics arm is
+  unchanged. Twenty arrivals cannot settle it; the powered test needs the trained model's masks on
+  all 71 test sessions.
+
+**Revising "near a boundary", on train sessions only (2026-10-17).** The hypothesis was that the flag
+is right only for objects moving toward the walker's path. *Approaching* is a closing speed on the
+walker's centre line of at least 0.3 m/s over the last 3 steps (0.6 s). The lateral offset is
+distance · sin(bearing) in the camera frame (`context.approach_speed`). The decision rule was fixed
+before looking: keep a motion-qualified flag only if its distance-adjusted RR on train is above 1;
+otherwise make the flag neutral. On the 32 train sessions (4,121 observations,
+`scene_context/gt_train_2026_10_17/`):
+
+| Flag | share | RR, distance-adjusted |
+|---|---:|---|
+| near a boundary | 0.38 | 0.75 [0.18, 0.96] |
+| approaching (motion only) | 0.26 | 1.00 [0.76, 1.29] |
+| near a boundary and approaching | 0.09 | 0.80 [0.21, 1.15]; 0.75 [0.21, 1.48] adjusted over distance × approaching |
+
+Neither variant raises the arrival rate, so `CONTEXT_NEAR_BOUNDARY` is now **1.0**. The flag is
+still computed and reported, but carries no weight. Motion in the camera frame includes head turns;
+fused ground-plane lateral speed may separate better and is a follow-up once the fitted tracker is
+merged.
+- **Held-out check, once** (5 val + 10 test sessions, 1,561 observations,
+  `gt_val_test_2026_10_17/`): near a boundary 1.04 [0.12, 6.22], consistent with neutral.
+- **Oracle replay with the neutral weight**
+  (`threat_engine_replay/oracle_context_neutral_boundary_2026_10_17/`): GRU context on vs. off,
+  warned +0.05 [0.00, +0.07], false alerts/min +0.50 [0.00, +1.35]. Under ×1.25 the false-alert
+  change was 0.00. Both are within noise at 20 arrivals.
+
+**Edge-ahead alerts, oracle (2026-10-17).** `tools/evaluate_edge_alerts.py` runs every 6th source
+frame (2.5 Hz) of the 53 sessions with head-camera masks: 26.6 min, about 30 s per session. The
+class maps are SANPO's own masks, so this scores the rule and the edge geometry, not a model.
+
+*Rule* (`src/segmentation/edge_alert.py`, declared before the run):
+- curb, stairs or road within 5 m;
+- seen in 2 consecutive frames;
+- one alert per episode, re-armed after 2 s with no edge.
+
+*Reference: step-off.* SANPO has no annotated "stepped off the curb" event, so the reference is a
+step-off: the bottom-centre ground turns from walkable to curb, stairs or road after at least 2
+walkable frames. Warned = an alert in the 10 s before.
+
+| Step-off definition | step-offs | alerts / min | warned | median lead (s) | alerts followed by a step-off |
+|---|---:|---|---|---|---|
+| declared (any duration) | 45 | 0.79 [0.49, 1.12] | 0.29 [0.13, 0.47] | 1.2 [0.4, 2.8] | 0.48 [0.24, 0.69] |
+| sustained ≥ 2 frames (sensitivity) | 26 | 0.79 [0.49, 1.12] | 0.35 [0.14, 0.59] | 1.6 [0.8, 6.0] | 0.33 [0.12, 0.52] |
+
+- **Why the sensitivity row exists.** Under the declared definition, 20 of the 32 misses lasted
+  one frame: mask flicker at crosswalk/road boundaries, not a step. The sustained variant drops
+  these. It was added after seeing the misses and is reported only as a sensitivity check.
+- **By kind (declared).**
+  - Stairs: 3 alerts, all 3 step-offs warned.
+  - Road: 10 alerts, 42 step-offs, 24% warned.
+  - Curb: 8 alerts; the bottom-centre patch never registers curb as the walker's surface, so
+    curbs have no step-offs to score against.
+- **Misses (declared).**
+  - 11: the edge was only ever seen beyond 5 m.
+  - 8: no edge was seen in the 10 s before at all. The walker turned onto the road, or the edge
+    was outside the centre band.
+  - 12: a near edge was seen but not confirmed in 2 consecutive frames, or its episode had already
+    alerted.
+- **Not tuned.** Every session was used, test included, so the rule was not changed on these
+  numbers. Widening the band, raising the range or confirming in 1 frame would each trade
+  nuisance alerts for warned share; that choice needs a train-only sweep.
+- **Model masks.** The same tool takes a trained model (`--source <best.pt>`), which gives the
+  model-vs-oracle gap.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate

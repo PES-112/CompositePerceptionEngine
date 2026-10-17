@@ -14,6 +14,7 @@ Each document has one job. Update the owning document instead of creating a new 
 
 | File | Owns |
 |---|---|
+| [`paper_draft.md`](./paper_draft.md) | Paper text in progress: framing and claim policy, results that are final, a status table of pending results with owners, figure list. |
 | [`methodology.md`](./methodology.md) | Paper-ready methods: dataset, detector, kinetic-score ablation, GRU arrival prediction, latency methodology, design principles, and LLM paper-drafting prompts (Appendix). |
 | [`ablation_guide.md`](./ablation_guide.md) | Run guide for Stage-1 streaming, the K0 ablation, and the blinded VLM referee + human calibration (reused for v2's announcement-order evaluation), plus the 2026-08-26 run log. |
 | [`related_work.md`](./related_work.md) | Verified citations, by component. Check here before citing anything from memory. |

@@ -46,7 +46,7 @@ official split files and the folder listings (metadata only). Output:
 | Horizontal FOV | head **69.6–77.8°**, median 77.5° (fx 1367–1391 px); chest 51.4–60.1° (fx 1910–1993 px) | 70° linear (`compute_bearing`), 960 px (`yolo_tracker`) | pinhole bearing and size check from the session's fx |
 | Ego motion | walking 458, running 4 | — | — |
 | Camera poses | `camera_poses.csv` in all 462 | unused | used by `src/threat_engine/fusion.py` (see below) |
-| Segmentation masks | **53 sessions** (43 train, 10 test) | — | enough to fine-tune/evaluate §6.3 with SANPO-Synthetic |
+| Segmentation masks | head camera: **53 sessions** (43 train, 10 test); chest camera: **130** (102 / 28). All SANPO-Real: 237 sessions, one masked camera each, 18,787 human-annotated frames (every 6th) + propagated | — | `tools/build_sanpo_segmentation.py` builds the §6.3 training set from all 237 |
 | Official split | **374 train / 88 test** (`sanpo-real/splits/`) | none (own 5-fold CV) | every final number uses it |
 
 **Consequence for existing CSVs.** They were built at an assumed 30 FPS with stride 3, so stored
@@ -66,7 +66,7 @@ reported as an ablation, not a validated component (`pending_work.md` P1.1).
 `labelmap.json` (31 classes) includes the surface classes the v2 segmentation model needs
 (`architecture.md` §6.3): `road`, `curb`, `sidewalk`, `crosswalk`, `paved trail`, `stairs`,
 `other walkable surface`, `inaccessible surface`, alongside object classes (`pedestrian`, `rider`,
-`vehicle`, `pole`, `obstacle`, ...). 53 of the 462 curated real sessions ship `segmentation_masks/`.
+`vehicle`, `pole`, `obstacle`, ...). 53 of the 462 curated real sessions ship `segmentation_masks/` on the head camera and 130 on the chest camera (`camera_<head|chest>/left/segmentation_masks/`, with `frame_segmentation_annotation_type.json` marking HUMAN_ANNOTATED vs MACHINE_ANNOTATED frames). Mask PNGs are RGB: R = class id, G/B = instance id.
 
 ## SANPO-Real Layout
 
