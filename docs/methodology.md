@@ -49,7 +49,9 @@ estimated — a deliberate choice to decouple "is the formula right" from "is th
 during formula development. Full bucket layout and per-session sizes: `sanpo_dataset.md`.
 
 **Camera parameters (audited 2026-10-14, all 462 sessions; `tools/audit_sanpo_sessions.py`).**
-Every curated session is 15 FPS; horizontal FOV is 51.4–60.1° (fx 1910–1993 px). The Stage-1 CSVs
+Every curated session is 15 FPS. The pipeline uses `camera_head` (ZED-M): horizontal FOV 69.6–77.8°
+(fx 1367–1391 px). (Until 2026-10-17 the audit read `camera_chest`'s ZED 2i intrinsics, 51.4–60.1°,
+by mistake; `session_camera_details` is parallel to `session_camera_location`.) The Stage-1 CSVs
 used so far assumed 30 FPS and a 70° linear FOV. The frame-rate error is recoverable from the data
 itself: the stored closing speed equals 10.0 × the per-step least-squares depth slope (IQR
 9.99–10.01), i.e. 10 Hz was assumed for frames processed at 5 Hz (15 FPS, stride 3). Hence stored

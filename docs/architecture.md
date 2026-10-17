@@ -60,7 +60,7 @@ obtained on the phone; none of it is implemented.
 | RGB video | SANPO `camera_head/left` frames, 2208×1242 | Rear wide camera (AVFoundation / ARKit) |
 | Metric depth | SANPO `depth_maps/` (dataset stereo depth) | LiDAR scene depth via ARKit: low resolution (~256×192), reliable to ~5 m |
 | Ego-motion | SANPO `camera_poses.csv` (implemented; not yet reconciled with box depth, §9) | ARKit camera pose / Core Motion gyroscope |
-| Camera intrinsics | SANPO `description.json`, per session: 15 FPS, fx 1910–1993 px (51–60° HFOV) | ARKit camera intrinsics, per frame |
+| Camera intrinsics | SANPO `description.json`, head camera (ZED-M) per session: 15 FPS, fx 1367–1391 px (70–78° HFOV) | ARKit camera intrinsics, per frame |
 | Model execution | PyTorch on the development host | Core ML on the Apple Neural Engine; **latency measured on the device** (§7) |
 | Audio | Synthesised bytes, logged | Pre-rendered clips played locally |
 
@@ -269,10 +269,13 @@ Resolved 2026-10-14 (`tools/audit_sanpo_sessions.py`, all 462 sessions):
 1. **Frame rate ✅.** Every session is 15 FPS; the existing CSVs assumed 30. Stored speeds are exactly
    2× too high and one processed step is 0.2 s, so the 20-step horizon is **4 s** and the 8-step
    history **1.6 s**. Rankings and step-based labels are unaffected; Stage 1 now reads the real fps.
-2. **Field of view ✅.** HFOV is 51–60° per session, not 70°. Stage 1 now uses the session's fx for a
-   pinhole bearing; the replay converts old rows. One consequence: with the real FOV, a ±30° cone
-   covers almost the whole image, so the arrival label's cone barely restricts anything. In effect
-   the label is "comes within 3 m while in view".
+2. **Field of view ✅ (corrected 2026-10-17).** Every session has two cameras: `camera_chest`
+   (ZED 2i, 51–60° HFOV) and `camera_head` (ZED-M, **70–78°**, fx 1367–1391 px). The pipeline uses
+   the head camera. The 2026-10-14 audit read the chest camera's intrinsics by mistake
+   (`session_camera_details[0]`); `audit_sanpo_sessions.camera_details()` now picks by
+   `session_camera_location`. Stage 1 uses the head camera's fx for a pinhole bearing; the replay
+   converts old rows. A ±30° cone still covers most of the image and is ~3.5 m wide at 3 m, so the
+   cone label is in effect "comes within 3 m while in view"; hence the corridor label.
 3. **Train/test split ✅.** SANPO ships one (`sanpo-real/splits/`): 374 / 88 of our sessions.
 
 Open:

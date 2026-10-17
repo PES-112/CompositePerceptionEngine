@@ -40,10 +40,10 @@ official split files and the folder listings (metadata only). Output:
 
 | Field | All 462 curated sessions | Pipeline before 2026-10-14 | Now |
 |---|---|---|---|
-| Camera | ZED 2i, head-mounted | — | — |
+| Camera | two per session: `camera_head` = ZED-M (used), `camera_chest` = ZED 2i | — | — |
 | Frame rate | **15 FPS** in every session | assumed 30 (`--fps` default) | read per session from `description.json` |
 | Image size | 2208 × 1242 (392 sessions), 1920 × 1080 (70) | — | — |
-| Horizontal FOV | **51.4–60.1°**, median 58.4° (fx 1910–1993 px) | 70° linear (`compute_bearing`), 960 px (`yolo_tracker`) | pinhole bearing and size check from the session's fx |
+| Horizontal FOV | head **69.6–77.8°**, median 77.5° (fx 1367–1391 px); chest 51.4–60.1° (fx 1910–1993 px) | 70° linear (`compute_bearing`), 960 px (`yolo_tracker`) | pinhole bearing and size check from the session's fx |
 | Ego motion | walking 458, running 4 | — | — |
 | Camera poses | `camera_poses.csv` in all 462 | unused | used by `src/threat_engine/fusion.py` (see below) |
 | Segmentation masks | **53 sessions** (43 train, 10 test) | — | enough to fine-tune/evaluate §6.3 with SANPO-Synthetic |

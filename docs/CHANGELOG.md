@@ -2,6 +2,25 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-17] - Camera intrinsics fix (head ZED-M, not chest ZED 2i)
+
+### Fixed
+- **The audit and Stage 1 read the wrong camera's intrinsics.** `description.json` lists two cameras;
+  `session_camera_details` is parallel to `session_camera_location` = `[camera_chest, camera_head]`.
+  Element 0 (the chest ZED 2i: fx 1910–1993 px, 51–60° HFOV) was used, but every stream is
+  `camera_head`, a ZED-M (fx 1367–1391 px, **70–78°**). Pinhole bearings and lateral offsets were
+  ~30% too small. `tools/audit_sanpo_sessions.camera_details()` picks by location;
+  `tools/stream_sanpo_perception.py` uses it.
+- Corridor datasets relabelled (all six w/h variants): test arriving tracks 118 → 102, train
+  208 → 169. Corridor GRU runs, the baseline ladder and the replay from `a5fd0aa` are stale until rerun.
+- The 70° linear bearing in the old CSVs was close to right; the ±30° cone still covers most of the
+  image and is ~3.5 m wide at 3 m, so the case for the corridor label stands.
+
+### Added
+- The audit records chest-camera intrinsics and masks: masks on 53 curated sessions' head camera
+  (43 train / 10 test) and 130 sessions' chest camera (102 / 28; 8,411 + 2,429 human-annotated
+  frames, the rest propagated).
+
 ## [2026-10-14, later] - Data Audit, Held-Out Results, v2 Threat Engine Built and Replayed
 
 Branch `v2-threat-engine` (from `main` after `contextual_evaluation` was fast-forwarded into it).

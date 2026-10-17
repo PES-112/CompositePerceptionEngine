@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from src.threat_engine.fusion import FusedTrack
 
 OVERRIDE_TTC_S = 1.0       # unchanged from v1 (PhysicsVerification.OVERRIDE_TTC_S)
-CONE_HALF_ANGLE_DEG = 30.0 # the v1 label's cone; with SANPO's 51-60 deg FOV it spans almost the whole image
+CONE_HALF_ANGLE_DEG = 30.0 # the v1 label's cone; with SANPO's 70-78 deg head camera it spans most of the image
 # The walking corridor. The arrival label uses 0.75 m (Fruin's comfortable lateral
 # spacing); the envelope uses twice that (FHWA's 1.5 m passing width) so it errs
 # toward firing. Each object adds its own half-width.

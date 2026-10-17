@@ -6,8 +6,8 @@ public GCS bucket (no frames are downloaded). It answers the P0 data questions
 in docs/pending_work.md:
 
   - What frame rate and field of view does each session really have?
-    (Stage 1 used to assume 30 FPS and a 70° HFOV; SANPO-Real reports 15 FPS
-    and ~58.4°.)
+    (Stage 1 used to assume 30 FPS and a 70° HFOV; SANPO-Real's head camera
+    reports 15 FPS and ~77.5°.)
   - Which sessions are in SANPO's official train / test split?
     (sanpo-real/splits/{train,test}_session_ids.txt)
   - Which sessions have segmentation masks and camera poses? Masks exist on

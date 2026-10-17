@@ -132,9 +132,9 @@ def compute_bearing(
 
     With focal_px (the camera's fx, scaled to frame_width) the bearing is the
     pinhole angle atan(dx / fx). Without it, the offset is mapped linearly onto
-    hfov_deg; the 70° default is a generic phone lens, while SANPO's ZED 2i is
-    51-60° (simulation/datasets/sanpo/session_audit.json), so pass the real
-    value for SANPO.
+    hfov_deg; the 70° default is a generic phone lens, while SANPO's head camera
+    (a ZED-M) is 70-78° (simulation/datasets/sanpo/session_audit.json), so pass
+    the real value for SANPO.
     """
     if focal_px:
         return math.degrees(math.atan((cx_px - frame_width / 2) / focal_px))
