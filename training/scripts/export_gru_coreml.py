@@ -45,8 +45,9 @@ DEFAULT_OUT = PROJECT_ROOT / "models/GRU/exports"
 class Probabilities(nn.Module):
     """
     TrackGRU's forward with fixed shapes and the softmax folded in. Same layers
-    and weights; the shapes are Python ints rather than x.shape, because traced
-    shape arithmetic doesn't convert (coremltools 9 with torch 2.11).
+    and weights; the shapes are Python ints rather than x.shape, which keeps
+    shape arithmetic out of the traced graph. (coremltools 9.0 also needs
+    numpy < 2.4: newer numpy rejects its int() of 1-element arrays.)
     """
 
     def __init__(self, model: nn.Module, n: int, t: int):
