@@ -3,7 +3,8 @@
     "csv_dir": "data/processed/sanpo_real_462",
     "csv_files": 462,
     "fingerprint": "559086c006",
-    "sessions_with_samples": 417
+    "sessions_with_samples": 417,
+    "units": "pinhole_bearing_true_fps"
   },
   "params": {
     "history": 8,
@@ -76,7 +77,7 @@
     "bench"
   ],
   "name": "sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w1.5_d3_h20",
-  "created": "2026-10-17",
+  "created": "2026-10-18",
   "resplit_from": "sanpo_real_462_tracked_d3_h8_current_m32_f5_s0",
   "split_source": "simulation/datasets/sanpo/official_split.json",
   "stats": {
@@ -84,28 +85,28 @@
       "sessions": 287,
       "frames": 11640,
       "objects": 20694,
-      "positive_rate": 0.2623,
-      "sessions_with_encounter": 166,
-      "frames_with_encounter": 5327,
-      "positive_tracks": 664
+      "positive_rate": 0.2449,
+      "sessions_with_encounter": 158,
+      "frames_with_encounter": 4980,
+      "positive_tracks": 607
     },
     "val": {
       "sessions": 47,
       "frames": 2014,
       "objects": 3275,
-      "positive_rate": 0.3069,
-      "sessions_with_encounter": 27,
-      "frames_with_encounter": 990,
-      "positive_tracks": 113
+      "positive_rate": 0.2962,
+      "sessions_with_encounter": 26,
+      "frames_with_encounter": 907,
+      "positive_tracks": 106
     },
     "test": {
       "sessions": 83,
       "frames": 3257,
       "objects": 5974,
-      "positive_rate": 0.3021,
-      "sessions_with_encounter": 49,
-      "frames_with_encounter": 1461,
-      "positive_tracks": 212
+      "positive_rate": 0.2899,
+      "sessions_with_encounter": 48,
+      "frames_with_encounter": 1379,
+      "positive_tracks": 200
     }
   },
   "split": {

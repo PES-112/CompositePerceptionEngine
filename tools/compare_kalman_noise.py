@@ -28,7 +28,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dataset.GRU.samples import load_dataset
+from dataset.GRU.samples import legacy_units, load_dataset
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
 from src.threat_engine.fusion import GroundTracker, NoiseModel
@@ -59,13 +59,14 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=PROJECT_ROOT / "evaluation/benchmarks/kalman_noise_fit")
     args = p.parse_args()
     started = time.time()
-    _, splits = load_dataset(DEFAULT_DATASET, splits=(args.split,))
+    manifest, splits = load_dataset(DEFAULT_DATASET, splits=(args.split,))
     audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
     by = defaultdict(list)
     for s in splits[args.split]:
         by[s["session"]].append(s)
     ids = sorted(by)
-    frames = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
+    frames = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"], legacy_units(manifest))
+              for sid in ids}
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(ids, pool.map(session_poses, ids)))
 

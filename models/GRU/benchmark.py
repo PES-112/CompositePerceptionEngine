@@ -54,7 +54,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from dataset.GRU.samples import CLASS_VOCAB, FEATURES, load_dataset, truncate_history
+from dataset.GRU.samples import CLASS_VOCAB, FEATURES, legacy_units, load_dataset, truncate_history
 from src.threat_engine.envelope import CLASS_HALF_WIDTH_M, DEFAULT_HALF_WIDTH_M
 from models.GRU.evaluate import auroc, average_precision, baseline_scores, model_scores, per_frame, predict
 from models.GRU.registry import build_model
@@ -94,14 +94,16 @@ class Zone:
         return np.abs(np.arctan2(x, z)) < self.theta
 
 
-def positions(s: dict, fx: float, width: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def positions(s: dict, fx: float, width: float, legacy: bool = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(present [n, h], x [n, h], z [n, h]) in metres, camera frame, pinhole bearings."""
     present = s["x"][:, :, F["present"]] > 0.5
     d = s["x"][:, :, F["distance"]] * 10.0
-    # The feature is legacy_bearing / 35°, and the legacy bearing mapped the image linearly onto ±35°,
-    # so feature × half the image width is the pixel offset from the centre.
-    dx = s["x"][:, :, F["bearing"]] * (width / 2)
-    theta = np.arctan2(dx, fx)
+    if legacy:
+        # The feature is legacy_bearing / 35°, and the legacy bearing mapped the image linearly onto ±35°,
+        # so feature × half the image width is the pixel offset from the centre.
+        theta = np.arctan2(s["x"][:, :, F["bearing"]] * (width / 2), fx)
+    else:
+        theta = np.radians(s["x"][:, :, F["bearing"]] * 35.0)   # already the pinhole angle / 35°
     return present, d * np.tan(theta), d
 
 
@@ -113,8 +115,8 @@ def extrapolate(p: np.ndarray, v: np.ndarray, zone: Zone, half: float) -> float:
     return -float(hit[0]) if len(hit) else -(zone.horizon + 1 + float(np.hypot(*p)))
 
 
-def rule_scores(s: dict, fx: float, width: float, zone: Zone) -> dict[str, np.ndarray]:
-    present, X, Z = positions(s, fx, width)
+def rule_scores(s: dict, fx: float, width: float, zone: Zone, legacy: bool = True) -> dict[str, np.ndarray]:
+    present, X, Z = positions(s, fx, width, legacy)
     halves = [CLASS_HALF_WIDTH_M.get(c, DEFAULT_HALF_WIDTH_M) for c in s["classes"]]
     x, z = X[:, -1], Z[:, -1]
     corridor = np.array([zone.lateral_ok(x[i:i + 1], z[i:i + 1], h)[0] for i, h in enumerate(halves)])
@@ -159,11 +161,11 @@ def kalman_track(X: np.ndarray, Z: np.ndarray, steps: np.ndarray, class_name: st
 
 # ── Learned non-sequence baselines ───────────────────────────────────────────
 
-def tabular(samples: list[dict], audit: dict, history: bool) -> np.ndarray:
+def tabular(samples: list[dict], audit: dict, history: bool, legacy: bool = True) -> np.ndarray:
     rows = []
     for s in samples:
         a = audit[s["session"]]
-        present, X, Z = positions(s, a["fx"], a["image_width"])
+        present, X, Z = positions(s, a["fx"], a["image_width"], legacy)
         feats = s["x"].reshape(len(s["y"]), -1) if history else s["x"][:, -1, :]
         onehot = np.zeros((len(s["y"]), len(CLASS_VOCAB) + 1))
         onehot[np.arange(len(s["y"])), np.minimum(s["cls"], len(CLASS_VOCAB))] = 1
@@ -171,7 +173,8 @@ def tabular(samples: list[dict], audit: dict, history: bool) -> np.ndarray:
     return np.vstack(rows)
 
 
-def fit_tabular(train: list[dict], test: list[dict], audit: dict, seed: int = 0) -> dict[str, Scores]:
+def fit_tabular(train: list[dict], test: list[dict], audit: dict, seed: int = 0,
+                legacy: bool = True) -> dict[str, Scores]:
     from sklearn.ensemble import HistGradientBoostingClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
@@ -186,8 +189,8 @@ def fit_tabular(train: list[dict], test: list[dict], audit: dict, seed: int = 0)
         ("gbt_now", False, HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=seed)),
         ("gbt_history", True, HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=seed)),
     ):
-        model.fit(tabular(train, audit, history), y)
-        out[name] = split(model.predict_proba(tabular(test, audit, history))[:, 1])
+        model.fit(tabular(train, audit, history, legacy), y)
+        out[name] = split(model.predict_proba(tabular(test, audit, history, legacy))[:, 1])
     return out
 
 
@@ -294,10 +297,12 @@ def main() -> None:
         name, rest = spec.split("=", 1)
         run_name, arch = rest.rsplit(":", 1)
         methods[name] = gru_scores(run_name, arch, manifest, test)
-    for name, scores in fit_tabular(train, test, audit).items():
+    for name, scores in fit_tabular(train, test, audit, legacy=legacy_units(manifest)).items():
         methods[name] = [(scores, scores)]
     base = [baseline_scores(s) for s in test]
-    rules = [rule_scores(s, audit[s["session"]]["fx"], audit[s["session"]]["image_width"], zone) for s in test]
+    legacy = legacy_units(manifest)
+    rules = [rule_scores(s, audit[s["session"]]["fx"], audit[s["session"]]["image_width"], zone, legacy)
+             for s in test]
     for name in list(base[0]) + list(rules[0]):
         sc = [b[name] for b in base] if name in base[0] else [r[name] for r in rules]
         methods[name] = [(sc, sc)]

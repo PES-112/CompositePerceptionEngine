@@ -40,7 +40,7 @@ from pathlib import Path
 
 import numpy as np
 
-from dataset.GRU.samples import SPLITS, load_split, save_split
+from dataset.GRU.samples import SPLITS, legacy_units, load_split, save_split
 from src.threat_engine.envelope import CLASS_HALF_WIDTH_M, DEFAULT_HALF_WIDTH_M
 from src.threat_engine.fusion import EgoPose, sanpo_session_poses
 
@@ -91,14 +91,15 @@ def in_path(distance: np.ndarray, bearing_rad: np.ndarray, phi: float, classes: 
 
 
 def relabel_session(samples: list[dict], poses: list[EgoPose], fx: float, width: float,
-                    width_m: float, depth_m: float, horizon: int) -> None:
+                    width_m: float, depth_m: float, horizon: int, legacy: bool = True) -> None:
     """Overwrite y, tte and frame_has_encounter in place."""
     samples.sort(key=lambda s: s["frame_idx"])
     hits: dict[int, set[str]] = {}
     for s in samples:
         phi = walking_angle(poses, s["frame_idx"])
-        mask = in_path(np.asarray(s["distance"], float), pinhole_bearing(np.asarray(s["bearing"], float), fx, width),
-                       phi, s["classes"], width_m, depth_m)
+        bearing = np.asarray(s["bearing"], float)
+        theta = pinhole_bearing(bearing, fx, width) if legacy else np.radians(bearing)
+        mask = in_path(np.asarray(s["distance"], float), theta, phi, s["classes"], width_m, depth_m)
         hits[s["frame_idx"]] = {t for t, m in zip(s["track_ids"], mask) if m}
     first: dict[str, list[int]] = {}
     for f in sorted(hits):
@@ -144,7 +145,7 @@ def main() -> None:
         for sid, ss in by.items():
             a = audit[sid]
             relabel_session(ss, load_session_poses(sid), a["fx"], a["image_width"], args.width, args.depth,
-                            args.horizon)
+                            args.horizon, legacy=legacy_units(src))
         save_split(samples, out / f"{part}.npz")
         y = np.concatenate([s["y"] for s in samples])
         stats[part] = {"sessions": len(by), "frames": len(samples), "objects": int(len(y)),

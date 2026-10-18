@@ -5,7 +5,8 @@
     "csv_dir": "data/processed/sanpo_real_462",
     "csv_files": 462,
     "fingerprint": "559086c006",
-    "sessions_with_samples": 417
+    "sessions_with_samples": 417,
+    "units": "pinhole_bearing_true_fps"
   },
   "params": {
     "history": 8,

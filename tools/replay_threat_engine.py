@@ -47,7 +47,14 @@ announcement about it in the 4 s up to and including arrival.
 Operating points are chosen on the official validation sessions, then scored
 once on test with session-bootstrap 95% CIs:
   budget_2 / budget_5 / budget_10   most arrivals warned with <= 2 / 5 / 10 false alerts per minute
+  early_budget_2 / _5 / _10         most arrivals warned >= 0.2 s *before* arrival (warned_before) within
+                                    the same budgets; `warned` also counts announcements on the arrival
+                                    frame itself, which the budget_* rules reward
   recall_50                         fewest false alerts with >= 50% of arrivals warned
+
+--announcer-sweep ARM ...: for those v2 arms the knob is (ignore threshold,
+announcer cooldown_s, switch_margin, stale_s) over ANNOUNCER_GRID instead of
+the threshold alone, so the announcer is tuned on validation too.
 Lead time is reported against the opportunity window (first sighting ->
 arrival): warned rate and lead among arrivals with a window of >= 1 s and
 >= 2 s, lead / window, and a Kaplan-Meier "not yet warned" curve over time
@@ -83,7 +90,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dataset.GRU.samples import load_dataset
+from dataset.GRU.samples import legacy_units, load_dataset
 from src.narration.pipeline import NarrationPipeline
 from src.narration.tts import CachedClipTTS
 from src.pipeline.orchestrator import process_frame
@@ -106,6 +113,9 @@ LEGACY_HALF_FOV = 35.0
 SPEED_FIX = 0.5
 WARN_WINDOW_S = 4.0
 V2_THRESHOLDS = (0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
+# --announcer-sweep: thresholds x (cooldown_s, switch_margin, stale_s); announcer.py's defaults are (4.0, 1.25, 0.6)
+SWEEP_THRESHOLDS = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
+ANNOUNCER_GRID = tuple((c, m, st) for c in (2.0, 4.0, 8.0) for m in (1.0, 1.25, 2.0) for st in (0.6, 1.2))
 V1_LOW_K = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0)
 BUDGETS = (2.0, 5.0, 10.0)
 KM_TIMES = (0.5, 1.0, 2.0, 3.0, 4.0)
@@ -122,21 +132,28 @@ def session_poses(sid: str) -> list[EgoPose]:
     return sanpo_session_poses(list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8")))))
 
 
-def session_rows(samples: list[dict], fx: float, width: float) -> dict[int, list[dict]]:
-    """{frame_idx: Stage-1 rows} in corrected units, with the GRU's legacy inputs kept alongside."""
+def session_rows(samples: list[dict], fx: float, width: float, legacy: bool = True) -> dict[int, list[dict]]:
+    """
+    {frame_idx: Stage-1 rows} in correct units, with the stored values (what the GRU was trained on)
+    kept alongside. legacy: the dataset stores pre-2026-10-14 units (dataset.GRU.samples.legacy_units).
+    """
     frames = {}
     for s in samples:
         rows = []
         for j, tid in enumerate(s["track_ids"]):
             last = s["x"][j, -1]
             legacy_bearing = float(s["bearing"][j])
-            dx = legacy_bearing / LEGACY_HALF_FOV * width / 2
             legacy_speed = float(last[2]) * 5
+            if legacy:
+                bearing = math.degrees(math.atan2(legacy_bearing / LEGACY_HALF_FOV * width / 2, fx))
+                speed = legacy_speed * SPEED_FIX
+            else:
+                bearing, speed = legacy_bearing, legacy_speed
             rows.append({
                 "frame_idx": s["frame_idx"], "track_id": tid, "class": s["classes"][j],
                 "confidence": float(last[6]), "distance_m": float(s["distance"][j]),
-                "bearing_deg": math.degrees(math.atan2(dx, fx)),
-                "velocity_ms": legacy_speed * SPEED_FIX,
+                "bearing_deg": bearing,
+                "velocity_ms": speed,
                 "bbox_area_px": float(np.expm1(last[7] * 15)),
                 "_legacy": {"bearing_deg": legacy_bearing, "velocity_ms": legacy_speed},
                 "_tte": int(s["tte"][j]),
@@ -189,9 +206,12 @@ class CachedPredictor:
         return self.cache[frame_idx]
 
 
-def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float):
-    engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(),
-                          announcer=AnnouncementManager())
+def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float,
+           announcer: tuple[float, float, float] | None = None):
+    """announcer: (cooldown_s, switch_margin, stale_s), or None for announcer.py's defaults."""
+    mgr = AnnouncementManager() if announcer is None else AnnouncementManager(
+        cooldown_s=announcer[0], switch_margin=announcer[1], stale_s=announcer[2])
+    engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(), announcer=mgr)
     log = []
     for k in sorted(frames):
         pose = poses[min(STRIDE * k, len(poses) - 1)] if poses else None
@@ -346,21 +366,29 @@ def window_profile(per_session: list[dict]) -> dict:
             "share_ge_4s": float(np.mean(w >= 4.0))}
 
 
-def pick(curve: dict, rule: str) -> float | None:
+def pick(curve: dict, rule: str):
     """Knob value for an operating rule from a {knob: aggregate} validation curve."""
     items = list(curve.items())
-    if rule.startswith("budget_"):
-        budget = float(rule.split("_")[1])
+    if "budget_" in rule:
+        budget = float(rule.rsplit("_", 1)[1])
+        target = "warned_before" if rule.startswith("early_") else "warned"
         ok = [(k, m) for k, m in items if m["false_per_min"][0] <= budget]
         if not ok:
             return None
-        return max(ok, key=lambda km: (np.nan_to_num(km[1]["warned"][0]), -km[1]["false_per_min"][0]))[0]
+        return max(ok, key=lambda km: (np.nan_to_num(km[1][target][0]), -km[1]["false_per_min"][0]))[0]
     if rule == "recall_50":
         ok = [(k, m) for k, m in items if np.nan_to_num(m["warned"][0]) >= 0.5]
         if not ok:
             return None
         return min(ok, key=lambda km: km[1]["false_per_min"][0])[0]
     raise ValueError(rule)
+
+
+def knob_str(k) -> str:
+    """A knob for tables and the CSV: a number, or threshold / cooldown / switch margin / stale."""
+    if isinstance(k, tuple):
+        return f"{k[0]:g} / cd {k[1]:g} / sm {k[2]:g} / st {k[3]:g}"
+    return f"{k:g}"
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -379,6 +407,8 @@ def main() -> None:
     p.add_argument("--latency-csv", type=Path, nargs="*", default=[],
                    help="CPE Timing app CSVs (ios/CPETiming): each announcement is delayed by a total_ms drawn "
                         "from them (warm-up excluded), seeded per session.")
+    p.add_argument("--announcer-sweep", nargs="*", default=[], metavar="ARM",
+                   help="v2 arms whose announcer (cooldown, switch margin, stale) is swept with the threshold.")
     args = p.parse_args()
 
     manifest, splits = load_dataset(args.dataset, splits=("val", "test"))
@@ -386,6 +416,7 @@ def main() -> None:
     if cfg["split"] != manifest["split"] or cfg["dataset_name"] != manifest["name"]:
         raise SystemExit(f"{args.gru_run} was not trained on {manifest['name']}")
     horizon = int(manifest["label"]["HORIZON_FRAMES"])
+    legacy = legacy_units(manifest)
     audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
 
     sessions = {}
@@ -394,7 +425,8 @@ def main() -> None:
         for s in samples:
             by[s["session"]].append(s)
         ids = sorted(by)[: args.max_sessions or None]
-        sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
+        sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"], legacy)
+                          for sid in ids}
     all_ids = [sid for part in sessions.values() for sid in part]
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(all_ids, pool.map(session_poses, all_ids)))
@@ -417,7 +449,12 @@ def main() -> None:
         "v2_gru": (True, lambda: LegacyGRU(gru_path)),
         "v2_gru_nopose": (False, lambda: LegacyGRU(gru_path)),
     }
-    arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K, **{a: V2_THRESHOLDS for a in v2_arms}}
+    unknown = set(args.announcer_sweep) - set(v2_arms)
+    if unknown:
+        raise SystemExit(f"--announcer-sweep: not v2 arms: {sorted(unknown)}")
+    sweep = tuple((t, *a) for t in SWEEP_THRESHOLDS for a in ANNOUNCER_GRID)
+    arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K,
+            **{a: sweep if a in args.announcer_sweep else V2_THRESHOLDS for a in v2_arms}}
 
     def run(part: str, arm: str, knob: float) -> list[dict]:
         per = []
@@ -427,12 +464,13 @@ def main() -> None:
             else:
                 use_pose, make = v2_arms[arm]
                 predictor = CachedPredictor(make(), caches[(arm, sid)])
-                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob)
+                thr, ann = (knob[0], knob[1:]) if isinstance(knob, tuple) else (knob, None)
+                log = run_v2(frames, poses[sid] if use_pose else None, predictor, thr, ann)
             per.append(session_metrics(frames, log, horizon, delays_for(sid, len(log))))
         return per
 
     started = time.time()
-    rules = [f"budget_{b:g}" for b in BUDGETS] + ["recall_50"]
+    rules = [f"budget_{b:g}" for b in BUDGETS] + [f"early_budget_{b:g}" for b in BUDGETS] + ["recall_50"]
     curves = {"val": {}, "test": {}}
     test_runs: dict[str, dict[float, list[dict]]] = {}
     chosen: dict[str, dict[str, float | None]] = {}
@@ -441,7 +479,8 @@ def main() -> None:
         test_runs[arm] = {k: run("test", arm, k) for k in knobs}
         curves["test"][arm] = {k: aggregate(v, boot=False) for k, v in test_runs[arm].items()}
         chosen[arm] = {r: pick(curves["val"][arm], r) for r in rules}
-        print(f"{arm:20s} {time.time() - started:5.0f} s  chosen on val: {chosen[arm]}", flush=True)
+        print(f"{arm:20s} {time.time() - started:5.0f} s  chosen on val: "
+              f"{ {r: (knob_str(k) if k is not None else None) for r, k in chosen[arm].items()} }", flush=True)
 
     points = {arm: {r: (aggregate(test_runs[arm][k]) if k is not None else None) for r, k in by_rule.items()}
               for arm, by_rule in chosen.items()}
@@ -491,35 +530,41 @@ def main() -> None:
             if m is None:
                 lines.append(f"| {arm} | — | no setting meets the rule on validation |||||||||||")
                 continue
-            lines.append(f"| {arm} | {chosen[arm][rule]:g} | {cell(m['warned'])} | {cell(m['false_per_min'])} | "
+            lines.append(f"| {arm} | {knob_str(chosen[arm][rule])} | {cell(m['warned'])} | {cell(m['false_per_min'])} | "
                          f"{cell(m['precision'])} | {cell(m['late_share'])} | {cell(m['alerts_per_min'])} | "
                          f"{cell(m['switches_per_min'])} | {cell(m['warned_window_ge1'])} | "
                          f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} | "
                          f"{cell(m['warned_before'])} | {cell(m['warned_lead_ge1'])} |")
         lines.append("")
-    lines += ["## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, `budget_5`)", "",
-              "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
-    for arm in arms:
-        k = km[arm]["budget_5"]
-        lines.append(f"| {arm} | " + (" | ".join(f"{k[t]:.2f}" for t in KM_TIMES) if k else "n/a") + " |")
+    for km_rule in ("budget_5", "early_budget_5"):
+        lines += [f"## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, "
+                  f"`{km_rule}`)", "",
+                  "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
+        for arm in arms:
+            k = km[arm][km_rule]
+            lines.append(f"| {arm} | " + (" | ".join(f"{k[t]:.2f}" for t in KM_TIMES) if k else "n/a") + " |")
+        lines.append("")
     lines += ["", "## Operating curves (test; every knob value)", "",
               "Recall (warned) against false alerts per minute; the CSV next to this report has every column.", "",
-              "| Arm | knob | warned | false/min | precision | alerts/min |", "|---|---:|---:|---:|---:|---:|"]
+              "| Arm | knob | warned | warned ≥ 0.2 s before | false/min | precision | alerts/min |",
+              "|---|---:|---:|---:|---:|---:|---:|"]
     rows_csv = ["split,arm,knob," + ",".join(KEYS)]
     for split in ("val", "test"):
         for arm, curve in curves[split].items():
             for k, m in curve.items():
-                rows_csv.append(f"{split},{arm},{k:g}," + ",".join(f"{m[key][0]:.4f}" for key in KEYS))
-                if split == "test":
-                    lines.append(f"| {arm} | {k:g} | {m['warned'][0]:.2f} | {m['false_per_min'][0]:.1f} | "
-                                 f"{m['precision'][0]:.2f} | {m['alerts_per_min'][0]:.1f} |")
+                rows_csv.append(f"{split},{arm},{knob_str(k)}," + ",".join(f"{m[key][0]:.4f}" for key in KEYS))
+                if split == "test" and not isinstance(k, tuple):   # swept arms: see curves.csv
+                    lines.append(f"| {arm} | {k:g} | {m['warned'][0]:.2f} | {m['warned_before'][0]:.2f} | "
+                                 f"{m['false_per_min'][0]:.1f} | {m['precision'][0]:.2f} | {m['alerts_per_min'][0]:.1f} |")
     lines += ["", "Classes: true = the object enters the zone later within the horizon; late = it is already in the "
               "zone; false = it doesn't enter within the horizon. precision = (true + late) / all. warned = an "
               "announcement about the arriving track in the 4 s up to and including arrival.",
               "Open-loop: the recorded walker never heard these alerts. Labels and inputs share SANPO's depth.", ""]
     (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
     (out / "curves.csv").write_text("\n".join(rows_csv) + "\n", encoding="utf-8")
-    (out / "metrics.json").write_text(json.dumps({"chosen": chosen, "points": points, "kaplan_meier": km,
+    (out / "metrics.json").write_text(json.dumps({"chosen": {a: {r: (knob_str(k) if k is not None else None)
+                                                                  for r, k in by.items()} for a, by in chosen.items()},
+                                                  "points": points, "kaplan_meier": km,
                                                   "window_profile": windows}, indent=2, default=str), encoding="utf-8")
     print("\n".join(lines[:40]))
     print(f"-> {out}")

@@ -5,7 +5,7 @@ import numpy as np
 
 from src.threat_engine.fusion import FusedTrack, GroundTracker, Measurement, NoiseModel
 from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
-from tools.replay_threat_engine import session_metrics
+from tools.replay_threat_engine import knob_str, pick, session_metrics
 
 DT = 0.2
 
@@ -86,6 +86,20 @@ class NoiseModelTests(unittest.TestCase):
         out = tracker.step(8 * DT, [Measurement("p", "person", 1.0, 0.0)])
         self.assertTrue(out[0].measured)
         self.assertGreater(out[0].forward_m, 4.5)                                # moved, but far less than 5 m
+
+
+class OperatingRuleTests(unittest.TestCase):
+    def test_early_budget_prefers_lead(self):
+        curve = {
+            (0.5, 4.0, 1.25, 0.6): {"false_per_min": (3.0,), "warned": (0.5,), "warned_before": (0.1,)},
+            (0.7, 2.0, 1.0, 1.2): {"false_per_min": (4.0,), "warned": (0.4,), "warned_before": (0.3,)},
+            (0.9, 8.0, 2.0, 0.6): {"false_per_min": (9.0,), "warned": (0.9,), "warned_before": (0.8,)},
+        }
+        self.assertEqual(pick(curve, "budget_5"), (0.5, 4.0, 1.25, 0.6))
+        self.assertEqual(pick(curve, "early_budget_5"), (0.7, 2.0, 1.0, 1.2))
+        self.assertIsNone(pick(curve, "early_budget_2"))
+        self.assertEqual(knob_str((0.7, 2.0, 1.0, 1.2)), "0.7 / cd 2 / sm 1 / st 1.2")
+        self.assertEqual(knob_str(0.95), "0.95")
 
 
 if __name__ == "__main__":
