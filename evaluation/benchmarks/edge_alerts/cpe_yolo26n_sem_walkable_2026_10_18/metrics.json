@@ -1,0 +1,984 @@
+{
+  "source": "training/runs/cpe_yolo26n_sem_walkable/weights/best.pt",
+  "step_off_reference": "source",
+  "sessions": 53,
+  "frame_step": 6,
+  "rule": {
+    "kinds": [
+      "curb",
+      "stairs",
+      "road"
+    ],
+    "alert_m": 5.0,
+    "confirm_frames": 2,
+    "clear_s": 2.0
+  },
+  "lookback_s": 10.0,
+  "step_off_hold": 2,
+  "step_off_stay": 1,
+  "overall": {
+    "minutes": 26.56,
+    "alerts": 22,
+    "alerts_per_min": 0.8283132530120483,
+    "step_offs": 50,
+    "warned": 0.22,
+    "followed": 0.3181818181818182,
+    "median_lead_s": 2.799999999999999
+  },
+  "ci": {
+    "alerts_per_min": [
+      0.8283132530120483,
+      0.49415567834713203,
+      1.22038233622584
+    ],
+    "warned": [
+      0.22,
+      0.0730460088691796,
+      0.4001694915254236
+    ],
+    "followed": [
+      0.3181818181818182,
+      0.11994117647058823,
+      0.5385416666666666
+    ],
+    "median_lead_s": [
+      2.799999999999999,
+      1.8000000000000012,
+      6.0
+    ]
+  },
+  "by_kind": {
+    "curb": {
+      "alerts": 9,
+      "alerts_per_min": 0.338855421686747,
+      "followed": 0.1111111111111111,
+      "median_alert_m": 3.57,
+      "step_offs": 1,
+      "warned": 1.0
+    },
+    "stairs": {
+      "alerts": 4,
+      "alerts_per_min": 0.15060240963855423,
+      "followed": 0.5,
+      "median_alert_m": 2.71,
+      "step_offs": 4,
+      "warned": 0.5
+    },
+    "road": {
+      "alerts": 9,
+      "alerts_per_min": 0.338855421686747,
+      "followed": 0.4444444444444444,
+      "median_alert_m": 3.11,
+      "step_offs": 45,
+      "warned": 0.17777777777777778
+    }
+  },
+  "by_official_split": {
+    "train": {
+      "sessions": 43,
+      "minutes": 21.566666666666666,
+      "alerts": 17,
+      "alerts_per_min": 0.7882534775888718,
+      "step_offs": 42,
+      "warned": 0.23809523809523808,
+      "followed": 0.35294117647058826,
+      "median_lead_s": 2.599999999999999
+    },
+    "test": {
+      "sessions": 10,
+      "minutes": 4.993333333333333,
+      "alerts": 5,
+      "alerts_per_min": 1.0013351134846462,
+      "step_offs": 8,
+      "warned": 0.125,
+      "followed": 0.2,
+      "median_lead_s": 9.2
+    }
+  },
+  "sessions_detail": {
+    "28tdwxgz-zPU06lpeDY3OPWTFxZyBv2c": {
+      "minutes": 0.48000000000000004,
+      "frames": 73,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          23.2,
+          "stairs"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "3fNdc-1R7QcLCPHG7Zn9oQXrPqKQbuys": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          22.0,
+          "curb",
+          3.29
+        ],
+        [
+          28.8,
+          "road",
+          1.8
+        ]
+      ],
+      "followed": [
+        false,
+        false
+      ],
+      "step_offs": [
+        [
+          16.4,
+          "road"
+        ],
+        [
+          18.8,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "5z7n1PIsHGyQmO64hAlMynF3Cdj0rBeu": {
+      "minutes": 0.66,
+      "frames": 100,
+      "alerts": [
+        [
+          28.8,
+          "curb",
+          1.11
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [
+        [
+          3.6,
+          "road"
+        ],
+        [
+          39.2,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "6lm2fRHPl4AtOLKJkEXRJo9MQJVeCT_y": {
+      "minutes": 0.47333333333333333,
+      "frames": 72,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "6uEJtqNVqHJA1tjeemumA-trgb9xnvt0": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "8GbY4HVFE794yBRg8-wMqeDi_uLHjQPX": {
+      "minutes": 0.47333333333333333,
+      "frames": 72,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          9.6,
+          "road"
+        ],
+        [
+          12.0,
+          "road"
+        ],
+        [
+          13.6,
+          "road"
+        ],
+        [
+          16.4,
+          "road"
+        ],
+        [
+          18.0,
+          "road"
+        ],
+        [
+          20.8,
+          "road"
+        ],
+        [
+          24.4,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "ALYuoq-pWdqtJ-Jm9R8ceVzhsXYawzfi": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "AMWsWL1lxlW0NelUU8w8yL4psb1R1vCd": {
+      "minutes": 0.47333333333333333,
+      "frames": 72,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          10.8,
+          "road"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "AdtGuq73TlhK5miUkWcUO9BoKdnmV-8j": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "DSZAhX1NcHwzhDAPV0udk99FeuFdAqzu": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          15.6,
+          "stairs",
+          3.01
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [],
+      "leads": []
+    },
+    "EK-Dn-ByDTucTgR4juV39aOB-lXRlQsu": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "EXUy7eoDpVbKR-bpIg-faiepUfqZwJ2v": {
+      "minutes": 0.66,
+      "frames": 100,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "FeJgoz6tfxhlDqiesDGIZdbM3VoE_HMZ": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          4.4,
+          "road"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "GEwWDMMe8FFo-wHxZ4Pg1chw15P2nEEz": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "IR6g8_ch0elPSFs9lLvSTGrfhJsB8tVU": {
+      "minutes": 0.6733333333333333,
+      "frames": 102,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          20.0,
+          "road"
+        ],
+        [
+          23.2,
+          "road"
+        ],
+        [
+          31.2,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null,
+        null
+      ]
+    },
+    "KDo1FZFB0pRnxh8_sg3XDx5gpp9rqIQk": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [
+        [
+          10.8,
+          "road",
+          0.83
+        ],
+        [
+          18.0,
+          "curb",
+          4.27
+        ]
+      ],
+      "followed": [
+        true,
+        false
+      ],
+      "step_offs": [
+        [
+          6.4,
+          "road"
+        ],
+        [
+          7.6,
+          "road"
+        ],
+        [
+          10.0,
+          "road"
+        ],
+        [
+          11.2,
+          "road"
+        ],
+        [
+          13.6,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null,
+        null,
+        0.3999999999999986,
+        2.799999999999999
+      ]
+    },
+    "KIERO-z0fyfp_OsxbvxuSWkeAC2p-hXM": {
+      "minutes": 0.4666666666666667,
+      "frames": 71,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          3.2,
+          "road"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "KMB_G-uuKE8-SNDAbRGQSzpEBpVGdsJI": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "KhNrNPHOOB9cKHWPWB-gJJlnH-r0b-FU": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "LpjeyfDdXRDw03hbRDdm4e6MPcR0Ypua": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          8.4,
+          "road"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "MtwZFFClj_Si11UTnHXXgN4CjqmPulP2": {
+      "minutes": 0.5,
+      "frames": 76,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "QVzjzsSertgX6WAHcL5wP6pnnEieXu8f": {
+      "minutes": 0.48000000000000004,
+      "frames": 73,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "TccwLbeRW-z_NPDDJsr1S3IC-iUzaJI3": {
+      "minutes": 0.4666666666666667,
+      "frames": 71,
+      "alerts": [
+        [
+          4.0,
+          "curb",
+          3.44
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [],
+      "leads": []
+    },
+    "US7wvt5osva1gBg_TBJCKRwjXVFpM4dp": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "VjpjnvAcYfG88ud095O2fv9dFUj4OAOM": {
+      "minutes": 0.48000000000000004,
+      "frames": 73,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "Xoe7Kec_tA-bzqYd6hDEMMF6-rFrZx1b": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          7.6,
+          "road"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "YNo0wJ5J7GLXGsu-zkj-MXNqdvHJ-k_h": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "Zodf1mn3rR80jtAik_zwIDgumTbfmbhm": {
+      "minutes": 0.4066666666666666,
+      "frames": 62,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          2.4,
+          "road"
+        ],
+        [
+          8.0,
+          "road"
+        ],
+        [
+          10.4,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null,
+        null
+      ]
+    },
+    "a7bGB6aD6bcUMhl86R9HNNHUVUUxlS2c": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "cEZJ_REy7wD6B_0xs2nJ4-Jn-fZg23vd": {
+      "minutes": 0.6,
+      "frames": 91,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          10.4,
+          "road"
+        ],
+        [
+          26.8,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "ixZaSR2bFF5XplHrvc8r8vEMpkc8amOV": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          6.8,
+          "stairs",
+          2.36
+        ],
+        [
+          12.0,
+          "stairs",
+          2.41
+        ]
+      ],
+      "followed": [
+        true,
+        true
+      ],
+      "step_offs": [
+        [
+          9.2,
+          "stairs"
+        ],
+        [
+          12.8,
+          "stairs"
+        ]
+      ],
+      "leads": [
+        2.3999999999999995,
+        0.8000000000000007
+      ]
+    },
+    "j5QOrc58fUSYWM7vbUAn0g4NIRwfOhBg": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [
+        [
+          7.2,
+          "road",
+          2.24
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [
+        [
+          3.6,
+          "road"
+        ],
+        [
+          5.2,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "jLAxHSRZg9K-SFpF8_r16BSY79kEvbCJ": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "jby020CZB4zrQOSFa9G8HivhbhSYiJ2M": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "lCuy7QUOM_Hpy3fm9sFL8j6SnbJd-FxI": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [
+        [
+          1.6,
+          "road",
+          3.89
+        ],
+        [
+          24.0,
+          "road",
+          4.8
+        ]
+      ],
+      "followed": [
+        true,
+        false
+      ],
+      "step_offs": [
+        [
+          3.2,
+          "road"
+        ],
+        [
+          5.2,
+          "road"
+        ],
+        [
+          10.0,
+          "road"
+        ]
+      ],
+      "leads": [
+        1.6,
+        3.6,
+        8.4
+      ]
+    },
+    "lE6lpL5lGivGqqik0GIioEA8TUa0JpOo": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          2.8,
+          "curb",
+          4.25
+        ],
+        [
+          22.4,
+          "curb",
+          4.41
+        ]
+      ],
+      "followed": [
+        false,
+        false
+      ],
+      "step_offs": [],
+      "leads": []
+    },
+    "lSxwFoA76iTlce0HDW85WtsKxvI7zeT2": {
+      "minutes": 0.48000000000000004,
+      "frames": 73,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          8.4,
+          "road"
+        ],
+        [
+          14.0,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "myw7tebBIGbG5mQ7aAICzUtVSKlRQQhu": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [
+        [
+          26.4,
+          "road",
+          3.11
+        ]
+      ],
+      "followed": [
+        true
+      ],
+      "step_offs": [
+        [
+          27.6,
+          "road"
+        ],
+        [
+          29.6,
+          "road"
+        ]
+      ],
+      "leads": [
+        1.2000000000000028,
+        3.200000000000003
+      ]
+    },
+    "n0SjAV4pwqSUitFLGYmESXNC6guH6kQc": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "n3XL5R4agzVZ7DKs-j8dfEBkmqznu_Ck": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          3.2,
+          "stairs",
+          4.79
+        ],
+        [
+          26.8,
+          "curb",
+          3.57
+        ]
+      ],
+      "followed": [
+        false,
+        false
+      ],
+      "step_offs": [],
+      "leads": []
+    },
+    "nLMkaU45iav7Ix1Iymm2LcA5PWJs0InI": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          19.6,
+          "curb",
+          3.88
+        ]
+      ],
+      "followed": [
+        true
+      ],
+      "step_offs": [
+        [
+          15.2,
+          "road"
+        ],
+        [
+          28.8,
+          "curb"
+        ]
+      ],
+      "leads": [
+        null,
+        9.2
+      ]
+    },
+    "qsDqc0UMhCk60mJVxIa3TTBGOCAprG-j": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "tqQTCrVAo80-TggXDBfcrr4QOEiYFD-t": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          23.2,
+          "road",
+          3.43
+        ]
+      ],
+      "followed": [
+        true
+      ],
+      "step_offs": [
+        [
+          20.4,
+          "road"
+        ],
+        [
+          27.6,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        4.400000000000002
+      ]
+    },
+    "uNjwwJ2t4YyphdEcXW6aOstBFJ5m-2M2": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [
+        [
+          18.8,
+          "curb",
+          2.33
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [
+        [
+          9.2,
+          "stairs"
+        ]
+      ],
+      "leads": [
+        null
+      ]
+    },
+    "vBzRkuHzUpRt-EhtMjPQODCEflzDjqio": {
+      "minutes": 0.4666666666666667,
+      "frames": 71,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "vWuqLpN3LO-EyUQ3MEvegQmXAbjkrnfK": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "wZ9KabBA03cxMpwWeYekeTGt502Ddp6h": {
+      "minutes": 0.5133333333333333,
+      "frames": 78,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          4.0,
+          "road"
+        ],
+        [
+          26.0,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "xzZE8IX_uFMn4TDczrDP_jFNKQTYbvob": {
+      "minutes": 0.5133333333333333,
+      "frames": 78,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "y9FMchN_WFT0sKOUar9WcrUoiKHQwD4U": {
+      "minutes": 0.47333333333333333,
+      "frames": 72,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "yUe452gYQOrn5b4BzV1tzgDxW3T0JWE_": {
+      "minutes": 0.48666666666666664,
+      "frames": 74,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [],
+      "leads": []
+    },
+    "zKsJQMv6IV6seRnaYa_gp6fYkiKFYR3h": {
+      "minutes": 0.52,
+      "frames": 79,
+      "alerts": [],
+      "followed": [],
+      "step_offs": [
+        [
+          4.4,
+          "road"
+        ],
+        [
+          5.6,
+          "road"
+        ]
+      ],
+      "leads": [
+        null,
+        null
+      ]
+    },
+    "zis8Rpau1eqFncWiOgLfarbbFMzIBBjs": {
+      "minutes": 0.66,
+      "frames": 100,
+      "alerts": [
+        [
+          0.4,
+          "road",
+          1.86
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [],
+      "leads": []
+    },
+    "zy2XqqEo8pJc2qHyRvJwUrQkbCnDe3yd": {
+      "minutes": 0.49333333333333335,
+      "frames": 75,
+      "alerts": [
+        [
+          10.8,
+          "road",
+          4.69
+        ]
+      ],
+      "followed": [
+        false
+      ],
+      "step_offs": [],
+      "leads": []
+    }
+  }
+}
