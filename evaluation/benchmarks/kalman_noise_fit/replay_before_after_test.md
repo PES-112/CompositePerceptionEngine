@@ -4,19 +4,19 @@ after = train-fitted NoiseModel(), before = NoiseModel.declared(); difference af
 
 | arm | knob | metric | before | after | after - before [95% CI] |
 |---|---:|---|---:|---:|---|
-| v2_physics | 0.5 | warned | 0.41 | 0.42 | +0.01 [-0.07, +0.08] |
-| v2_physics | 0.5 | precision | 0.27 | 0.30 | +0.03 [+0.00, +0.06] |
-| v2_physics | 0.5 | false_per_min | 24.41 | 24.59 | +0.18 [-1.52, +1.85] |
-| v2_physics | 0.5 | alerts_per_min | 33.34 | 35.19 | +1.84 [-0.10, +3.72] |
-| v2_physics | 0.95 | warned | 0.36 | 0.42 | +0.05 [-0.02, +0.15] |
-| v2_physics | 0.95 | precision | 0.31 | 0.34 | +0.03 [-0.01, +0.07] |
-| v2_physics | 0.95 | false_per_min | 19.62 | 20.26 | +0.64 [-1.13, +2.39] |
-| v2_physics | 0.95 | alerts_per_min | 28.37 | 30.76 | +2.39 [+0.21, +4.49] |
-| v2_physics_nopose | 0.5 | warned | 0.48 | 0.48 | +0.00 [-0.06, +0.05] |
-| v2_physics_nopose | 0.5 | precision | 0.26 | 0.28 | +0.02 [-0.00, +0.04] |
-| v2_physics_nopose | 0.5 | false_per_min | 27.36 | 27.82 | +0.46 [-1.62, +2.57] |
-| v2_physics_nopose | 0.5 | alerts_per_min | 36.75 | 38.41 | +1.66 [-0.79, +4.25] |
-| v2_physics_nopose | 0.95 | warned | 0.45 | 0.47 | +0.02 [-0.03, +0.09] |
-| v2_physics_nopose | 0.95 | precision | 0.29 | 0.30 | +0.02 [-0.01, +0.04] |
-| v2_physics_nopose | 0.95 | false_per_min | 22.94 | 23.86 | +0.92 [-1.01, +2.81] |
-| v2_physics_nopose | 0.95 | alerts_per_min | 32.24 | 34.26 | +2.03 [-0.30, +4.43] |
+| v2_physics | 0.5 | warned | 0.41 | 0.26 | -0.16 [-0.26, -0.07] |
+| v2_physics | 0.5 | precision | 0.26 | 0.30 | +0.04 [+0.00, +0.07] |
+| v2_physics | 0.5 | false_per_min | 24.13 | 17.04 | -7.09 [-9.25, -4.80] |
+| v2_physics | 0.5 | alerts_per_min | 32.61 | 24.22 | -8.38 [-10.90, -5.56] |
+| v2_physics | 0.95 | warned | 0.39 | 0.26 | -0.14 [-0.23, -0.04] |
+| v2_physics | 0.95 | precision | 0.31 | 0.36 | +0.05 [+0.01, +0.09] |
+| v2_physics | 0.95 | false_per_min | 18.70 | 13.17 | -5.53 [-7.41, -3.49] |
+| v2_physics | 0.95 | alerts_per_min | 27.08 | 20.63 | -6.45 [-8.78, -3.89] |
+| v2_physics_nopose | 0.5 | warned | 0.47 | 0.31 | -0.16 [-0.23, -0.09] |
+| v2_physics_nopose | 0.5 | precision | 0.24 | 0.35 | +0.11 [+0.05, +0.17] |
+| v2_physics_nopose | 0.5 | false_per_min | 27.36 | 13.72 | -13.63 [-16.38, -10.85] |
+| v2_physics_nopose | 0.5 | alerts_per_min | 36.11 | 21.19 | -14.92 [-17.60, -11.98] |
+| v2_physics_nopose | 0.95 | warned | 0.45 | 0.30 | -0.15 [-0.21, -0.07] |
+| v2_physics_nopose | 0.95 | precision | 0.28 | 0.42 | +0.14 [+0.08, +0.22] |
+| v2_physics_nopose | 0.95 | false_per_min | 22.57 | 10.13 | -12.43 [-14.42, -10.43] |
+| v2_physics_nopose | 0.95 | alerts_per_min | 31.41 | 17.59 | -13.82 [-15.95, -11.34] |
