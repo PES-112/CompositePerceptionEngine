@@ -167,3 +167,24 @@ class MetricTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EdgeAlertScoringTests(unittest.TestCase):
+    def test_step_offs_can_come_from_a_reference_track(self):
+        from tools.evaluate_edge_alerts import score_session
+
+        # Model track: sees a curb 3 m ahead at frames 12-18, but its walker never leaves walkable ground.
+        model = [[f, WALKABLE, CURB if 12 <= f <= 18 else None, 3.0 if 12 <= f <= 18 else None]
+                 for f in range(0, 60, 6)]
+        # Reference (masks): the walker steps onto road at frame 36.
+        gt = [[f, ROAD if f >= 36 else WALKABLE, None, None] for f in range(0, 60, 6)]
+
+        self_ref = score_session(model)
+        self.assertEqual(len(self_ref["alerts"]), 1)
+        self.assertEqual(self_ref["step_offs"], [])
+
+        vs_gt = score_session(model, ref_rows=gt)
+        self.assertEqual(vs_gt["alerts"], self_ref["alerts"])
+        self.assertEqual(vs_gt["step_offs"], [[2.4, "road"]])
+        self.assertEqual(vs_gt["followed"], [True])
+        self.assertAlmostEqual(vs_gt["leads"][0], 2.4 - 18 / 15)

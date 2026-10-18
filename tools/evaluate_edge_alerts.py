@@ -24,7 +24,9 @@ edges, chosen after seeing the misses). Scores (session-bootstrap 95% CIs):
                          are edges the walker turned from, stopped at or walked beside:
                          not all of them are false, so this bounds precision from below
 With --source gt the class map is SANPO's annotation, so this scores the rule,
-not a model.
+not a model. With a model source, step-offs come from the model's own maps
+unless --reference gt takes them from SANPO's masks; only the latter scores the
+model's alerts against annotated step-offs.
 
     python tools/evaluate_edge_alerts.py --source gt
     python tools/evaluate_edge_alerts.py --source training/runs/cpe_yolo26s_sem_walkable/weights/best.pt --device mps --imgsz 768
@@ -80,19 +82,22 @@ def stays_off(rows: list[list], i: int, n: int) -> bool:
     return len(seen) == n and not any(w in WALKABLE_CLASSES for w in seen)
 
 
-def score_session(rows: list[list], stay: int = 1) -> dict:
+def score_session(rows: list[list], stay: int = 1, ref_rows: list[list] | None = None) -> dict:
+    """Alerts from rows; step-offs from ref_rows (e.g. the gt track) if given, else from rows."""
     alerter = EdgeAlerter()
     alerts, step_offs = [], []
-    walkable_run = 0
-    for i, (f, walker, kind, dist) in enumerate(rows):
-        t = f / SOURCE_FPS
-        a = alerter.step(t, None if kind is None else EdgeAhead(kind, dist))
+    for f, _, kind, dist in rows:
+        a = alerter.step(f / SOURCE_FPS, None if kind is None else EdgeAhead(kind, dist))
         if a is not None:
             alerts.append(a)
+    ref = rows if ref_rows is None else ref_rows
+    walkable_run = 0
+    for i, (f, walker, _, _) in enumerate(ref):
+        t = f / SOURCE_FPS
         if walker in WALKABLE_CLASSES:
             walkable_run += 1
         elif walker in ALERT_KINDS:
-            if walkable_run >= STEP_OFF_HOLD and stays_off(rows, i, stay):
+            if walkable_run >= STEP_OFF_HOLD and stays_off(ref, i, stay):
                 step_offs.append((t, CPE_CLASSES[walker]))
             walkable_run = 0
         # walker None (ground not visible): keep the run
@@ -101,7 +106,7 @@ def score_session(rows: list[list], stay: int = 1) -> dict:
         before = [a.t for a in alerts if 0.0 <= t - a.t <= LOOKBACK_S]
         leads.append(t - max(before) if before else None)
     followed = [any(0.0 <= t - a.t <= LOOKBACK_S for t, _ in step_offs) for a in alerts]
-    minutes = (rows[-1][0] - rows[0][0]) / SOURCE_FPS / 60 if len(rows) > 1 else 0.0
+    minutes = (ref[-1][0] - ref[0][0]) / SOURCE_FPS / 60 if len(ref) > 1 else 0.0
     return {"minutes": minutes, "frames": len(rows),
             "alerts": [[round(a.t, 2), a.kind, round(a.distance_m, 2)] for a in alerts],
             "followed": followed, "step_offs": [[round(t, 2), k] for t, k in step_offs], "leads": leads}
@@ -118,29 +123,39 @@ def main() -> None:
     p.add_argument("--step-off-stay", type=int, default=1,
                    help="Frames the walker must stay off walkable ground for a step-off (1 = declared).")
     p.add_argument("--name", default=None)
+    p.add_argument("--reference", choices=["source", "gt"], default="source",
+                   help="Where step-offs come from: the same class maps as the alerts (source), or SANPO's "
+                        "masks (gt), so a model's alerts are scored against annotated, not predicted, step-offs.")
     args = p.parse_args()
 
     audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
     ids = sorted(sid for sid, r in audit.items() if r["segmentation_masks"])[: args.max_sessions or None]
-    source = "gt" if args.source == "gt" else Path(args.source).parents[1].name
-    cache = OUT_ROOT / source
-    cache.mkdir(parents=True, exist_ok=True)
-    get_class_map = class_map_source(args.source, args.imgsz, args.device)
     started = time.time()
 
-    def one(sid: str) -> list[list]:
-        path = cache / f"{sid}.json"
-        if not path.exists():
-            path.write_text(json.dumps(session_track(sid, get_class_map)), encoding="utf-8")
-        return json.loads(path.read_text(encoding="utf-8"))
+    def load_tracks(src: str) -> dict[str, list[list]]:
+        source = "gt" if src == "gt" else Path(src).parents[1].name
+        cache = OUT_ROOT / source
+        cache.mkdir(parents=True, exist_ok=True)
+        get_class_map = class_map_source(src, args.imgsz, args.device)
 
-    tracks = {}
-    with ThreadPoolExecutor(max_workers=args.workers if args.source == "gt" else 1) as pool:
-        for i, (sid, rows) in enumerate(zip(ids, pool.map(one, ids)), 1):
-            tracks[sid] = rows
-            print(f"  {i}/{len(ids)} {sid}  {len(rows)} frames  {time.time() - started:.0f} s", flush=True)
+        def one(sid: str) -> list[list]:
+            path = cache / f"{sid}.json"
+            if not path.exists():
+                path.write_text(json.dumps(session_track(sid, get_class_map)), encoding="utf-8")
+            return json.loads(path.read_text(encoding="utf-8"))
 
-    scored = {sid: score_session(rows, args.step_off_stay) for sid, rows in tracks.items() if len(rows) > 1}
+        tracks = {}
+        with ThreadPoolExecutor(max_workers=args.workers if src == "gt" else 1) as pool:
+            for i, (sid, rows) in enumerate(zip(ids, pool.map(one, ids)), 1):
+                tracks[sid] = rows
+                print(f"  {source} {i}/{len(ids)} {sid}  {len(rows)} frames  {time.time() - started:.0f} s", flush=True)
+        return tracks
+
+    source = "gt" if args.source == "gt" else Path(args.source).parents[1].name
+    tracks = load_tracks(args.source)
+    refs = load_tracks("gt") if args.reference == "gt" and args.source != "gt" else tracks
+    scored = {sid: score_session(rows, args.step_off_stay, None if refs is tracks else refs[sid])
+              for sid, rows in tracks.items() if len(rows) > 1 and len(refs[sid]) > 1}
     sessions = sorted(scored)
     rng = np.random.default_rng(0)
     draws = [rng.choice(sessions, len(sessions)) for _ in range(N_BOOT)]
@@ -162,7 +177,8 @@ def main() -> None:
         return [stats(sessions)[key], float(np.nanpercentile(vals, 2.5)), float(np.nanpercentile(vals, 97.5))]
 
     overall = stats(sessions)
-    result = {"source": args.source, "sessions": len(sessions), "frame_step": FRAME_STEP,
+    reference = "gt" if args.source == "gt" or args.reference == "gt" else "source"
+    result = {"source": args.source, "step_off_reference": reference, "sessions": len(sessions), "frame_step": FRAME_STEP,
               "rule": {"kinds": [CPE_CLASSES[k] for k in ALERT_KINDS], "alert_m": ALERT_M,
                        "confirm_frames": CONFIRM_FRAMES, "clear_s": CLEAR_S},
               "lookback_s": LOOKBACK_S, "step_off_hold": STEP_OFF_HOLD, "step_off_stay": args.step_off_stay,
@@ -196,7 +212,8 @@ def main() -> None:
              f"`{args.source}`. Rule: announce {result['rule']['kinds']} within {ALERT_M:g} m, seen in "
              f"{CONFIRM_FRAMES} consecutive frames, one alert per edge episode ({CLEAR_S:g} s clear). Step-off: the "
              f"ground just ahead turns from walkable to an announced kind after {STEP_OFF_HOLD} walkable frames "
-             f"and stays off walkable ground for {args.step_off_stay} frame(s). "
+             f"and stays off walkable ground for {args.step_off_stay} frame(s), on "
+             f"{'SANPO masks' if reference == 'gt' else 'the same class maps as the alerts (self-referenced)'}. "
              "95% CIs: session bootstrap.", "",
              "| alerts / min | step-offs | warned (alert ≤ 10 s before) | median lead (s) | alerts followed by a step-off |",
              "|---|---:|---|---|---|",
