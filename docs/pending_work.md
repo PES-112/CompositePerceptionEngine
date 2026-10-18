@@ -14,8 +14,8 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
    timing app, the GRU export and the CI workflow exist (`ios/CPETiming/README.md`). What's left: an
    Apple Developer account, the App Store Connect secrets, a green CI run, and the phone.
 2. **Re-choose operating points on lead, not `warned` (P2.2).** `warned` counts announcements on the
-   arrival frame. At the current budgets only 0.08–0.14 of arrivals are warned ≥ 0.2 s ahead, and
-   ≤ 0.06 ≥ 1 s ahead (methodology §4.15). Pick budgets on `warned_before`, and sweep the announcer
+   arrival frame. At the current budgets at most 0.19 of arrivals are warned ≥ 0.2 s ahead, and
+   ≤ 0.07 ≥ 1 s ahead, at ~20 alerts/min (methodology §4.16). Pick budgets on `warned_before`, and sweep the announcer
    (cooldown, switch margin, stale drop) as well as the threshold.
 3. **Walkable-surface segmentation (P1.1).** It's the missing "what" and the real fix for the
    ground pseudo-objects. 53 sessions have SANPO masks (43 train / 10 test).
@@ -47,9 +47,9 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## P0. Data correctness
 
-0. **Rebuild everything on correctly decoded depth (blocks every number).** The SANPO depth loader
-   read each 720×1280 map as a scrambled 960×960 array, and depth-sweep boxes masked real objects
-   (`architecture.md` §9 item 0). Both are fixed in code (2026-10-17). Still to do:
+0. **~~Rebuild everything on correctly decoded depth~~ (done 2026-10-18, methodology §4.16).** The
+   SANPO depth loader read each 720×1280 map as a scrambled 960×960 array, and depth-sweep boxes
+   masked real objects (`architecture.md` §9 item 0). Both were fixed in code (2026-10-17), then:
    1. Re-run Stage 1 on all 462 sessions (`tools/stream_sanpo_perception.py`; GPU box).
    2. Rebuild the GRU datasets and corridor labels (`dataset/GRU/build.py`, `resplit.py`,
       `relabel.py`).
@@ -57,13 +57,13 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
    4. Refit the Kalman noise (`tools/fit_kalman_noise.py`).
    5. Re-run the ladder, the replays and the before/after comparison.
 
-   Steps 1–5 are one run of `notebooks/colab_rebuild.ipynb` (Colab T4, resumable via Google Drive).
-   After it: drop `ViewerGRU`'s legacy bearing/2× speed shim in `tools/build_session_viewer.py`
-   (the new checkpoints are trained on pinhole bearings at the true rate), update the numbers in
-   methodology §4.13–4.15 and architecture §6.2, and re-tune operating points on `warned_before`.
-
-   Until then, treat every Stage-1-based number as provisional.
-1. **Rebuild Stage-1 CSVs at the correct rate (optional).** Existing CSVs work once converted (×0.5
+   Steps 1–5 ran as one pass of `notebooks/colab_rebuild.ipynb`. The viewer's legacy-input shim is
+   gone. Follow-ups it raised:
+   - **The fitted Kalman no longer helps** (ladder −0.016 AUROC vs. declared; 1 s forecast worse).
+     Refit on multi-step (≈ 1 s) predictive error on train; keep whichever wins on validation.
+   - **Alert budgets:** ~20 alerts/min at the chosen points and 8.5 false/min on test at
+     `budget_5`. Re-tune on `warned_before` together with the announcer (P2.2).
+1. **~~Rebuild Stage-1 CSVs at the correct rate~~ (done by the P0.0 rebuild).** Existing CSVs work once converted (×0.5
    speed, pinhole bearing), and every ranking metric is unaffected. A rebuild with the updated
    `tools/stream_sanpo_perception.py` gives clean units for the paper and is needed anyway for
    ground masking (P1.1) and the chest camera (P2.6). Needs the GPU box (ultralytics).

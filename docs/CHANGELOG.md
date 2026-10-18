@@ -2,6 +2,31 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-18, depth rebuild] - Everything rebuilt on correct SANPO depth
+
+### Changed
+- Stage 1 re-run on all 462 sessions with the fixed depth decoder (`notebooks/colab_rebuild.ipynb`,
+  Colab T4). Rebuilt: `dataset/GRU/sanpo_real_462_*` (arrival dataset, official split, six corridor
+  labels), the corridor GRU runs (`corridor_h8` for gru and gru_attention, `corridor_hist4`,
+  `corridor_hist1`; 3 seeds each), `evaluation/benchmarks/kalman_noise_fit/`, the corridor ladder
+  (+ `ref_cv_kalman_declared/`). New replay: `threat_engine_replay/corridor_depthfix/`.
+- More sessions have tracked objects in reach: 287 / 47 / 83 train / val / test (was 252 / 41 / 71).
+- `src/threat_engine/fusion.py`: `NoiseModel` defaults refitted. Depth σ 0.058 + 0.053·d m (was
+  0.30 + 0.22·d), acceleration σ 2.93 m/s² (static 2.04), bearing σ 0.37°, initial speed σ 0.90 m/s.
+- `tools/build_session_viewer.py`: `ViewerGRU` (legacy ±35° bearings, 2× speeds) removed; the viewer
+  uses `GRUArrivalPredictor` on the new checkpoint. Default threshold 0.8 (v2_gru's validation
+  `budget_5` point).
+- Docs: methodology §4.16 (new) with all results; §4.13–4.15 marked superseded; architecture §6.2,
+  §9 item 0, §10; pending_work P0.0, P0.1 and the next three.
+
+### Results (test, scored once; methodology §4.16)
+- Ladder: GRU 0.909 AUROC. It ties GBT and the other GRU variants and beats every dynamics rule,
+  including both Kalman rungs and nearest-in-corridor (Holm p ≤ 0.001).
+- **Contradiction:** the refitted Kalman is better on one-step likelihood but worse on the ladder
+  (−0.016 [−0.023, −0.004] AUROC vs. declared) and on 1 s forecasts, with no replay change.
+- Replay: v2_gru at `budget_5` warns 0.35 [0.26, 0.53] of arrivals at 8.5 [5.2, 12.1] false/min
+  (chosen for ≤ 5 on validation), precision 0.56. Only 0.12 are warned ≥ 0.2 s ahead.
+
 ## [2026-10-17, Colab rebuild] - One notebook redoes everything on correct depth
 
 ### Added

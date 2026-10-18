@@ -55,7 +55,6 @@ STRIDE = 3
 STEP_S = 0.2
 HORIZON = 20          # steps = 4 s
 DEPTH_M = 3.0
-LEGACY_HALF_FOV = 35.0
 VIEW_W = 960
 
 
@@ -68,23 +67,6 @@ def default_session() -> str:
             if y:
                 count[s["session"]].add(t)
     return max(count, key=lambda sid: len(count[sid]))
-
-
-class ViewerGRU(GRUArrivalPredictor):
-    """The checkpoint was trained on pre-2026-10-14 CSVs: linear ±35° bearings and 2x speeds. Feed it those."""
-
-    def __init__(self, checkpoint, image_width: float):
-        super().__init__(checkpoint, velocity_scale=2.0)
-        self.half_w = image_width / 2
-
-    def observe(self, frame_idx, tracks):
-        swapped = []
-        for t in tracks:
-            if t.row is not None and t.row.get("cx_px") not in (None, ""):
-                legacy = (float(t.row["cx_px"]) - self.half_w) / self.half_w * LEGACY_HALF_FOV
-                t = t.__class__(**{**t.__dict__, "row": {**t.row, "bearing_deg": legacy}})
-            swapped.append(t)
-        super().observe(frame_idx, swapped)
 
 
 def ground_truth(frames: list[list[dict]], poses) -> dict[tuple[int, str], int]:
@@ -115,8 +97,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--session", default=None, help="SANPO session id (default: the test walk with most arrivals).")
     p.add_argument("--frames", type=int, default=150, help="Processed frames (5 per second); 150 = 30 s.")
-    p.add_argument("--threshold", type=float, default=0.6,
-                   help="Ignore threshold (0.6 = v2_gru's validation-chosen budget_5 point).")
+    p.add_argument("--threshold", type=float, default=0.8,
+                   help="Ignore threshold (0.8 = v2_gru's validation-chosen budget_5 point, corridor_depthfix).")
     p.add_argument("--no-pose", action="store_true", help="Track in the camera frame (no ego-motion removal).")
     p.add_argument("--out", type=Path, default=None, help="Default: data/viewer/<session>/ (git-ignored).")
     args = p.parse_args()
@@ -153,7 +135,7 @@ def main() -> None:
     images = sorted(rgb_dir.iterdir())
     from PIL import Image
     w0, h0 = Image.open(images[0]).size
-    engine = ThreatEngine(predictor=ViewerGRU(GRU_RUN / "model.pt", w0), ignore_threshold=args.threshold,
+    engine = ThreatEngine(predictor=GRUArrivalPredictor(GRU_RUN / "model.pt"), ignore_threshold=args.threshold,
                           tracker=GroundTracker(),
                           announcer=AnnouncementManager())
     (out / "frames").mkdir(parents=True, exist_ok=True)

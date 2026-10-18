@@ -69,15 +69,16 @@ class NoiseModel:
     only rejects jumps too large to be the same object (re-ID / box swap).
     """
 
-    # Fitted 2026-10-17 on the 252 official-train sessions (evaluation/benchmarks/kalman_noise_fit/fit_pose.json):
-    # Student-t (ν = 4) beat Gaussian on predictive log-likelihood, train -4.13 vs -4.26, val -3.37 vs -3.63.
-    accel_std: float = 0.35
-    static_accel_std: float = 0.098
-    depth_base: float = 0.30
-    depth_lin: float = 0.22
+    # Refitted 2026-10-18 on correct depth, 287 official-train sessions (evaluation/benchmarks/kalman_noise_fit/
+    # fit_pose.json): Student-t (ν = 4) beat Gaussian on one-step log-likelihood, train -1.85 vs -2.47. It does
+    # not beat declared() on the ladder or 1 s forecasts (docs/methodology.md §4.16).
+    accel_std: float = 2.93
+    static_accel_std: float = 2.04
+    depth_base: float = 0.0576
+    depth_lin: float = 0.0527
     depth_quad: float = 0.0
-    bearing_std_deg: float = 0.55
-    init_speed_std: float = 0.85
+    bearing_std_deg: float = 0.367
+    init_speed_std: float = 0.896
     robust_nu: float = 4.0
     gate_nis: float = 60.0
 

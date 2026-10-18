@@ -138,9 +138,9 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Why | Head turns currently look like every object moving sideways. Velocity is differentiated depth and is noisy. The fused priority can down-weight uncertain tracks |
 | Cost | Under 1 ms per frame |
 | Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
-| Noise model | Fitted on official-train sessions by predictive likelihood (`tools/fit_kalman_noise.py`, methodology §4.13): Student-t update (ν = 4), depth σ = 0.30 + 0.22·d m, acceleration σ 0.35 m/s² (static classes 0.098). The 2026-10-14 hand-set values assumed ~10× less depth noise and rejected 26% of measurements |
+| Noise model | Fitted on official-train sessions by one-step predictive likelihood (`tools/fit_kalman_noise.py`, methodology §4.13, refitted on correct depth §4.16): Student-t update (ν = 4), depth σ = 0.058 + 0.053·d m, acceleration σ 2.93 m/s² (static classes 2.04), bearing σ 0.37°. `NoiseModel.declared()` keeps the 2026-10-14 hand-set values |
 | Uncertainty out | `FusedTrack.rel_cov` (4×4 relative position/velocity covariance) feeds the Kalman arrival predictor (`kalman_arrival.py`: P(enter the corridor) over 128 samples) |
-| Status | Built, fitted and unit-tested. Ladder: fitted Kalman ties the GRU on AUROC. Replay: −7 to −14 false alerts/min vs. the declared filter. Ego-motion removal stays an ablation: with the fitted filter, no-pose arms do as well or better (§9) |
+| Status | Built, fitted and unit-tested. On correct depth the fit does **not** help: ladder AUROC −0.016 [−0.023, −0.004] vs. the declared filter, replay unchanged, 1 s forecast error higher (methodology §4.16). A multi-step fitting objective is the next try. Ego-motion removal stays an ablation (§9) |
 
 ### 6.3 Scene context: walkable-surface segmentation ⬜
 
@@ -288,7 +288,8 @@ Resolved 2026-10-14 (`tools/audit_sanpo_sessions.py`, all 462 sessions):
 
 Open:
 
-0. **SANPO depth was decoded wrong in Stage 1 (found 2026-10-17; loader fixed, data not rebuilt).**
+0. **SANPO depth was decoded wrong in Stage 1 (found 2026-10-17; loader fixed; everything rebuilt
+   2026-10-18, methodology §4.16).**
    Each `depth_maps/*.float16.gz` file is a 2-value header [720, 1280] followed by a 720×1280 image.
    The loader read the header as padding and reshaped the data as 960×960. That scrambles each map into
    three shifted, interleaved strips: vertical structure roughly survives, but a box samples the wrong
@@ -319,9 +320,11 @@ Open:
   was used.
 - **Depth.** All results use SANPO's recorded depth as is (§4). The product's external LiDAR is not
   modelled; its range and noise relative to SANPO depth are unknown until the sensor is chosen.
-- **Lead time.** Even on SANPO depth, at the alert budgets only 0.08–0.14 of arrivals are warned at
-  least 0.2 s ahead, and ≤ 0.06 at least 1 s ahead. The headline "warned" counts announcements on
-  the arrival frame itself (methodology §4.15).
+- **Lead time.** Even on SANPO depth, at the alert budgets at most 0.19 of arrivals are warned at
+  least 0.2 s ahead, and ≤ 0.07 at least 1 s ahead. The headline "warned" counts announcements on
+  the arrival frame itself (methodology §4.15–4.16).
+- **Alert budgets.** On correct depth the engines speak ~20 times a minute at the chosen points,
+  and the validation-chosen `budget_5` point gives 8.5 false alerts/min on test (methodology §4.16).
 - **Declared choices.** λ and the behaviour multipliers are declared design choices.
 - **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
   the chest; SANPO's `camera_chest/` stream exists but is unused.

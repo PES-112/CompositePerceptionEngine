@@ -3,13 +3,13 @@
   "dataset": "sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20",
   "frame": "pose",
   "fitted": {
-    "accel_std": 0.3505414247885031,
-    "static_accel_std": 0.09839552853367543,
-    "depth_base": 0.3042836812125563,
-    "depth_lin": 0.21888852506794107,
+    "accel_std": 2.927776866392401,
+    "static_accel_std": 2.0428713926269353,
+    "depth_base": 0.057556861541959374,
+    "depth_lin": 0.05268351470466565,
     "depth_quad": 0.0,
-    "bearing_std_deg": 0.5508559254332193,
-    "init_speed_std": 0.851103852587968,
+    "bearing_std_deg": 0.3670926123924527,
+    "init_speed_std": 0.8964311086348804,
     "robust_nu": 4.0,
     "gate_nis": 60.0
   },
@@ -27,32 +27,32 @@
   "trace": [
     {
       "robust_nu": 0.0,
-      "loglik": -4.263520582081623,
+      "loglik": -2.4716111913443877,
       "evals": 100,
       "noise": {
-        "accel_std": 0.485458540252797,
-        "static_accel_std": 0.10856572961253674,
-        "depth_base": 0.36241693670459274,
-        "depth_lin": 0.3588993292668079,
+        "accel_std": 2.6019050935623342,
+        "static_accel_std": 0.04417356178165265,
+        "depth_base": 0.035884000320035685,
+        "depth_lin": 0.16230620515492938,
         "depth_quad": 0.0,
-        "bearing_std_deg": 0.47035905492594593,
-        "init_speed_std": 1.07964755490564,
+        "bearing_std_deg": 0.8545487714246717,
+        "init_speed_std": 0.9142272812449604,
         "robust_nu": 0.0,
         "gate_nis": 11.62
       }
     },
     {
       "robust_nu": 4.0,
-      "loglik": -4.1266926676864,
+      "loglik": -1.8458117505596734,
       "evals": 100,
       "noise": {
-        "accel_std": 0.3505414247885031,
-        "static_accel_std": 0.09839552853367543,
-        "depth_base": 0.3042836812125563,
-        "depth_lin": 0.21888852506794107,
+        "accel_std": 2.927776866392401,
+        "static_accel_std": 2.0428713926269353,
+        "depth_base": 0.057556861541959374,
+        "depth_lin": 0.05268351470466565,
         "depth_quad": 0.0,
-        "bearing_std_deg": 0.5508559254332193,
-        "init_speed_std": 0.851103852587968,
+        "bearing_std_deg": 0.3670926123924527,
+        "init_speed_std": 0.8964311086348804,
         "robust_nu": 4.0,
         "gate_nis": 60.0
       }
@@ -61,44 +61,44 @@
   "scores": {
     "declared": {
       "train": {
-        "loglik": -6.5990618180462,
-        "updates": 10382,
-        "gated": 0.21306106723174725,
-        "nis_mean": 8.740840552511724,
-        "nis_median": 2.1687865927793153,
-        "err_1s_median_m": 3.3762579216841893,
-        "forecasts": 1654
+        "loglik": -3.397804383342527,
+        "updates": 15629,
+        "gated": 0.0890651993089769,
+        "nis_mean": 4.984022061829013,
+        "nis_median": 0.5201668682111383,
+        "err_1s_median_m": 0.7956279411434397,
+        "forecasts": 3748
       },
       "val": {
-        "loglik": -10.147026982398854,
-        "updates": 1477,
-        "gated": 0.25727826675693977,
-        "nis_mean": 17.524640204445614,
-        "nis_median": 2.66006705398353,
-        "err_1s_median_m": 1.9787012700823507,
-        "forecasts": 210
+        "loglik": -4.739282618043505,
+        "updates": 2513,
+        "gated": 0.1078392359729407,
+        "nis_mean": 8.39173530732239,
+        "nis_median": 0.5901228682937666,
+        "err_1s_median_m": 0.7911378918461065,
+        "forecasts": 676
       }
     },
     "fitted": {
       "train": {
-        "loglik": -4.1266926676864,
-        "updates": 10468,
-        "gated": 0.002197172334734429,
-        "nis_mean": 4.119907373278217,
-        "nis_median": 1.5107307309648963,
-        "err_1s_median_m": 3.120512973588745,
-        "forecasts": 2461
+        "loglik": -1.8458117505596734,
+        "updates": 15678,
+        "gated": 0.021877790534506954,
+        "nis_mean": 6.920733023147197,
+        "nis_median": 1.188754372753725,
+        "err_1s_median_m": 0.9801624423126525,
+        "forecasts": 4131
       },
       "val": {
-        "loglik": -3.3717949882880522,
-        "updates": 1484,
-        "gated": 0.006064690026954178,
-        "nis_mean": 4.246793575028643,
-        "nis_median": 1.1640258051574972,
-        "err_1s_median_m": 2.159226697204021,
-        "forecasts": 344
+        "loglik": -1.815952607734259,
+        "updates": 2518,
+        "gated": 0.03494837172359015,
+        "nis_mean": 9.914699046642173,
+        "nis_median": 1.2655045672107734,
+        "err_1s_median_m": 1.1424684852319598,
+        "forecasts": 775
       }
     }
   },
-  "seconds": 2653
+  "seconds": 1476
 }
