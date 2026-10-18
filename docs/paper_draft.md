@@ -22,8 +22,8 @@ that any alert rate is acceptable.
 | 6.2 | System replay at alert budgets | final for the declared tracker; **[PENDING: re-run with the fitted Kalman noise model]** | `threat_engine_replay/corridor_2026_10_17/`; teammate |
 | 6.3 | Scene context, oracle (SANPO masks) | final | `scene_context/oracle_gt_2026_10_17/`, `gt_train_*`, `gt_val_test_*` |
 | 6.4 | Edge-ahead alerts, oracle | final (rule not tuned) | `edge_alerts/gt_2026_10_17/`, `gt_sustained_2026_10_17/` |
-| 6.5 | Segmentation model (YOLO26s-sem) | **[PENDING: training on the M4]** | `v2-seg-training` |
-| 6.6 | Scene context with the model's masks, all 71 test sessions | **[PENDING: needs 6.5]** | `v2-seg-training` |
+| 6.5 | Segmentation model (YOLO26n-sem @640) | final (scored once on test) | `segmentation/cpe_yolo26n_sem_walkable_test/` |
+| 6.6 | Scene context and edge alerts with the model's masks | final (context: no measurable change; edge alerts well below the oracle) | `scene_context/model_*`, `threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_*` |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
 | 6.8 | On-device latency, latency-aware replay | **[PENDING: TestFlight run]** | teammate |
 | 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
@@ -46,7 +46,9 @@ time-to-collision envelope bounds every learned decision. At five false alerts p
 learned engine warns about [PENDING: final] of arrivals against [PENDING] for the strongest
 geometric baseline, with [PENDING] fewer announcement switches. Walkable-surface segmentation adds
 scene context; with SANPO's own masks as an oracle, one of three declared context rules points the
-wrong way, and we report it. All models run on an iPhone 17 Pro Max in [PENDING] ms (p95). We
+wrong way, and we report it. A trained segmentation model reproduces the oracle's context flags
+but does not change the alerts measurably, and its edge-ahead alerts fall well short of the
+oracle's. All models run on an iPhone 17 Pro Max in [PENDING] ms (p95). We
 release labels, code and the replay harness.
 
 ---
@@ -136,7 +138,8 @@ One frame at 5 Hz, in order (`architecture.md` §5–6):
 
 - **Labels.** SANPO's 31 panoptic classes are mapped to 8: walkable, crosswalk, road, curb,
   stairs, non-walkable ground, obstacle and sky.
-- **Model.** YOLO26s-sem at 1024 px, FP16 Core ML, run asynchronously at 2–5 Hz.
+- **Model.** YOLO26n-sem at 640 px, FP16 Core ML (argmax in the graph), run asynchronously at
+  2–5 Hz.
 - **Training data.** All 237 SANPO-Real sessions with masks, on either camera: train 150 / val 39
   / test 48 sessions, with the replay's validation and test sessions held out.
 - **Per track.** The ground under the object is the majority ground class in the object's image
@@ -263,16 +266,88 @@ Source: `evaluation/benchmarks/edge_alerts/gt_2026_10_17/` and `gt_sustained_202
 
 ### 6.5 Segmentation model
 
-**[PENDING: `v2-seg-training`.]** Table: mIoU, false-safe rate, road-as-walkable, and curb/stairs
-boundary F, per camera, test split (48 sessions), with session-bootstrap CIs. Compare against the
-SENSATION-DS road-as-sidewalk rate.
+YOLO26n-sem from Cityscapes weights, imgsz 640, batch 8, trained on the M4 (MPS). It
+early-stopped at epoch 8 (patience 5); best = epoch 3 by validation mIoU (0.570), after which
+validation loss rose. Scored once on the test split: 48 sessions, 3,850 human-annotated frames,
+session-bootstrap 95% CIs. Source: `evaluation/benchmarks/segmentation/cpe_yolo26n_sem_walkable_test/`.
 
-### 6.6 Scene context with the model's masks
+| | frames | mIoU | false-safe | road as walkable | walkable as unsafe | boundary F curb | boundary F stairs |
+|---|---:|---|---|---:|---:|---:|---:|
+| all | 3,850 | **0.615** [0.540, 0.641] | **0.044** [0.029, 0.062] | 0.173 | 0.056 | 0.295 | 0.062 |
+| chest | 2,561 | 0.604 | 0.058 | 0.163 | 0.053 | 0.305 | 0.067 |
+| head | 1,289 | 0.554 | 0.026 | 0.222 | 0.067 | 0.283 | — (no stairs) |
 
-**[PENDING: needs §6.5.]** `tools/build_scene_context.py --source <best.pt> --all-sessions`, then
-the replay with `--context-dir` over all 71 test sessions: context on vs. off at each budget,
-paired. Repeat the edge-alert evaluation with the model's masks, against the oracle numbers in
-§6.4.
+- **Definitions.** False-safe = unsafe-ground pixels (road, curb, stairs, non-walkable) predicted
+  walkable or crosswalk, over all unsafe-ground pixels. Road as walkable = ground-truth road pixels
+  predicted walkable or crosswalk, over all ground-truth road pixels (SENSATION-DS's
+  road-as-sidewalk error, with crosswalk counted as walkable). Boundary F at ±3 px.
+- **Per class (IoU).** walkable 0.83, crosswalk 0.59, road 0.49, curb 0.24, stairs 0.47,
+  non-walkable 0.69, obstacle 0.74, sky 0.87. Head test frames contain no stairs, so head mIoU
+  includes a 0 for stairs.
+- **Weak spots.** Thin edges: curb boundary F 0.30, stairs 0.06. About one road pixel in six is
+  called walkable. **[PENDING: SENSATION-DS's published rate, with its definition, for comparison.]**
+- **Model choice (deviation, declared).** The plan declared before training was to try YOLO26s-sem at
+  640 if test scores showed the model to be the bottleneck. We kept n instead:
+  1. validation mIoU peaked at epoch 3 and validation loss then rose, so the model was
+     overfitting; more capacity on the same data is unlikely to help;
+  2. thin edges depend on input resolution more than on model size, and s at 640 sees the same
+     pixels;
+  3. choosing a second model after seeing test scores would make the final model test-informed.
+
+  The follow-up is n at a larger imgsz on a GPU machine, not s at 640.
+- **On device.** Exported to Core ML (FP16, argmax in the graph, 3.1 MB); pixel agreement with
+  PyTorch 0.99–1.00 on 4 test frames. On-iPhone latency: **[PENDING: §6.8]** (Ultralytics reports
+  4.9 ms for YOLO26n-sem on iPhone 17 Pro).
+
+### 6.6 Scene context and edge alerts with the model's masks
+
+The model's masks (YOLO26n-sem @640, §6.5) replace SANPO's. The 112 replay validation and test
+sessions were never used in segmentation training. Sources: `scene_context/model_val_test_*_2026_10_18/`,
+`threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_sem_walkable_*_2026_10_18/`.
+
+**Flags, model vs. oracle on the same 15 sessions** (5 val + 10 test, 1,561 observations; RR
+distance-adjusted, session-bootstrap 95% CI):
+
+| Flag | × | oracle (SANPO masks) | model |
+|---|---:|---|---|
+| in path | 1.5 | 2.64 [0.00, 7.64] | 2.68 [2.20, 10.34] |
+| near a boundary | 1.0 | 1.04 [0.12, 6.22] | 1.15 [0.14, 5.97] |
+| other surface | 0.5 | 0.38 [0.00, 1.67] | 0.37 [0.00, 0.44] |
+
+The model reproduces the oracle's flags: same shares (in path 0.68 vs 0.72) and the same
+directions. Over all 112 sessions (6,748 observations, which only the model can cover), the
+effects shrink: in path 1.12 [0.78, 1.55], near a boundary 1.04 [0.61, 1.58], other surface 0.89
+[0.40, 1.69]. None is significant there.
+
+**Replay, context on vs. off** (all 71 test sessions, 56 arrivals, paired; GRU at each arm's
+validation-chosen knob; declared tracker, **[PENDING: re-run with the fitted one]**). At `budget_10`: warned +0.04 [−0.06, +0.08], false alerts/min +0.41
+[−0.30, +1.44], precision −0.01 [−0.07, +0.04]. At `budget_2` and `budget_5` the context arm has no
+setting that meets the rule on validation. **Context does not change the alerts measurably.**
+
+**Edge-ahead alerts, model vs. oracle.** Step-offs are taken from SANPO's masks for both
+(`--reference gt`), so both are graded against the same events. 43 of the 53 head-masked sessions
+are in the segmentation training split, so only the 10 official-test sessions are a fair score
+for the model:
+
+| | sessions | alerts / min | step-offs | warned | followed |
+|---|---:|---:|---:|---|---:|
+| oracle, test | 10 | 0.80 | 7 | 0.43 (3/7) | 0.50 |
+| **model, test** | 10 | 1.00 | 7 | **0.14 (1/7)** | 0.40 |
+| oracle, test, sustained | 10 | 0.80 | 4 | 0.50 (2/4) | 0.25 |
+| **model, test, sustained** | 10 | 1.00 | 4 | **0.00 (0/4)** | 0.00 |
+| oracle, all 53 | 53 | 0.79 [0.49, 1.12] | 45 | 0.29 [0.13, 0.47] | 0.48 |
+| model, all 53 (43 trained on) | 53 | 0.83 [0.49, 1.22] | 45 | 0.22 [0.10, 0.37] | 0.45 |
+
+- **The model's edge alerts fall far below the oracle's on held-out sessions.** It warns about 1
+  of 7 step-offs, against 3 of 7 for the oracle, and 0 of 4 sustained ones. It alerts slightly more
+  often, but fewer alerts lead to a step-off. Seven step-offs are too few for a CI. The result is
+  consistent with the weak thin-edge scores (curb boundary F 0.30, stairs 0.06, road as walkable
+  0.17).
+- **Self-referenced** (step-offs from the model's own masks), the model scores 0.22 warned on 50
+  step-offs; on test, 0.12 of 8. Grading the model against its own masks hides the gap, so the
+  GT-referenced rows are the result.
+- **Follow-up (not run).** n at a larger imgsz on a GPU machine, since thin edges depend on input
+  resolution. s at 640 would not help (§6.5).
 
 ### 6.7 Optional: phone-LiDAR range · 6.8 On-device latency · 6.9 Announcement order
 
@@ -315,7 +390,12 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 - **Declared constants.** Severity γ, behaviour multipliers, context multipliers and announcer
   timing are declared, not fitted. The near-boundary revision is the one exception, fitted on
   train and declared.
-- **Edge alerts** are scored against a mask-implied step-off, not an annotated event.
+- **Edge alerts** are scored against a mask-implied step-off, not an annotated event. Only 10
+  held-out sessions (7 step-offs) score the model's edge alerts.
+- **Segmentation.** Thin edges are weak: curb boundary F 0.30 and stairs 0.06 (±3 px). Road as
+  walkable is 0.173: ground-truth road pixels predicted walkable or crosswalk, over all
+  ground-truth road pixels. YOLO26n-sem was kept at 640 px for the training budget on an M4; s was
+  not tried (§6.5).
 - **Only tracked objects** are scored; the untracked depth sweep is excluded.
 
 ## 9. Conclusion
@@ -336,5 +416,5 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 | F6 | Segmentation qualitative examples: curb, stairs, road vs. sidewalk; oracle vs. model | `v2-seg-training` | **[PENDING]** |
 | T1 | Baseline ladder | `baseline_ladder/` | **[PENDING]** |
 | T2 | Replay at budgets | §6.2 | — |
-| T3 | Segmentation scores | `segmentation/` | **[PENDING]** |
+| T3 | Segmentation scores | `segmentation/cpe_yolo26n_sem_walkable_test/` | §6.5 table |
 | T4 | On-device latency | teammate | **[PENDING]** |

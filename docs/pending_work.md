@@ -15,8 +15,10 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 2. **Pick the announcement operating point (P2.2).** v2 is precise but quiet (26% of arrivals warned
    at 17 alerts/min). Sweep the announcer and threshold on validation sessions and present the
    precision/recall curve, not one point.
-3. **Walkable-surface segmentation (P1.1).** Data, context, metrics and the oracle check are built;
-   what's left is training YOLO26s-sem on the lab server and re-running the replay with its masks.
+3. **Walkable-surface segmentation (P1.1).** Trained (YOLO26n-sem @640 on the M4, 2026-10-18) and
+   re-run with its masks. Context: no measurable effect. Edge alerts: well below the oracle on
+   held-out sessions (1 of 7 step-offs warned vs 3 of 7). Next: n at a larger imgsz on a GPU
+   machine (not started).
 
 ## Integration: merge order (2026-10-17)
 
@@ -26,7 +28,7 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 |---|---|---|---|
 | `v2-segmentation` | segmentation | all of `v2-threat-engine` | merges with no conflicts: **merge first** |
 | `v2-kalman-lidar` | teammate | `a5fd0aa`, **without the camera-intrinsics fix** (`4fe42a6` → `430234a`) | must merge `v2-threat-engine` and re-run |
-| `v2-seg-training` | Mac (M4) | `v2-segmentation` | training; results only |
+| `v2-seg-training` | Mac (M4) | `v2-segmentation` | done 2026-10-18: model, Core ML, model-mask results; one tool change (`evaluate_edge_alerts.py --reference gt`) |
 | `v2-narration` | narration | `v2-threat-engine` | `src/narration/` only |
 
 1. Merge `v2-segmentation` → `v2-threat-engine` (PR).
@@ -40,8 +42,9 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
      baseline ladder and the corridor replay (the LiDAR range check is optional and can wait). The ladder on that branch reports 20
      test sessions with arrivals and a positive rate of 0.169; the corrected labels give 19 and
      0.140.
-3. `v2-seg-training` merges `v2-threat-engine` before its replay step, so the model-context replay
-   uses the fitted tracker.
+3. `v2-seg-training` already contains `v2-threat-engine` (`430234a`). Its model-context replay
+   (`model_context_2026_10_18/`) uses the declared tracker, because the fitted one isn't on
+   `v2-threat-engine` yet. Re-run it after `v2-kalman-lidar` merges.
 4. `v2-narration` merges last; it only touches `src/narration/`, its tests and §6.6.
 
 ---
@@ -75,19 +78,21 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 1. **Walkable-surface segmentation (§6.3).** Done: 8-class taxonomy, dataset builder (237 masked
    sessions), `SceneContext` per track + edge ahead, pixel metrics (false-safe rate, boundary F),
    oracle replay and flag-association analysis. To do, in order:
-   - On the lab server: `python tools/build_sanpo_segmentation.py --out data/sanpo_walkable_seg`,
-     then `training/scripts/train_yolo26_sem_walkable.py` and `evaluate_yolo26_sem_walkable.py
-     --split test`. Report mIoU, false-safe rate and curb/stairs boundary F with CIs, per camera.
-   - `tools/build_scene_context.py --source <best.pt> --all-sessions` (all 41 val / 71 test sessions,
-     not just the 15 with head masks), then the replay with `--context-dir`: the powered on/off test.
+   - ~~Train and score the model.~~ Done 2026-10-18 (`v2-seg-training`): YOLO26n-sem @640, test
+     mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062], curb / stairs boundary F 0.30 /
+     0.06 (methodology §4.14).
+   - ~~Model context over all 112 val/test sessions and the powered replay.~~ Done 2026-10-18:
+     context on vs off, warned +0.04 [−0.06, +0.08] at `budget_10`, no measurable effect.
+   - **Next:** n at a larger imgsz (≥ 1024) on a GPU machine, for curb and stair edges. Then re-run
+     the edge alerts and score the 10 official-test sessions.
    - ~~Decide the multipliers from train sessions only if the declared ones are contradicted.~~
      Done 2026-10-17: near a boundary ×1.25 → ×1.0 (train-only check; methodology §4.14).
    - Stage 1 on the chest stream for the 130 chest-masked curated sessions (lab server), to get an
      oracle bound on 28 test sessions instead of 10.
    - Edge-ahead alert rule and its oracle evaluation: done 2026-10-17
      (`src/segmentation/edge_alert.py`, `tools/evaluate_edge_alerts.py`). Left: play it through the
-     announcement manager as a normal-lane phrase (threat-engine owner), the phrases themselves
-     (`v2-narration`), and re-scoring with the model's masks.
+     announcement manager as a normal-lane phrase (threat-engine owner) and the phrases themselves
+     (`v2-narration`). Re-scored with the model's masks 2026-10-18: far below the oracle.
    - Mask flat ground out of `detect_unlabeled_obstacles` (live pipeline only; the replay uses
      tracked objects).
 2. **"In my path" as a lateral corridor, not a cone.** With the real FOV the ±30° cone covers nearly

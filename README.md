@@ -81,10 +81,10 @@ CompositePerceptionEngine/
 │   ├── context_association.py       # Do the scene-context flags predict arrival? (risk ratios, distance-adjusted)
 │   └── benchmarks/
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
-│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics; oracle_context_* = segmentation on/off
-│       ├── scene_context/           # Scene-context flag vs arrival-label association (all / train / val+test)
-│       ├── edge_alerts/             # Edge-ahead alert vs mask-implied step-offs (evaluate_edge_alerts.py)
-│       ├── segmentation/            # Walkable-surface model scores (evaluate_yolo26_sem_walkable.py)
+│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics; oracle_context_* / model_context_* = segmentation on/off
+│       ├── scene_context/           # Scene-context flag vs arrival-label association (all / train / val+test; gt_* oracle, model_* trained model)
+│       ├── edge_alerts/             # Edge-ahead alert vs mask-implied step-offs (evaluate_edge_alerts.py; *_vs_gt_* = model alerts vs SANPO-mask step-offs)
+│       ├── segmentation/            # Walkable-surface model scores (evaluate_yolo26_sem_walkable.py); pilot_mps_* = M4 speed pilot
 │       ├── gru_encounter_eval/      # GRU cross-validation runs, one report.md per run
 │       ├── ensemble_eval/           # Ensemble reports, paired differences, stacker weights
 │       ├── kinetic_score_eval/      # K0 ablation run (2026-08-26)
@@ -111,7 +111,7 @@ CompositePerceptionEngine/
 ├── training/
 │   ├── scripts/                     # YOLO download, rebalance, train, evaluate, retention compare, export; *_sem_walkable.py (segmentation)
 │   ├── configs/                     # 17-class taxonomy, Roboflow source manifest
-│   └── runs/                        # Ultralytics runs and checkpoints (v1, v2, v3)
+│   └── runs/                        # Ultralytics runs and checkpoints (v1, v2, v3); cpe_yolo26n_sem_walkable/ = segmentation (best.pt, best.mlpackage)
 ├── notebooks/                       # sanpo_yolo_gap_analysis.ipynb + gap_analysis_output/
 ├── simulation/datasets/sanpo/       # valid_streams.json (462 sessions), session_audit.json, official_split.json
 ├── tests/                           # Threat engine (fusion, envelope, priority, announcer), v1 routing, GRU, ensemble

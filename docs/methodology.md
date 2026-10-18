@@ -517,11 +517,13 @@ form validation. Validation and test hold HUMAN_ANNOTATED frames only (every 6th
 SANPO paper; training adds every 6th propagated frame.
 
 **Model and metrics** (`training/scripts/*_sem_walkable.py`, `evaluation/segmentation_metrics.py`).
-YOLO26s-sem from Cityscapes weights at imgsz 1024; not trained yet (lab server). Reported, per
+YOLO26n-sem from Cityscapes weights at imgsz 640, trained on the M4 (MPS); results and the model
+choice are below ("Trained model, 2026-10-18"). Reported, per
 camera and overall, with session-bootstrap CIs: mIoU and per-class IoU; **false-safe rate** (unsafe
 ground, i.e. road, curb, stairs or non-walkable, predicted walkable or crosswalk, over all unsafe
 pixels), a generalisation of SENSATION-DS's road-as-sidewalk rate, which is reported too; the
-opposite (nuisance) error; and boundary F at ±3 px for curb and stairs, the thin edges that mIoU
+opposite (nuisance) error; **road as walkable** (ground-truth road pixels predicted walkable or
+crosswalk, over all ground-truth road pixels); and boundary F at ±3 px for curb and stairs, the thin edges that mIoU
 barely weighs.
 
 **From a class map to `SceneContext`** (`src/segmentation/context.py`). The ground under an object
@@ -622,7 +624,84 @@ walkable frames. Warned = an alert in the 10 s before.
   numbers. Widening the band, raising the range or confirming in 1 frame would each trade
   nuisance alerts for warned share; that choice needs a train-only sweep.
 - **Model masks.** The same tool takes a trained model (`--source <best.pt>`), which gives the
-  model-vs-oracle gap.
+  model-vs-oracle gap (below). `--reference gt` takes the step-offs from SANPO's masks while the
+  alerts come from the model. Without it, a model is graded against its own masks.
+
+**Trained model, 2026-10-18 (branch `v2-seg-training`, MacBook Air M4, MPS).**
+
+*Speed pilot* (`segmentation/pilot_mps_2026_10_17/`; timed while the dataset build was running):
+
+| config | s/iteration | memory |
+|---|---:|---:|
+| n@640, batch 8 | 0.62 | 3.6 GB |
+| s@640, batch 8 | 1.16 | 5.9 GB |
+| s@768, batch 8 | 3.09 (swapping) | 7.9 GB |
+| s@768, batch 4 | 1.46 | 4.7 GB |
+
+*Choice, declared before training* (commit `6fd1412`):
+- **Config.** YOLO26n-sem @640, batch 8, 20 epochs, patience 5, from Cityscapes weights.
+- **Why.** The 12 h budget, and n is the variant with a measured iPhone latency (4.9 ms).
+- **Run.** It early-stopped at epoch 8 (6.3 h, about 47 min per epoch). Validation mIoU by epoch:
+  0.522, 0.543, **0.570**, 0.550, 0.567, 0.554, 0.557, 0.568. Validation CE fell to 0.433 at
+  epoch 3, then rose (0.47–0.54). best.pt = epoch 3, chosen on validation mIoU.
+
+*Test, scored once* (48 sessions, 3,850 frames; `segmentation/cpe_yolo26n_sem_walkable_test/`):
+
+| | mIoU | false-safe | road as walkable | boundary F curb / stairs |
+|---|---|---|---:|---|
+| all | 0.615 [0.540, 0.641] | 0.044 [0.029, 0.062] | 0.173 | 0.295 / 0.062 |
+| chest (2,561 frames) | 0.604 | 0.058 | 0.163 | 0.305 / 0.067 |
+| head (1,289 frames) | 0.554 | 0.026 | 0.222 | 0.283 / — (no stairs in head test frames) |
+
+- **Road as walkable** = ground-truth road pixels predicted walkable or crosswalk, over all
+  ground-truth road pixels.
+- **IoU by class:** walkable 0.828, crosswalk 0.590, road 0.494, curb 0.239, stairs 0.474,
+  non-walkable 0.686, obstacle 0.741, sky 0.868.
+
+*Deviation from the declared follow-up.* The plan was to try s@640 if test scores showed the model
+to be the bottleneck. We kept n instead, for three reasons:
+1. Validation mIoU peaked at epoch 3 and validation loss then rose, so the model was overfitting.
+   More capacity on the same data is unlikely to help.
+2. Thin edges depend on input resolution more than on model size, and s at 640 sees the same
+   pixels.
+3. Choosing a second model from test scores would make the final model test-informed.
+
+The follow-up is n at a larger imgsz on a GPU machine. It has not been run.
+
+*Core ML.* `weights/best.mlpackage`: FP16 mlprogram with the argmax in the graph, output
+(1, 640, 640) class ids, 3.1 MB. Pixel agreement with PyTorch on 4 test frames was 0.991–1.000.
+The first export attempt failed inside coremltools 9.0 (`only 0-dimensional arrays can be
+converted to Python scalars`; torch 2.14 is untested with it). An identical retry succeeded.
+
+*Scene context with the model* (`build_scene_context.py --source best.pt --all-sessions --imgsz 640`;
+112 replay val + test sessions, none of them in segmentation training):
+- **Flags.** On the oracle's 15 sessions (`scene_context/model_val_test_headmasked_2026_10_18/`,
+  1,561 observations), distance-adjusted RR, model vs. oracle:
+  - in path: 2.68 [2.20, 10.34] vs 2.64 [0.00, 7.64];
+  - near a boundary: 1.15 [0.14, 5.97] vs 1.04 [0.12, 6.22];
+  - other surface: 0.37 [0.00, 0.44] vs 0.38 [0.00, 1.67].
+
+  The model matches the oracle. On all 112 sessions (`model_val_test_2026_10_18/`, 6,748
+  observations) none is significant: 1.12 [0.78, 1.55], 1.04 [0.61, 1.58] and 0.89 [0.40, 1.69].
+- **Replay, context on vs. off** (`threat_engine_replay/model_context_2026_10_18/`; 71 test
+  sessions, 56 arrivals; paired). At `budget_10`: warned +0.04 [−0.06, +0.08], false alerts/min
+  +0.41 [−0.30, +1.44]. At `budget_2` and `budget_5`, the context arm has no setting that meets
+  the rule on validation. No measurable effect.
+- **Edge alerts** (`edge_alerts/cpe_yolo26n_sem_walkable_*_2026_10_18/`). 43 of the 53 sessions
+  are in segmentation training, so only the 10 official-test sessions score the model fairly.
+  With step-offs taken from SANPO's masks for both:
+
+  | | warned | warned, sustained |
+  |---|---|---|
+  | model | 0.14 (1 of 7) | 0.00 (0 of 4) |
+  | oracle | 0.43 (3 of 7) | 0.50 (2 of 4) |
+
+  - Followed by a step-off: model 0.40, oracle 0.50.
+  - Alerts per minute: model 1.00, oracle 0.80.
+  - **The model's edge alerts are far below the oracle's.**
+  - All 53 sessions: 0.22 [0.10, 0.37] vs 0.29 [0.13, 0.47].
+  - Self-referenced, the model scores 0.22 (50 step-offs from its own masks). Self-referencing
+    hides the gap.
 
 ## 5. Latency methodology
 

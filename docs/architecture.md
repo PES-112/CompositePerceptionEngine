@@ -136,15 +136,18 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
 | Status | Built and unit-tested. On SANPO the camera poses don't yet reconcile with box depth (§9), so the replay reports ego-motion removal as an ablation (`v2_*_nopose`) |
 
-### 6.3 Scene context: walkable-surface segmentation 🟨 (data, context, metrics, oracle ✅; model to train)
+### 6.3 Scene context: walkable-surface segmentation ✅ (data, context, metrics, oracle, model)
 
 The 17-class detector finds the objects; this model covers the ground: which surface each object
 stands on, where the walkable area ends, and which depth pixels are just ground.
 
-- **Model.** YOLO26s-sem (Ultralytics semantic task, Cityscapes-pretrained), imgsz 1024 for thin
-  curb and stair edges, FP16 Core ML with the argmax in the graph. YOLO26n-sem measures 4.9 ms on an
-  iPhone 17 Pro (Ultralytics, iOS 27); s is ~4× the FLOPs. Training:
-  `training/scripts/train_yolo26_sem_walkable.py` (lab server; not trained yet).
+- **Model.** YOLO26n-sem (Ultralytics semantic task, Cityscapes-pretrained), imgsz 640, FP16
+  Core ML with the argmax in the graph (`training/runs/cpe_yolo26n_sem_walkable/weights/best.mlpackage`,
+  3.1 MB). YOLO26n-sem measures 4.9 ms on an iPhone 17 Pro (Ultralytics, iOS 27). Trained on the
+  M4 (MPS, batch 8; early-stopped at epoch 8, best = epoch 3):
+  `training/scripts/train_yolo26_sem_walkable.py`. Test (48 sessions): mIoU 0.615 [0.540, 0.641],
+  false-safe 0.044 [0.029, 0.062], road as walkable 0.173, boundary F curb 0.30 / stairs 0.06
+  (methodology §4.14). s at 640 was not trained (see §4.14 for why).
 - **Rate.** Runs asynchronously at 2–5 Hz, because ground layout changes slowly.
 - **Labels.** SANPO's 31 panoptic classes remapped to 8 (`src/segmentation/labels.py`): walkable
   (sidewalk, paved trail, other walkable), crosswalk, road (+ railway), curb, stairs, non-walkable
@@ -172,6 +175,12 @@ context for them; `tools/replay_threat_engine.py --context-dir` runs the context
 methodology §4.14. Chest masks (130 more curated sessions) need Stage 1 re-run on the chest
 stream: the two cameras' poses are in separate world frames, so head tracks can't be projected
 into chest masks.
+
+**With the model's masks (2026-10-18).**
+- **Context flags.** On the oracle's 15 sessions they match the oracle's.
+- **Replay.** The context on vs. off replay over 71 test sessions shows no measurable change.
+- **Edge alerts.** Held out, they warn about 1 of 7 mask step-offs; the oracle warns about 3 of 7.
+  Thin edges are the weak point (methodology §4.14).
 
 ### 6.4 Threat engine
 
@@ -201,7 +210,8 @@ crosswalk). λ = 0.5 and the behaviour multipliers are declared design choices, 
 
 **What ⬜ (interface ✅).** A context multiplier computed from §6.3: ×1.5 "in my path", ×1.25 "near a
 boundary", ×0.5 "on another surface" (a car on the road while I'm on the sidewalk). The
-`SceneContext` interface and multipliers exist; the segmentation model that fills them doesn't.
+`SceneContext` interface and multipliers exist (near a boundary is now ×1.0). The trained model fills
+them; on the test replay, context on vs. off changes nothing measurable (methodology §4.14).
 
 **Fusion ✅.**
 
@@ -336,8 +346,8 @@ Open:
 
 ## 12. Open decisions
 
-1. **Segmentation model:** SegFormer-B0 class vs. a YOLO segmentation variant. Decide by on-iPhone
-   latency and mIoU on SANPO masks.
+1. **Segmentation model:** decided 2026-10-18: YOLO26n-sem @640 (§6.3). Open: a larger imgsz for
+   thin edges, once on-iPhone latency is measured.
 2. **Fusion form:** the fixed product above vs. a small fitted model. The product is easier to
    explain and test.
 3. **Prediction horizon, hazard distance and cone.** Currently 20 steps (4 s) and 3 m. With the real

@@ -2,6 +2,42 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-18] - Walkable-surface model trained (YOLO26n-sem @640, M4) and re-run with its masks
+
+Branch `v2-seg-training` (from `v2-segmentation`, which it merged at `879dbe7`).
+
+### Added
+- `training/runs/cpe_yolo26n_sem_walkable/`: YOLO26n-sem @640, batch 8, from Cityscapes weights,
+  on MPS. Early-stopped at epoch 8 (6.3 h); best.pt = epoch 3 (val mIoU 0.570). Speed pilot and
+  the declared choice: `segmentation/pilot_mps_2026_10_17/`.
+- Test, scored once (48 sessions): mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062],
+  road as walkable 0.173 (over ground-truth road pixels), boundary F curb 0.30 / stairs 0.06.
+- `weights/best.mlpackage`: Core ML FP16, argmax in the graph, 3.1 MB.
+- Model scene context for the 112 replay val/test sessions; `scene_context/model_val_test_*`,
+  `threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_sem_walkable_*`.
+  - Context flags match the oracle on its 15 sessions.
+  - Context on vs. off in the replay: warned +0.04 [−0.06, +0.08], not measurable.
+  - Held-out edge alerts warn about 1 of 7 SANPO-mask step-offs; the oracle warns about 3 of 7.
+- `tools/evaluate_edge_alerts.py --reference gt`: the step-offs come from SANPO's masks while the
+  alerts come from the model. Before this, a model was graded against its own masks. 1 test
+  (72 total).
+
+### Decided
+- Kept n; did not train s@640. A deliberate deviation from the declared follow-up, because:
+  - validation overfit after epoch 3;
+  - thin edges need resolution, not capacity;
+  - picking a second model from test scores would make the choice test-informed.
+
+  The follow-up is n at a larger imgsz on a GPU machine. Not started.
+
+### Notes
+- `data/` and the venv live in `*.nosync` folders, so iCloud Drive doesn't sync them. Syncing
+  slowed training about 2×.
+- `audit_sanpo_sessions.fetch` retries only on HTTPError. Read timeouts were handled with a
+  shell retry loop (the file isn't on this branch's list).
+- The `.gitignore` rule `data/` also matches a Core ML package's `Data/` folder on macOS. The
+  package files were force-added.
+
 ## [2026-10-17, evening] - Near-boundary revision, edge-ahead alerts, paper draft, merge order
 
 Branch `v2-segmentation` (PR #7 into `v2-threat-engine`).
