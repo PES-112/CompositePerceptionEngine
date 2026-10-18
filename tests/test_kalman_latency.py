@@ -80,12 +80,17 @@ class NoiseModelTests(unittest.TestCase):
         self.assertEqual((n.robust_nu, n.gate_nis), (0.0, 11.62))
 
     def test_student_t_downweights_a_jump_instead_of_dropping_it(self):
-        tracker = GroundTracker(noise=NoiseModel(gate_nis=1e9))
-        for k in range(8):
-            tracker.step(k * DT, [Measurement("p", "person", 6.0, 0.0)])
-        out = tracker.step(8 * DT, [Measurement("p", "person", 1.0, 0.0)])
-        self.assertTrue(out[0].measured)
-        self.assertGreater(out[0].forward_m, 4.5)                                # moved, but far less than 5 m
+        def after_jump(nu: float) -> float:
+            tracker = GroundTracker(noise=NoiseModel(robust_nu=nu, gate_nis=1e9))
+            for k in range(8):
+                tracker.step(k * DT, [Measurement("p", "person", 6.0, 0.0)])
+            out = tracker.step(8 * DT, [Measurement("p", "person", 1.0, 0.0)])
+            self.assertTrue(out[0].measured)
+            return out[0].forward_m
+
+        robust, gaussian = after_jump(4.0), after_jump(0.0)
+        self.assertLess(robust, 6.0)                         # it moved toward the measurement...
+        self.assertGreater(robust, gaussian + 0.5)           # ...but much less than a Gaussian update does
 
 
 class OperatingRuleTests(unittest.TestCase):

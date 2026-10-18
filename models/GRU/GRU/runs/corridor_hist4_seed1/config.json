@@ -1,10 +1,10 @@
 {
   "arch": "gru",
-  "dataset": "dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20",
+  "dataset": "dataset\\GRU\\sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20",
   "run_name": "corridor_hist4",
   "out_root": null,
   "overwrite": true,
-  "device": "cuda",
+  "device": "cpu",
   "time_bins": 4,
   "history_steps": 4,
   "hidden": 64,
@@ -475,9 +475,9 @@
     "val": 2014,
     "test": 3257
   },
-  "pos_weight": 4.246957302093506,
+  "pos_weight": 4.830938339233398,
   "parameters": 30741,
   "best_epoch": 13,
-  "best_val_loss": 0.39645797879683947,
-  "train_seconds": 26.0
+  "best_val_loss": 0.38886921685587134,
+  "train_seconds": 80.1
 }

@@ -69,18 +69,19 @@ class NoiseModel:
     only rejects jumps too large to be the same object (re-ID / box swap).
     """
 
-    # Refitted 2026-10-18 on correct depth, 287 official-train sessions (evaluation/benchmarks/kalman_noise_fit/
-    # fit_pose.json): Student-t (ν = 4) beat Gaussian on one-step log-likelihood, train -1.85 vs -2.47. It does
-    # not beat declared() on the ladder or 1 s forecasts (docs/methodology.md §4.16).
-    accel_std: float = 2.93
-    static_accel_std: float = 2.04
-    depth_base: float = 0.0576
-    depth_lin: float = 0.0527
+    # Fitted 2026-10-18 on correct depth, 287 official-train sessions, by 1 s-ahead predictive log-likelihood
+    # (tools/fit_kalman_noise.py --objective ahead -> evaluation/benchmarks/kalman_noise_fit/fit_pose_ahead.json;
+    # Gaussian update, the Student-t half was not completed). Chosen on validation 1 s-ahead log-likelihood:
+    # -3.08 vs -3.43 declared() vs -3.57 for the one-step fit (fit_pose.json); NIS mean 2.26 (2 = calibrated).
+    accel_std: float = 0.504
+    static_accel_std: float = 2.14
+    depth_base: float = 0.033
+    depth_lin: float = 0.263
     depth_quad: float = 0.0
-    bearing_std_deg: float = 0.367
-    init_speed_std: float = 0.896
-    robust_nu: float = 4.0
-    gate_nis: float = 60.0
+    bearing_std_deg: float = 0.277
+    init_speed_std: float = 0.883
+    robust_nu: float = 0.0
+    gate_nis: float = 11.62
 
     @classmethod
     def declared(cls) -> "NoiseModel":
