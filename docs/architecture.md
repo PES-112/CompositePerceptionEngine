@@ -153,7 +153,7 @@ stands on, where the walkable area ends, and which depth pixels are just ground.
   M4 (MPS, batch 8; early-stopped at epoch 8, best = epoch 3):
   `training/scripts/train_yolo26_sem_walkable.py`. Test (48 sessions): mIoU 0.615 [0.540, 0.641],
   false-safe 0.044 [0.029, 0.062], road as walkable 0.173, boundary F curb 0.30 / stairs 0.06
-  (methodology §4.14). s at 640 was not trained (see §4.14 for why).
+  (methodology §4.18). s at 640 was not trained (see methodology §4.18 for why).
 - **Rate.** Runs asynchronously at 2–5 Hz, because ground layout changes slowly.
 - **Labels.** SANPO's 31 panoptic classes remapped to 8 (`src/segmentation/labels.py`): walkable
   (sidewalk, paved trail, other walkable), crosswalk, road (+ railway), curb, stairs, non-walkable
@@ -169,7 +169,7 @@ stands on, where the walkable area ends, and which depth pixels are just ground.
 | walker surface | per frame | majority ground class, bottom-centre of the image | the flags below |
 | surface under the object | per track | majority ground class in the object's columns at its depth (±15%, ≥ 0.3 m); needs only bearing + distance | context, GRU input (later) |
 | in path | per track | object on walkable ground and the walker is too | priority ×1.5 |
-| near a boundary | per track | the object's ground mixes walkable and unsafe ground, or has curb | ×1.0: reported, not weighted (was ×1.25; contradicted by the oracle, methodology §4.14) |
+| near a boundary | per track | the object's ground mixes walkable and unsafe ground, or has curb | ×1.0: reported, not weighted (was ×1.25; contradicted by the oracle, methodology §4.18) |
 | other surface | per track | walker on walkable ground, object on road / non-walkable ground | priority ×0.5 |
 | edge ahead | per scene | first unsafe-ground row up the image centre after walkable ground; class + median depth | "Curb ahead." alert (`edge_alert.py`): curb, stairs or road within 5 m, 2 consecutive frames, once per episode (2 s clear) |
 | flat-ground mask | per frame | walkable, crosswalk, road, non-walkable (curbs and stairs stay in) | obstacle sweep (§6.1) |
@@ -178,7 +178,7 @@ stands on, where the walkable area ends, and which depth pixels are just ground.
 the tracks come from (32 train / 5 val / 10 test). `tools/build_scene_context.py --source gt` builds
 context for them; `tools/replay_threat_engine.py --context-dir` runs the context-on arms and
 `evaluation/context_association.py` tests each flag against the arrival label. Results:
-methodology §4.14. Chest masks (130 more curated sessions) need Stage 1 re-run on the chest
+methodology §4.18. Chest masks (130 more curated sessions) need Stage 1 re-run on the chest
 stream: the two cameras' poses are in separate world frames, so head tracks can't be projected
 into chest masks.
 
@@ -186,7 +186,7 @@ into chest masks.
 - **Context flags.** On the oracle's 15 sessions they match the oracle's.
 - **Replay.** The context on vs. off replay over 71 test sessions shows no measurable change.
 - **Edge alerts.** Held out, they warn about 1 of 7 mask step-offs; the oracle warns about 3 of 7.
-  Thin edges are the weak point (methodology §4.14).
+  Thin edges are the weak point (methodology §4.18).
 
 ### 6.4 Threat engine
 
@@ -217,7 +217,7 @@ crosswalk). λ = 0.5 and the behaviour multipliers are declared design choices, 
 **What ⬜ (interface ✅).** A context multiplier computed from §6.3: ×1.5 "in my path", ×1.25 "near a
 boundary", ×0.5 "on another surface" (a car on the road while I'm on the sidewalk). The
 `SceneContext` interface and multipliers exist (near a boundary is now ×1.0). The trained model fills
-them; on the test replay, context on vs. off changes nothing measurable (methodology §4.14).
+them; on the test replay, context on vs. off changes nothing measurable (methodology §4.18).
 
 **Fusion ✅.**
 

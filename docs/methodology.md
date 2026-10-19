@@ -876,7 +876,10 @@ arrivals are seen < 1 s ahead and 26% ≥ 4 s ahead.
   loss weighted by time-to-arrival, or a "will arrive in ≥ 1 s" target), and give the announcer a
   "rising P(arrive)" trigger instead of a fixed threshold.
 
-### 4.14 Scene context from walkable-surface segmentation (2026-10-17)
+### 4.18 Scene context from walkable-surface segmentation (2026-10-17)
+
+> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
+
 
 **Taxonomy and training data** (`src/segmentation/labels.py`, `tools/build_sanpo_segmentation.py`).
 SANPO's 31 panoptic classes map to 8: walkable (sidewalk, paved trail, other walkable surface),

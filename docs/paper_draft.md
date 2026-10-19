@@ -6,6 +6,10 @@ and the checklist of what is still missing. Framing follows `reports/CPE v2 next
 open-loop benchmark of alert policies, aimed at a CVPR/ICCV accessibility workshop or a WACV
 applications paper; the ASSETS version needs the listening study.
 
+**Depth-decoding bug (found 2026-10-17, segmentation side fixed 2026-10-19).** Every SANPO depth
+map was read as a scrambled 960×960 array. Any number below that depends on depth is superseded
+until it is re-run; the status table says which.
+
 **Claim policy.** The replay is open-loop: the recorded walker never heard an alert. We claim
 predictive accuracy against named baselines, precision and recall at frozen alert budgets,
 opportunity-normalised lead time, announcement stability and measured on-device latency, all on
@@ -18,16 +22,16 @@ that any alert rate is acceptable.
 
 | § | Result | State | Source / owner |
 |---|---|---|---|
-| 6.1 | Baseline ladder on the corridor label | **[PENDING: re-run on the corrected labels]** — the current table (`methodology.md` §4.14 on `v2-kalman-lidar`) predates the camera-intrinsics fix | teammate, after merging `v2-threat-engine` |
-| 6.2 | System replay at alert budgets | final for the declared tracker; **[PENDING: re-run with the fitted Kalman noise model]** | `threat_engine_replay/corridor_2026_10_17/`; teammate |
-| 6.3 | Scene context, oracle (SANPO masks) | final | `scene_context/oracle_gt_2026_10_17/`, `gt_train_*`, `gt_val_test_*` |
-| 6.4 | Edge-ahead alerts, oracle | final (rule not tuned) | `edge_alerts/gt_2026_10_17/`, `gt_sustained_2026_10_17/` |
+| 6.1 | Baseline ladder on the corridor label | **[PENDING: head-camera Stage-1 rebuild]**; methodology §4.16–4.17 are provisional | teammate (Day 2) |
+| 6.2 | System replay at alert budgets | **[PENDING: head-camera rebuild]**; every replay before it used scrambled depth | teammate (Day 2) |
+| 6.3 | Scene context, oracle (SANPO masks) | **[PENDING: redo on correct depth]**: the 2026-10-17 numbers and the near-boundary decision are superseded | segmentation (Day 2) |
+| 6.4 | Edge-ahead alerts, oracle | **[re-running on correct depth]** | `edge_alerts/gt_depthfix_*` (Day 1) |
 | 6.5 | Segmentation model (YOLO26n-sem @640) | final (scored once on test) | `segmentation/cpe_yolo26n_sem_walkable_test/` |
-| 6.6 | Scene context and edge alerts with the model's masks | final (context: no measurable change; edge alerts well below the oracle) | `scene_context/model_*`, `threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_*` |
+| 6.6 | Scene context and edge alerts with the model's masks | **[PENDING: redo on correct depth]**: the 2026-10-18 runs are superseded | Mac (Days 1–3) |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
 | 6.8 | On-device latency, latency-aware replay | **[PENDING: TestFlight run]** | teammate |
 | 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
-| — | Audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]** | `v2-narration` |
+| — | English audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]**; translation is future work | `v2-narration` (Days 1–4) |
 | — | BLV listening study (ASSETS version only) | **[PENDING: ethics]** | teammate (`listening_study_plan.md`) |
 
 ---
@@ -225,6 +229,9 @@ Source: `evaluation/benchmarks/threat_engine_replay/corridor_2026_10_17/`. 71 te
 
 ### 6.3 Scene context: oracle bound with SANPO's own masks
 
+> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
+
+
 Data: 47 replay sessions have head-camera masks (32 train / 5 val / 10 test), giving 5,682
 (frame, object) observations. Source: `evaluation/benchmarks/scene_context/`.
 
@@ -248,6 +255,9 @@ Data: 47 replay sessions have head-camera masks (32 train / 5 val / 10 test), gi
   §6.6 is the powered test.
 
 ### 6.4 Edge-ahead alerts (oracle)
+
+> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
+
 
 Source: `evaluation/benchmarks/edge_alerts/gt_2026_10_17/` and `gt_sustained_2026_10_17/`. Data:
 53 head-masked sessions, 26.6 min at 2.5 Hz, with SANPO's masks as the class map.
@@ -300,6 +310,9 @@ session-bootstrap 95% CIs. Source: `evaluation/benchmarks/segmentation/cpe_yolo2
   4.9 ms for YOLO26n-sem on iPhone 17 Pro).
 
 ### 6.6 Scene context and edge alerts with the model's masks
+
+> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
+
 
 The model's masks (YOLO26n-sem @640, §6.5) replace SANPO's. The 112 replay validation and test
 sessions were never used in segmentation training. Sources: `scene_context/model_val_test_*_2026_10_18/`,

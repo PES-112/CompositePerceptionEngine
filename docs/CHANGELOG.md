@@ -2,6 +2,32 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-19, integration] - Segmentation branches merged with the depth fix; 4-day plan
+
+Branch `v2-segmentation` (PR #7).
+
+### Merged
+- `v2-seg-training` (fast-forward) and `v2-kalman-lidar` into `v2-segmentation`. Conflicts kept both
+  sides: in `tools/replay_threat_engine.py`, the context arms together with the latency delays,
+  announcer sweep and early-budget rules; README, CHANGELOG and pending_work side by side.
+
+### Fixed
+- `tools/build_scene_context.py` used the removed scrambling depth decoder: it now uses
+  `decode_sanpo_depth`, and maps bearing to an image column through fx for pinhole-unit datasets.
+- New cache roots `data/sanpo_scene_context_v2/` and `data/sanpo_edge_track_v2/`, so old tracks
+  are never reused.
+- `audit_sanpo_sessions.fetch` retries read timeouts and dropped connections.
+- Test for the bearing-to-column mapping (91 pass, 2 skipped).
+
+### Changed
+- The segmentation methodology section is renumbered §4.14 → **§4.18**: both branches had added a
+  §4.14.
+- Superseded (scrambled depth): every scene-context, context-replay and edge-alert result before
+  `*_depthfix_*`, and the near-boundary ×1.0 decision. They are marked in methodology §4.18 and
+  `paper_draft.md`. The segmentation model's pixel scores and the Core ML export stand.
+- Translation is future work. P4 covers the English clip library only.
+- `pending_work.md`: merge order and the 4-day plan (2026-10-19 → 22).
+
 ## [2026-10-19, head camera] - Merge the intrinsics fix; fix the size check's depth lookup; Stage 1 to be re-run
 
 ### Merged

@@ -23,32 +23,41 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
    held-out sessions (1 of 7 step-offs warned vs 3 of 7). Next: n at a larger imgsz on a GPU
    machine (not started).
 
-## Integration: merge order (2026-10-17)
+## Integration and the 4-day plan (2026-10-19 to 2026-10-22)
 
-`v2-threat-engine` is the integration branch. Four branches feed it:
+`v2-threat-engine` is the integration branch.
 
-| Branch | Owner | Base | State |
-|---|---|---|---|
-| `v2-segmentation` | segmentation | all of `v2-threat-engine` | merges with no conflicts: **merge first** |
-| `v2-kalman-lidar` | teammate | `a5fd0aa`, **without the camera-intrinsics fix** (`4fe42a6` → `430234a`) | must merge `v2-threat-engine` and re-run |
-| `v2-seg-training` | Mac (M4) | `v2-segmentation` | done 2026-10-18: model, Core ML, model-mask results; one tool change (`evaluate_edge_alerts.py --reference gt`) |
-| `v2-narration` | narration | `v2-threat-engine` | `src/narration/` only |
+| Branch | Owner | State (2026-10-19) |
+|---|---|---|
+| `v2-kalman-lidar` | teammate | Depth-decoder fix, fitted Kalman, latency replay. Stage 1 is being re-run with head-camera fx (Colab); its numbers are provisional until then. Contains all of `v2-threat-engine`, so it fast-forwards. |
+| `v2-segmentation` | segmentation | Contains `v2-seg-training` and `v2-kalman-lidar` (merged `3a92602`, conflicts resolved), plus the depth fix for the segmentation scripts (`a5f7b4e`). PR #7. |
+| `v2-seg-training` | Mac (M4) | Retired, folded into `v2-segmentation`. |
+| `v2-narration` | narration | English clip library; translation is future work. |
 
-1. Merge `v2-segmentation` → `v2-threat-engine` (PR).
-2. `v2-kalman-lidar` merges `v2-threat-engine`.
-   - Conflicts are additive. In `tools/replay_threat_engine.py`, keep both the context arms and the
-     latency delays: one docstring paragraph each, the `SceneContext` and `KalmanArrivalPredictor`
-     imports, `session_contexts()` and `load_latencies()`, `--context-dir` and `--latency-*`, and
-     both `contexts` and `delays_for(...)` in the scoring loop.
-   - The docs conflicts (README, CHANGELOG, architecture, pending_work) are side-by-side sections.
-   - Then **re-run everything label-dependent on the corrected labels**: the Kalman noise fit, the
-     baseline ladder and the corridor replay (the LiDAR range check is optional and can wait). The ladder on that branch reports 20
-     test sessions with arrivals and a positive rate of 0.169; the corrected labels give 19 and
-     0.140.
-3. `v2-seg-training` already contains `v2-threat-engine` (`430234a`). Its model-context replay
-   (`model_context_2026_10_18/`) uses the declared tracker, because the fitted one isn't on
-   `v2-threat-engine` yet. Re-run it after `v2-kalman-lidar` merges.
-4. `v2-narration` merges last; it only touches `src/narration/`, its tests and §6.6.
+Order:
+1. Fast-forward `v2-threat-engine` to `v2-kalman-lidar`.
+2. Merge PR #7. It now merges cleanly.
+3. When the head-camera rebuild lands, merge `v2-threat-engine` into `v2-kalman-lidar`, then
+   fast-forward again.
+4. `v2-narration` merges via its own PR.
+
+**Superseded by the depth-decoding bug** (every SANPO depth map was read as a scrambled 960×960
+array until 2026-10-17; `architecture.md` §9). Kept for the record:
+- `scene_context/oracle_gt_*`, `gt_train_*`, `gt_val_test_*`, `model_val_test_*`;
+- `threat_engine_replay/oracle_context_*`, `model_context_*`;
+- `edge_alerts/*` before `*_depthfix_*`;
+- the near-boundary decision (×1.25 → ×1.0), which must be redone on train sessions;
+- the cached tracks in `data/sanpo_scene_context/` and `data/sanpo_edge_track/` (the `_v2` roots
+  replace them).
+
+Unaffected: segmentation training, its test scores, and the Core ML export (no depth involved).
+
+| Day | Teammate | Segmentation (DeviousDrops) | Mac (M4) | Narration |
+|---|---|---|---|---|
+| 1 (10-19) | Fast-forward `v2-threat-engine`; start the head-camera rebuild | Merge + depth fix; oracle edge alerts on correct depth | Model edge alerts on correct depth | Push branch; phrase review; renderer |
+| 2 | Rebuild in: ladder, Kalman, replay | Oracle scene context; near-boundary decision on train; oracle replay | Model scene context, val + test (overnight) | Render; clip durations vs `CLIP_S` |
+| 3 | iPhone timing if the account is ready; latency-aware replay; review the announcer PR | "Curb ahead." through the announcer; merge narration; paper numbers | Context on/off replay; model vs oracle; docs | Edge phrases, loader, tests; PR |
+| 4 | Final methodology numbers | Paper freeze; merge to `main` | Paper figures (F2–F6) | Latency and size numbers |
 
 ---
 
@@ -116,13 +125,13 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
    oracle replay and flag-association analysis. To do, in order:
    - ~~Train and score the model.~~ Done 2026-10-18 (`v2-seg-training`): YOLO26n-sem @640, test
      mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062], curb / stairs boundary F 0.30 /
-     0.06 (methodology §4.14).
+     0.06 (methodology §4.18).
    - ~~Model context over all 112 val/test sessions and the powered replay.~~ Done 2026-10-18:
      context on vs off, warned +0.04 [−0.06, +0.08] at `budget_10`, no measurable effect.
    - **Next:** n at a larger imgsz (≥ 1024) on a GPU machine, for curb and stair edges. Then re-run
      the edge alerts and score the 10 official-test sessions.
    - ~~Decide the multipliers from train sessions only if the declared ones are contradicted.~~
-     Done 2026-10-17: near a boundary ×1.25 → ×1.0 (train-only check; methodology §4.14).
+     Done 2026-10-17: near a boundary ×1.25 → ×1.0 (train-only check; methodology §4.18).
    - Stage 1 on the chest stream for the 130 chest-masked curated sessions (lab server), to get an
      oracle bound on 28 test sessions instead of 10.
    - Edge-ahead alert rule and its oracle evaluation: done 2026-10-17
@@ -180,8 +189,10 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## P4. Narration
 
-1. Render the clip library offline: `templates.all_phrases(classes)` lists every phrase; render each
-   per language with a high-quality voice and load them into `CachedClipTTS`.
+1. Render the English clip library offline: `templates.all_phrases(classes)` lists every phrase;
+   render each with a high-quality voice and load them into `CachedClipTTS`. **Translation (Hindi,
+   Kannada) is future work** (decided 2026-10-19). The phrase-table code stays, but no translated
+   library is built for the paper.
 2. Add scripted segmentation phrases ("Curb ahead.", "Crosswalk ahead.") once P1.1 exists.
 3. Optional: stereo panning toward the object's bearing.
 
