@@ -314,6 +314,8 @@ The model's masks (YOLO26n-sem @640, §6.5) replace SANPO's. The 112 replay vali
 sessions were never used in segmentation training. Sources: `scene_context/model_val_test_*_2026_10_18/`,
 `threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_sem_walkable_*_2026_10_18/`.
 
+**Superseded: depth decoding bug (2026-10-17).** Every number below in §6.6 used scrambled depth.
+
 **Flags, model vs. oracle on the same 15 sessions** (5 val + 10 test, 1,561 observations; RR
 distance-adjusted, session-bootstrap 95% CI):
 

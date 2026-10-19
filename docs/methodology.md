@@ -1087,7 +1087,7 @@ The follow-up is n at a larger imgsz on a GPU machine. It has not been run.
 The first export attempt failed inside coremltools 9.0 (`only 0-dimensional arrays can be
 converted to Python scalars`; torch 2.14 is untested with it). An identical retry succeeded.
 
-*Scene context with the model* (`build_scene_context.py --source best.pt --all-sessions --imgsz 640`;
+**Superseded: depth decoding bug (2026-10-17).** *Scene context with the model* (`build_scene_context.py --source best.pt --all-sessions --imgsz 640`;
 112 replay val + test sessions, none of them in segmentation training):
 - **Flags.** On the oracle's 15 sessions (`scene_context/model_val_test_headmasked_2026_10_18/`,
   1,561 observations), distance-adjusted RR, model vs. oracle:
