@@ -683,6 +683,8 @@ arrival frame itself. Two lead-based columns were added to every operating-point
 
 ### 4.16 Rebuild on correctly decoded depth (2026-10-18)
 
+> **Partly superseded (2026-10-19).** The labels, ladder, Kalman fit and replay below used bearings converted twice (§4.17). Dataset sizes and the Stage-1 rebuild stand; for numbers, use §4.17.
+
 Every number in §4.11–4.15 used depth maps read as 960×960 instead of a 2-value header plus a
 720×1280 image (architecture §9 item 0). Everything downstream of depth was redone with
 `notebooks/colab_rebuild.ipynb` (Colab T4), with no change to methods, settings or the split rule:
@@ -785,6 +787,90 @@ sighting → arrival) has a median of 2.0 s: 27% of arrivals are first seen < 1 
   and the Kalman are within the CIs on recall.
 - **Next:** re-choose operating points on `warned_before` instead of `warned`, and reconsider the
   announcer's rate limits and the false-alert budgets now that real close-range traffic is this dense.
+
+### 4.17 Units fix, 1 s-ahead Kalman fit and lead-based tuning (2026-10-19)
+
+**A units bug in the rebuild, found and fixed.** The rebuilt Stage-1 CSVs already store pinhole
+bearings (from the session's fx) and speeds at the true frame rate. But `relabel.py`, the ladder's
+rule baselines and tabular features, the replay and both Kalman tools still treated the stored
+bearing as the pre-2026-10-14 linear ±35° value and converted it again. That shrank every bearing
+by about 10–15% (20° became 17.7°), so objects looked more central: about 13 cm at 3 m and 20°. The
+replay also halved the already-correct speeds.
+- **Fix:** `dataset/GRU/build.py` records `source.units = "pinhole_bearing_true_fps"` when every
+  CSV has a stream sidecar with fx. Every consumer converts only when `legacy_units(manifest)` is
+  true. The eight rebuilt manifests were marked. Tests: `tests/test_dataset_units.py`.
+- **Redone:** the six corridor labels, all GRU runs (4 variants × 3 seeds), the Kalman fit, the
+  ladder, the before/after comparison and the replay.
+- **Labels moved a little:** the test positive rate went from 0.224 to 0.212, and test sessions
+  with an arrival from 32 to 29. The §4.16 labels, ladder, Kalman fit and replay numbers are
+  superseded by this section.
+
+**Kalman noise, fitted on 1 s-ahead likelihood.** `tools/fit_kalman_noise.py --objective ahead`
+scores each candidate by the log-likelihood of the position measured 1 s later, under the filter's
+own 5-step forecast and its propagated covariance plus the measurement's R. The one-step objective
+was refitted for comparison. The default was chosen by validation 1 s-ahead log-likelihood:
+
+| Noise model | val 1 s log-lik ↑ | val NIS mean (2 = calibrated) | val median 1 s error | forecasts |
+|---|---:|---:|---:|---:|
+| declared (2026-10-14) | −3.43 | 8.6 | 0.77 m | 675 |
+| one-step fit, Student-t ν = 4 (`fit_pose.json`) | −3.57 | 12.2 | 1.11 m | 761 |
+| **1 s-ahead fit, Gaussian (`fit_pose_ahead.json`), the default** | **−3.08** | **2.3** | 1.09 m | 751 |
+
+- **Fitted values:** acceleration σ 0.50 m/s² (static classes 2.14), depth σ 0.033 + 0.263·d m,
+  bearing σ 0.28°, initial speed σ 0.88 m/s, Gaussian update with the χ² gate at 11.62.
+- **Not completed:** the Student-t half of the 1 s fit, which was stopped twice by low memory on
+  the laptop.
+- **Why the old filter's median error is lowest:** it restarts tracks often, so it only forecasts
+  the 675 steadiest ones.
+
+**Results** (test, scored once):
+- **Ladder** (83 sessions, 29 with an arrival, 5,974 objects, positive rate 0.212):
+  - GRU 0.905. It ties attention (0.914, +0.008 [−0.006, +0.014]), GBT (0.911–0.912), the other
+    GRU variants and the fitted Kalman (0.893, −0.013 [−0.023, +0.002], Holm p 0.53).
+  - The GRU beats `nearest` (−0.016 [−0.026, −0.002]; AUPRC −0.060, Holm p < 0.001), logistic
+    regression, the declared Kalman, the two-step CVM, nearest-in-corridor, TTC and K0.
+  - **The §4.16 contradiction is resolved:** the 1 s fit beats the declared Kalman by AUROC +0.017
+    [+0.009, +0.026] (Holm p 0.003) and AUPRC +0.044 [+0.026, +0.113].
+- **Replay, physics predictor, paired before/after at fixed thresholds:** false alerts/min fall
+  by 5.5–13.6 and precision rises by 0.04–0.14 (every CI excludes 0). Recall `warned` falls by
+  0.14–0.16 (CIs exclude 0): smoother velocities predict fewer entries.
+
+**Lead-based tuning** (`threat_engine_replay/corridor_tuned/`). New operating rules
+`early_budget_{2,5,10}` maximise `warned_before` (warned ≥ 0.2 s ahead) within each false-alert
+budget on validation. `--announcer-sweep` also tunes the announcer for v2_gru, v2_kalman and
+nearest-in-corridor: 10 thresholds × cooldown {2, 4, 8} s × switch margin {1, 1.25, 2} × stale
+drop {0.6, 1.2} s. Test has 94 arrivals; the opportunity window has a median of 2.2 s, 29% of
+arrivals are seen < 1 s ahead and 26% ≥ 4 s ahead.
+
+| Arm | rule | knob (threshold / announcer) | warned | warned ≥ 0.2 s | warned ≥ 1 s | false/min | precision | alerts/min |
+|---|---|---|---|---|---|---|---|---|
+| v2_gru | early_budget_5 | 0.5 / cd 4 / sm 1 / st 0.6 | 0.37 [0.26, 0.57] | 0.19 [0.11, 0.36] | 0.06 [0.01, 0.13] | 7.0 [4.8, 9.5] | 0.58 [0.47, 0.66] | 16.7 |
+| v2_gru_nopose | early_budget_5 | 0.5 (default announcer) | 0.36 [0.26, 0.57] | 0.18 [0.11, 0.33] | 0.04 [0.00, 0.10] | 6.0 [3.8, 8.5] | 0.61 [0.49, 0.71] | 15.2 |
+| v2_kalman | early_budget_5 | 0.7 / cd 4 / sm 1 / st 0.6 | 0.27 [0.14, 0.46] | 0.17 [0.08, 0.28] | 0.07 [0.02, 0.14] | 7.2 [4.7, 9.9] | 0.54 [0.43, 0.63] | 15.7 |
+| nearest_in_corridor | early_budget_5 | 0.5 / cd 8 / sm 2 / st 0.6 | 0.17 [0.09, 0.30] | 0.07 [0.03, 0.16] | 0.03 [0.00, 0.09] | 7.4 [4.4, 10.3] | 0.44 [0.32, 0.55] | 13.1 |
+| v2_gru | early_budget_10 | 0.4 / cd 2 / sm 1 / st 1.2 | 0.34 [0.21, 0.61] | 0.22 [0.10, 0.46] | 0.05 [0.01, 0.12] | 10.3 [7.7, 13.4] | 0.51 [0.39, 0.60] | 20.9 |
+| v2_gru | early_budget_2 | 0.9 / cd 4 / sm 1 / st 0.6 | 0.15 [0.08, 0.28] | 0.04 [0.00, 0.11] | 0.02 [0.00, 0.07] | 3.9 [2.0, 6.2] | 0.64 [0.49, 0.77] | 10.9 |
+| v1_k0_announcer | early_budget_10 | 12 | 0.39 [0.28, 0.59] | 0.20 [0.11, 0.31] | 0.11 [0.05, 0.17] | 10.2 [7.7, 12.7] | 0.39 [0.25, 0.50] | 16.9 |
+
+**Reading.**
+- **Tuning on lead doesn't create lead.** The `early_*` points are the same as, or next to, the
+  `budget_*` points. The best arms warn about 0.19–0.22 of arrivals ≥ 0.2 s ahead and ≤ 0.07 ≥ 1 s
+  ahead, while 71% are seen ≥ 1 s ahead. The limit is the predictors: they rarely put an
+  object above threshold early enough.
+- **The announcer barely matters.** At equal threshold, the best announcer setting beats the
+  default (cooldown 4 s, switch margin 1.25, stale 0.6 s) by at most +0.06 `warned_before` on
+  validation, and by ≤ +0.03 on test. Switch margin 1.0 is chosen most often. The announcer
+  defaults stay as declared.
+- **Validation under-predicts test false alerts.** Every point chosen for ≤ 5 false/min on 47
+  validation sessions gives 6.0–7.4 on test. Budgets should be read as "about", or chosen with a
+  margin.
+- **Ego-motion removal still doesn't help:** the no-pose GRU matches the pose GRU on recall and
+  lead, with fewer false alerts (6.0 vs 7.0) and higher precision (0.61 vs 0.58), with overlapping CIs.
+- **v1's ≥ 1 s rate (0.11) is the highest**, but at precision 0.39. It speaks about everything
+  near, so some of it is early by chance.
+- **Next, for lead:** train the GRU on an objective that rewards early probability mass (e.g. a
+  loss weighted by time-to-arrival, or a "will arrive in ≥ 1 s" target), and give the announcer a
+  "rising P(arrive)" trigger instead of a fixed threshold.
 
 ## 5. Latency methodology
 

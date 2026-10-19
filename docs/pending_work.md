@@ -13,10 +13,11 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 1. **Measure on the iPhone (P3.1–P3.2).** It's the one headline claim with no number yet. The
    timing app, the GRU export and the CI workflow exist (`ios/CPETiming/README.md`). What's left: an
    Apple Developer account, the App Store Connect secrets, a green CI run, and the phone.
-2. **Re-choose operating points on lead, not `warned` (P2.2).** `warned` counts announcements on the
-   arrival frame. At the current budgets at most 0.19 of arrivals are warned ≥ 0.2 s ahead, and
-   ≤ 0.07 ≥ 1 s ahead, at ~20 alerts/min (methodology §4.16). Pick budgets on `warned_before`, and sweep the announcer
-   (cooldown, switch margin, stale drop) as well as the threshold.
+2. **Make warnings earlier (P2.2).** Operating points are now chosen on `warned_before` and the
+   announcer was swept (done 2026-10-19, methodology §4.17). Neither creates lead: ≤ 0.22 of
+   arrivals are warned ≥ 0.2 s ahead. The predictors are the limit. Next: a GRU objective that
+   rewards early probability (time-to-arrival-weighted loss or a "≥ 1 s ahead" target) and a
+   rising-P(arrive) announcement trigger.
 3. **Walkable-surface segmentation (P1.1).** It's the missing "what" and the real fix for the
    ground pseudo-objects. 53 sessions have SANPO masks (43 train / 10 test).
 
@@ -59,10 +60,11 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
    Steps 1–5 ran as one pass of `notebooks/colab_rebuild.ipynb`. The viewer's legacy-input shim is
    gone. Follow-ups it raised:
-   - **The fitted Kalman no longer helps** (ladder −0.016 AUROC vs. declared; 1 s forecast worse).
-     Refit on multi-step (≈ 1 s) predictive error on train; keep whichever wins on validation.
-   - **Alert budgets:** ~20 alerts/min at the chosen points and 8.5 false/min on test at
-     `budget_5`. Re-tune on `warned_before` together with the announcer (P2.2).
+   - ~~**The fitted Kalman no longer helps.**~~ Fixed 2026-10-19: refitted on 1 s-ahead likelihood
+     (methodology §4.17); a units bug in the label and replay tools was fixed at the same time.
+   - ~~**Alert budgets.**~~ Re-tuned on `warned_before` with an announcer sweep (§4.17). Validation
+     still under-predicts test false alerts (≤ 5 → 6.0–7.4 per minute).
+   - **Not finished:** the Student-t half of the 1 s Kalman fit (stopped twice by low memory).
 1. **~~Rebuild Stage-1 CSVs at the correct rate~~ (done by the P0.0 rebuild).** Existing CSVs work once converted (×0.5
    speed, pinhole bearing), and every ranking metric is unaffected. A rebuild with the updated
    `tools/stream_sanpo_perception.py` gives clean units for the paper and is needed anyway for

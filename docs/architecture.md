@@ -138,9 +138,9 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Why | Head turns currently look like every object moving sideways. Velocity is differentiated depth and is noisy. The fused priority can down-weight uncertain tracks |
 | Cost | Under 1 ms per frame |
 | Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
-| Noise model | Fitted on official-train sessions by one-step predictive likelihood (`tools/fit_kalman_noise.py`, methodology §4.13, refitted on correct depth §4.16): Student-t update (ν = 4), depth σ = 0.058 + 0.053·d m, acceleration σ 2.93 m/s² (static classes 2.04), bearing σ 0.37°. `NoiseModel.declared()` keeps the 2026-10-14 hand-set values |
+| Noise model | Fitted on official-train sessions by 1 s-ahead predictive likelihood (`tools/fit_kalman_noise.py --objective ahead`, methodology §4.17), chosen on validation over the one-step fit and the declared values: Gaussian update, χ² gate 11.62, depth σ = 0.033 + 0.263·d m, acceleration σ 0.50 m/s² (static classes 2.14), bearing σ 0.28°. `NoiseModel.declared()` keeps the 2026-10-14 hand-set values |
 | Uncertainty out | `FusedTrack.rel_cov` (4×4 relative position/velocity covariance) feeds the Kalman arrival predictor (`kalman_arrival.py`: P(enter the corridor) over 128 samples) |
-| Status | Built, fitted and unit-tested. On correct depth the fit does **not** help: ladder AUROC −0.016 [−0.023, −0.004] vs. the declared filter, replay unchanged, 1 s forecast error higher (methodology §4.16). A multi-step fitting objective is the next try. Ego-motion removal stays an ablation (§9) |
+| Status | Built, fitted and unit-tested. The 1 s fit beats the declared filter on the ladder (AUROC +0.017 [+0.009, +0.026]) and ties the GRU; in the replay it cuts 5.5–13.6 false alerts/min at the cost of recall (methodology §4.17). Ego-motion removal stays an ablation (§9) |
 
 ### 6.3 Scene context: walkable-surface segmentation ⬜
 
@@ -313,6 +313,10 @@ Open:
    will measure". Decision (2026-10-17): SANPO's `depth_maps/` are used as is everywhere; the
    `zed_depth_maps/` split below is not used. (Was: optionally use SANPO's real-time `zed_depth_maps/` as the model input and the
    offline `depth_maps/` for labels.
+7. **Stage-1 units after the rebuild (found and fixed 2026-10-19).** The rebuilt CSVs store pinhole
+   bearings at the true rate, but the label, ladder, replay and Kalman tools converted them again as
+   legacy ±35° values (bearings 10–15% too central; replay speeds halved). Datasets now record
+   `source.units`, and conversion happens only for legacy data (methodology §4.17).
 
 ## 10. Limitations to state in the paper
 
@@ -320,11 +324,12 @@ Open:
   was used.
 - **Depth.** All results use SANPO's recorded depth as is (§4). The product's external LiDAR is not
   modelled; its range and noise relative to SANPO depth are unknown until the sensor is chosen.
-- **Lead time.** Even on SANPO depth, at the alert budgets at most 0.19 of arrivals are warned at
-  least 0.2 s ahead, and ≤ 0.07 at least 1 s ahead. The headline "warned" counts announcements on
-  the arrival frame itself (methodology §4.15–4.16).
-- **Alert budgets.** On correct depth the engines speak ~20 times a minute at the chosen points,
-  and the validation-chosen `budget_5` point gives 8.5 false alerts/min on test (methodology §4.16).
+- **Lead time.** Even with operating points and the announcer tuned for early warnings, at most
+  0.22 of arrivals are warned at least 0.2 s ahead and ≤ 0.07 (v2) at least 1 s ahead, though 71%
+  are seen ≥ 1 s ahead. The headline "warned" counts announcements on the arrival frame itself
+  (methodology §4.15, §4.17).
+- **Alert budgets.** The engines speak 15–21 times a minute at the chosen points, and points
+  chosen for ≤ 5 false alerts/min on validation give 6.0–7.4 on test (methodology §4.17).
 - **Declared choices.** λ and the behaviour multipliers are declared design choices.
 - **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
   the chest; SANPO's `camera_chest/` stream exists but is unused.

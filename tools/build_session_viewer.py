@@ -97,8 +97,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--session", default=None, help="SANPO session id (default: the test walk with most arrivals).")
     p.add_argument("--frames", type=int, default=150, help="Processed frames (5 per second); 150 = 30 s.")
-    p.add_argument("--threshold", type=float, default=0.8,
-                   help="Ignore threshold (0.8 = v2_gru's validation-chosen budget_5 point, corridor_depthfix).")
+    p.add_argument("--threshold", type=float, default=0.5,
+                   help="Ignore threshold (0.5 = v2_gru's validation-chosen early_budget_5 point, corridor_tuned).")
     p.add_argument("--no-pose", action="store_true", help="Track in the camera frame (no ego-motion removal).")
     p.add_argument("--out", type=Path, default=None, help="Default: data/viewer/<session>/ (git-ignored).")
     args = p.parse_args()

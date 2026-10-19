@@ -2,6 +2,44 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-19, units fix + lead tuning] - Bearings converted once; Kalman fit on 1 s; tuned on early warnings
+
+### Fixed
+- **Units after the rebuild.** The rebuilt CSVs store pinhole bearings at the true rate, but
+  `dataset/GRU/relabel.py`, `models/GRU/benchmark.py` (rule baselines and tabular position features),
+  `tools/replay_threat_engine.py`, `tools/fit_kalman_noise.py` and `tools/compare_kalman_noise.py`
+  converted them again as legacy ±35° bearings (10–15% too central) and the replay halved speeds.
+  `dataset/GRU/samples.py`: `PINHOLE_UNITS`, `legacy_units(manifest)`. `build.py` records
+  `source.units` from the stream sidecars. The eight rebuilt manifests are marked. Tests:
+  `tests/test_dataset_units.py` (3).
+- The six corridor labels relabelled; every corridor GRU run retrained (4 variants × 3 seeds).
+
+### Added
+- `tools/fit_kalman_noise.py --objective ahead`: 1 s-ahead predictive log-likelihood using the
+  filter's propagated covariance -> `kalman_noise_fit/fit_pose_ahead.json` (Gaussian half only;
+  the Student-t half was stopped twice by low memory).
+- `tools/replay_threat_engine.py`: `early_budget_{2,5,10}` rules (maximise `warned_before`);
+  `--announcer-sweep ARM ...` tunes cooldown / switch margin / stale drop with the threshold;
+  `knob_str`; a Kaplan-Meier table for `early_budget_5`. Test: `OperatingRuleTests`.
+
+### Changed
+- `src/threat_engine/fusion.py`: `NoiseModel` defaults are the 1 s-ahead fit (acceleration σ 0.50,
+  static 2.14, depth σ 0.033 + 0.263·d, bearing σ 0.28°, Gaussian, gate 11.62), chosen on validation
+  1 s log-likelihood (−3.08 vs −3.43 declared vs −3.57 one-step fit).
+- `tests/test_kalman_latency.py`: the Student-t test sets ν = 4 and compares against a Gaussian
+  update instead of a fixed distance.
+- `tools/build_session_viewer.py`: default threshold 0.5 (v2_gru's `early_budget_5` point).
+- Reports regenerated: the corridor ladder (+ `ref_cv_kalman_declared/`), `kalman_noise_fit/`.
+  New replay: `threat_engine_replay/corridor_tuned/` (`corridor_depthfix/` is superseded).
+- Docs: methodology §4.17 (new), the §4.16 note; architecture §6.2, §9 item 7, §10; pending_work.
+
+### Results (test, scored once; methodology §4.17)
+- Ladder: GRU 0.905. It ties attention, GBT and the fitted Kalman (0.893); the 1 s Kalman beats
+  the declared one by +0.017 [+0.009, +0.026] (Holm p 0.003).
+- Replay: v2_gru at `early_budget_5`: warned 0.37 [0.26, 0.57], ≥ 0.2 s ahead 0.19 [0.11, 0.36],
+  ≥ 1 s ahead 0.06, 7.0 false/min (chosen for ≤ 5 on val), precision 0.58. Announcer tuning adds
+  ≤ 0.03 `warned_before` on test; the predictors limit lead.
+
 ## [2026-10-18, depth rebuild] - Everything rebuilt on correct SANPO depth
 
 ### Changed
