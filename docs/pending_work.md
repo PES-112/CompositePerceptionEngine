@@ -50,7 +50,8 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 0. **Re-run Stage 1 with head-camera fx and the fixed size check (blocks every number; 2026-10-19).**
    The 2026-10-18 rebuild used the chest camera's fx and a mis-scaled depth lookup (architecture §9
-   items 8–9). Run `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`, fresh Drive folders); it
+   items 8–9). Run `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`, fresh Drive folders) or, off
+   Colab, `tools/rebuild_local.py` (same steps); it
    redoes datasets, GRUs, the Kalman fit, ladder and replay. Then update methodology §4.17 and re-pick
    the viewer threshold. History of the first rebuild:
    **~~Rebuild everything on correctly decoded depth~~ (done 2026-10-18, methodology §4.16).** The

@@ -2,6 +2,15 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-19, local rebuild] - Run the Stage-1 rerun off Colab
+
+### Added
+- `tools/rebuild_local.py`: `notebooks/colab_rebuild.ipynb` as one resumable script (Windows or Linux,
+  CUDA GPU; `--allow-cpu` otherwise). Same commands and outputs; Stage-1 CSVs already in
+  `data/processed/sanpo_real_462/` are reused, finished Part-B steps leave markers in
+  `data/rebuild_local/.done/`, and the results are zipped as `cpe_rebuild_<run-tag>_results.zip`.
+  Written because Colab's free GPU quota ran out after 360 of 462 walks.
+
 ## [2026-10-19, head camera] - Merge the intrinsics fix; fix the size check's depth lookup; Stage 1 to be re-run
 
 ### Merged
