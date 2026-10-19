@@ -964,7 +964,45 @@ merged.
   warned +0.05 [0.00, +0.07], false alerts/min +0.50 [0.00, +1.35]. Under ×1.25 the false-alert
   change was 0.00. Both are within noise at 20 arrivals.
 
-**Edge-ahead alerts, oracle (2026-10-17).** `tools/evaluate_edge_alerts.py` runs every 6th source
+**Edge-ahead alerts, oracle, on correct depth (2026-10-19).** This supersedes the 2026-10-17
+paragraph below, which used scrambled depth. Same rule, sessions and step-off reference.
+
+| Step-off definition | step-offs | alerts / min | warned | median lead (s) | alerts followed |
+|---|---:|---|---|---|---|
+| declared | 45 | 0.68 [0.40, 1.01] | 0.18 [0.06, 0.33] | 0.8 [0.4, 1.6] | 0.33 [0.13, 0.54] |
+| sustained ≥ 2 frames | 26 | 0.68 [0.40, 1.01] | 0.19 [0.04, 0.40] | 0.8 [0.4, 2.8] | 0.22 [0.06, 0.41] |
+
+Sources: `edge_alerts/gt_depthfix_2026_10_19/`, `gt_depthfix_sustained_2026_10_19/`.
+- **By kind.** Stairs: all 3 step-offs warned. Road: 12% of 42 warned. Curb: 8 alerts, no curb
+  step-offs (the bottom-centre patch never registers curb).
+- **Misses.**
+  - 18 of 37: the edge was first seen 5.6–9.5 m ahead and never confirmed inside 5 m. The nearest
+    ground a head-mounted camera sees is about 2.6 m ahead, so an edge spends only about 1.5 s
+    between 5 m and the bottom of the image.
+  - 10: seen inside 5 m but not confirmed, or the episode had already alerted.
+  - 7: no edge in the centre band.
+  - 2: only non-walkable edges.
+- **Train-only sweep** (`--sweep`, `edge_alerts/gt_depthfix_trainsweep_2026_10_19/`). Declared
+  before the run:
+  - grid: range {5, 7, 10} m × confirm {1, 2} frames;
+  - choose the most warned on the 43 official-train sessions (38 step-offs) at ≤ 1 alert/min.
+
+  Only the current rule meets the budget, so it stays: 5 m, 2 frames.
+
+  | Range, confirm | alerts / min | warned |
+  |---|---:|---:|
+  | 5 m, 2 (kept) | 0.70 | 0.18 |
+  | 7 m, 2 | 1.07 | 0.34 |
+  | 5 m, 1 | 1.30 | 0.37 |
+  | 10 m, 2 | 1.85 | 0.50 |
+  | 7 m, 1 | 2.18 | 0.58 |
+  | 10 m, 1 | 3.20 | 0.76 |
+
+  Warning more step-offs costs alerts, about one extra alert per minute for each +0.2 warned. The
+  right budget is a user question, for the listening study. The 10 test sessions hold only 7
+  step-offs (1 warned), too few to compare settings.
+
+**Edge-ahead alerts, oracle (2026-10-17), superseded.** `tools/evaluate_edge_alerts.py` runs every 6th source
 frame (2.5 Hz) of the 53 sessions with head-camera masks: 26.6 min, about 30 s per session. The
 class maps are SANPO's own masks, so this scores the rule and the edge geometry, not a model.
 

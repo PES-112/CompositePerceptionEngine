@@ -82,9 +82,15 @@ def stays_off(rows: list[list], i: int, n: int) -> bool:
     return len(seen) == n and not any(w in WALKABLE_CLASSES for w in seen)
 
 
-def score_session(rows: list[list], stay: int = 1, ref_rows: list[list] | None = None) -> dict:
+SWEEP_ALERT_M = (5.0, 7.0, 10.0)
+SWEEP_CONFIRM = (1, 2)
+SWEEP_MAX_ALERTS_PER_MIN = 1.0
+
+
+def score_session(rows: list[list], stay: int = 1, ref_rows: list[list] | None = None,
+                  alert_m: float = ALERT_M, confirm_frames: int = CONFIRM_FRAMES) -> dict:
     """Alerts from rows; step-offs from ref_rows (e.g. the gt track) if given, else from rows."""
-    alerter = EdgeAlerter()
+    alerter = EdgeAlerter(alert_m=alert_m, confirm_frames=confirm_frames)
     alerts, step_offs = [], []
     for f, _, kind, dist in rows:
         a = alerter.step(f / SOURCE_FPS, None if kind is None else EdgeAhead(kind, dist))
@@ -123,6 +129,12 @@ def main() -> None:
     p.add_argument("--step-off-stay", type=int, default=1,
                    help="Frames the walker must stay off walkable ground for a step-off (1 = declared).")
     p.add_argument("--name", default=None)
+    p.add_argument("--alert-m", type=float, default=ALERT_M)
+    p.add_argument("--confirm-frames", type=int, default=CONFIRM_FRAMES)
+    p.add_argument("--sweep", action="store_true",
+                   help=f"Choose --alert-m x --confirm-frames on official-train sessions only: most step-offs "
+                        f"warned with <= {SWEEP_MAX_ALERTS_PER_MIN:g} alerts/min (ties: fewer alerts); "
+                        "then score every session with the choice.")
     p.add_argument("--reference", choices=["source", "gt"], default="source",
                    help="Where step-offs come from: the same class maps as the alerts (source), or SANPO's "
                         "masks (gt), so a model's alerts are scored against annotated, not predicted, step-offs.")
@@ -154,8 +166,28 @@ def main() -> None:
     source = "gt" if args.source == "gt" else Path(args.source).parents[1].name
     tracks = load_tracks(args.source)
     refs = load_tracks("gt") if args.reference == "gt" and args.source != "gt" else tracks
-    scored = {sid: score_session(rows, args.step_off_stay, None if refs is tracks else refs[sid])
-              for sid, rows in tracks.items() if len(rows) > 1 and len(refs[sid]) > 1}
+    usable = [sid for sid, rows in tracks.items() if len(rows) > 1 and len(refs[sid]) > 1]
+
+    def score_all(alert_m: float, confirm: int) -> dict[str, dict]:
+        return {sid: score_session(tracks[sid], args.step_off_stay, None if refs is tracks else refs[sid],
+                                   alert_m, confirm) for sid in usable}
+
+    sweep = []
+    if args.sweep:
+        train = [s for s in usable if audit[s]["split"] == "train"]
+        for alert_m in SWEEP_ALERT_M:
+            for confirm in SWEEP_CONFIRM:
+                sc = score_all(alert_m, confirm)
+                minutes = sum(sc[s]["minutes"] for s in train)
+                leads = [l for s in train for l in sc[s]["leads"]]
+                sweep.append({"alert_m": alert_m, "confirm_frames": confirm,
+                              "alerts_per_min": sum(len(sc[s]["alerts"]) for s in train) / minutes,
+                              "warned": sum(l is not None for l in leads) / len(leads), "step_offs": len(leads)})
+        ok = [r for r in sweep if r["alerts_per_min"] <= SWEEP_MAX_ALERTS_PER_MIN]
+        best = max(ok, key=lambda r: (r["warned"], -r["alerts_per_min"]))
+        args.alert_m, args.confirm_frames = best["alert_m"], best["confirm_frames"]
+        print("train sweep:", *sweep, f"chosen: {best}", sep="\n  ", flush=True)
+    scored = score_all(args.alert_m, args.confirm_frames)
     sessions = sorted(scored)
     rng = np.random.default_rng(0)
     draws = [rng.choice(sessions, len(sessions)) for _ in range(N_BOOT)]
@@ -179,8 +211,9 @@ def main() -> None:
     overall = stats(sessions)
     reference = "gt" if args.source == "gt" or args.reference == "gt" else "source"
     result = {"source": args.source, "step_off_reference": reference, "sessions": len(sessions), "frame_step": FRAME_STEP,
-              "rule": {"kinds": [CPE_CLASSES[k] for k in ALERT_KINDS], "alert_m": ALERT_M,
-                       "confirm_frames": CONFIRM_FRAMES, "clear_s": CLEAR_S},
+              "rule": {"kinds": [CPE_CLASSES[k] for k in ALERT_KINDS], "alert_m": args.alert_m,
+                       "confirm_frames": args.confirm_frames, "clear_s": CLEAR_S},
+              "train_sweep": sweep,
               "lookback_s": LOOKBACK_S, "step_off_hold": STEP_OFF_HOLD, "step_off_stay": args.step_off_stay,
               "overall": overall,
               "ci": {k: ci(k) for k in ("alerts_per_min", "warned", "followed", "median_lead_s")},
@@ -209,8 +242,8 @@ def main() -> None:
     c = result["ci"]
     lines = [f"# Edge-ahead alerts - {name}", "",
              f"{len(sessions)} sessions with head-camera masks, {overall['minutes']:.1f} min at 2.5 Hz; class maps from "
-             f"`{args.source}`. Rule: announce {result['rule']['kinds']} within {ALERT_M:g} m, seen in "
-             f"{CONFIRM_FRAMES} consecutive frames, one alert per edge episode ({CLEAR_S:g} s clear). Step-off: the "
+             f"`{args.source}`. Rule: announce {result['rule']['kinds']} within {args.alert_m:g} m, seen in "
+             f"{args.confirm_frames} consecutive frames, one alert per edge episode ({CLEAR_S:g} s clear). Step-off: the "
              f"ground just ahead turns from walkable to an announced kind after {STEP_OFF_HOLD} walkable frames "
              f"and stays off walkable ground for {args.step_off_stay} frame(s), on "
              f"{'SANPO masks' if reference == 'gt' else 'the same class maps as the alerts (self-referenced)'}. "
