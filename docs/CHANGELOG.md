@@ -2,6 +2,19 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-19, edge alerts on correct depth] - Oracle re-run and a train-only rule sweep
+
+### Results (`edge_alerts/gt_depthfix_*`; methodology §4.18)
+- 0.68 alerts/min; 18% [6, 33] of step-offs warned (was 29% on scrambled depth); median lead
+  0.8 s. All 3 stairs step-offs warned; 12% of road step-offs warned.
+- The main miss: an edge first seen 6–10 m ahead and never confirmed inside 5 m.
+- Train-only sweep of range × confirmation, at ≤ 1 alert/min declared beforehand: the 5 m /
+  2-frame rule stays. The curve runs from 0.18 warned at 0.7/min to 0.76 at 3.2/min.
+
+### Added
+- `tools/evaluate_edge_alerts.py`: `--alert-m`, `--confirm-frames`, `--sweep` (chosen on
+  official-train sessions only).
+
 ## [2026-10-19, integration] - Segmentation branches merged with the depth fix; 4-day plan
 
 Branch `v2-segmentation` (PR #7).
