@@ -310,6 +310,18 @@ def load_split(path: Path) -> list[dict]:
     return samples
 
 
+# Stage-1 CSV units. Before 2026-10-14 the CSVs mapped the image linearly onto ±35° and assumed 30 FPS
+# (speeds 2x too high); `tools/stream_sanpo_perception.py` now writes pinhole bearings from the session's fx
+# and speeds at the true rate. build.py records which in manifest["source"]["units"]; a manifest without it
+# predates the marker and is legacy.
+PINHOLE_UNITS = "pinhole_bearing_true_fps"
+
+
+def legacy_units(manifest: dict) -> bool:
+    """True if the dataset's stored bearings/speeds are the pre-2026-10-14 legacy units."""
+    return manifest.get("source", {}).get("units") != PINHOLE_UNITS
+
+
 def load_dataset(dataset_dir: Path, splits: tuple[str, ...] = SPLITS,
                  fold: int | None = None) -> tuple[dict, dict[str, list[dict]]]:
     """

@@ -12,7 +12,11 @@ Methods
     cv_last2              constant-velocity model from the last two observed steps
                           (Schöller et al., RA-L 2020), extrapolated into the zone
     cv_kalman             constant-velocity Kalman filter over the whole history
-                          (src/threat_engine/fusion.GroundTracker), extrapolated
+                          (src/threat_engine/fusion.GroundTracker, train-fitted noise),
+                          scored by P(enter the zone) over the filter's own uncertainty
+                          (src/threat_engine/kalman_arrival.py), ties by expected time
+    cv_kalman_declared    the same filter with its 2026-10-14 hand-set noise, mean
+                          state extrapolated (the point rule; before/after reference)
   learned without sequence modelling (fitted on the official train sessions)
     logreg_now            logistic regression on the current step's features + class
     gbt_now               gradient-boosted trees, same inputs
@@ -50,12 +54,13 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from dataset.GRU.samples import CLASS_VOCAB, FEATURES, load_dataset, truncate_history
+from dataset.GRU.samples import CLASS_VOCAB, FEATURES, legacy_units, load_dataset, truncate_history
 from src.threat_engine.envelope import CLASS_HALF_WIDTH_M, DEFAULT_HALF_WIDTH_M
 from models.GRU.evaluate import auroc, average_precision, baseline_scores, model_scores, per_frame, predict
 from models.GRU.registry import build_model
 from models.GRU.summarize import run_dirs
-from src.threat_engine.fusion import GroundTracker, Measurement
+from src.threat_engine.fusion import GroundTracker, Measurement, NoiseModel
+from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 AUDIT = PROJECT_ROOT / "simulation/datasets/sanpo/session_audit.json"
@@ -89,14 +94,16 @@ class Zone:
         return np.abs(np.arctan2(x, z)) < self.theta
 
 
-def positions(s: dict, fx: float, width: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def positions(s: dict, fx: float, width: float, legacy: bool = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(present [n, h], x [n, h], z [n, h]) in metres, camera frame, pinhole bearings."""
     present = s["x"][:, :, F["present"]] > 0.5
     d = s["x"][:, :, F["distance"]] * 10.0
-    # The feature is legacy_bearing / 35°, and the legacy bearing mapped the image linearly onto ±35°,
-    # so feature × half the image width is the pixel offset from the centre.
-    dx = s["x"][:, :, F["bearing"]] * (width / 2)
-    theta = np.arctan2(dx, fx)
+    if legacy:
+        # The feature is legacy_bearing / 35°, and the legacy bearing mapped the image linearly onto ±35°,
+        # so feature × half the image width is the pixel offset from the centre.
+        theta = np.arctan2(s["x"][:, :, F["bearing"]] * (width / 2), fx)
+    else:
+        theta = np.radians(s["x"][:, :, F["bearing"]] * 35.0)   # already the pinhole angle / 35°
     return present, d * np.tan(theta), d
 
 
@@ -108,13 +115,15 @@ def extrapolate(p: np.ndarray, v: np.ndarray, zone: Zone, half: float) -> float:
     return -float(hit[0]) if len(hit) else -(zone.horizon + 1 + float(np.hypot(*p)))
 
 
-def rule_scores(s: dict, fx: float, width: float, zone: Zone) -> dict[str, np.ndarray]:
-    present, X, Z = positions(s, fx, width)
+def rule_scores(s: dict, fx: float, width: float, zone: Zone, legacy: bool = True) -> dict[str, np.ndarray]:
+    present, X, Z = positions(s, fx, width, legacy)
     halves = [CLASS_HALF_WIDTH_M.get(c, DEFAULT_HALF_WIDTH_M) for c in s["classes"]]
     x, z = X[:, -1], Z[:, -1]
     corridor = np.array([zone.lateral_ok(x[i:i + 1], z[i:i + 1], h)[0] for i, h in enumerate(halves)])
     out = {"nearest_in_corridor": -s["distance"] - np.where(corridor, 0.0, 1e3)}
-    last2, kalman = [], []
+    last2, kalman, declared = [], [], []
+    entry = KalmanArrivalPredictor(hazard_m=zone.depth, horizon_s=zone.horizon * STEP_S, width_m=zone.width,
+                                   step_s=STEP_S) if zone.kind == "corridor" else None
     for i, h in enumerate(halves):
         steps = np.nonzero(present[i])[0]
         p = np.array([x[i], z[i]])
@@ -124,30 +133,39 @@ def rule_scores(s: dict, fx: float, width: float, zone: Zone) -> dict[str, np.nd
         else:
             v = np.zeros(2)
         last2.append(extrapolate(p, v, zone, h))
-        tracker = GroundTracker()
-        track = None
-        for k in steps:
-            bearing = math.degrees(math.atan2(X[i, k], Z[i, k]))
-            track = tracker.step(k * STEP_S, [Measurement("o", s["classes"][i], float(Z[i, k]), bearing)])
-        if track:
-            t0 = track[0]
-            pk = np.array([t0.lateral_m, t0.forward_m])
-            vk = np.array(t0.rel_velocity) * STEP_S
-            kalman.append(extrapolate(pk, vk, zone, h))
-        else:
-            kalman.append(extrapolate(p, np.zeros(2), zone, h))
+        for noise, out_list in ((NoiseModel(), kalman), (NoiseModel.declared(), declared)):
+            t0 = kalman_track(X[i], Z[i], steps, s["classes"][i], noise)
+            if t0 is None:
+                out_list.append(extrapolate(p, np.zeros(2), zone, h))
+            elif out_list is kalman and entry is not None:
+                prob, expected_s = entry.entry(t0)
+                out_list.append(prob - 1e-3 * expected_s)   # in [-0.006, 1]: P(enter), ties by sooner
+            else:
+                out_list.append(extrapolate(np.array([t0.lateral_m, t0.forward_m]),
+                                            np.array(t0.rel_velocity) * STEP_S, zone, h))
     out["cv_last2"] = np.array(last2)
     out["cv_kalman"] = np.array(kalman)
+    out["cv_kalman_declared"] = np.array(declared)
     return out
+
+
+def kalman_track(X: np.ndarray, Z: np.ndarray, steps: np.ndarray, class_name: str, noise: NoiseModel):
+    """The fused track after filtering one object's observed history (camera frame), or None."""
+    tracker = GroundTracker(noise=noise)
+    track = None
+    for k in steps:
+        bearing = math.degrees(math.atan2(X[k], Z[k]))
+        track = tracker.step(k * STEP_S, [Measurement("o", class_name, float(Z[k]), bearing)])
+    return track[0] if track else None
 
 
 # ── Learned non-sequence baselines ───────────────────────────────────────────
 
-def tabular(samples: list[dict], audit: dict, history: bool) -> np.ndarray:
+def tabular(samples: list[dict], audit: dict, history: bool, legacy: bool = True) -> np.ndarray:
     rows = []
     for s in samples:
         a = audit[s["session"]]
-        present, X, Z = positions(s, a["fx"], a["image_width"])
+        present, X, Z = positions(s, a["fx"], a["image_width"], legacy)
         feats = s["x"].reshape(len(s["y"]), -1) if history else s["x"][:, -1, :]
         onehot = np.zeros((len(s["y"]), len(CLASS_VOCAB) + 1))
         onehot[np.arange(len(s["y"])), np.minimum(s["cls"], len(CLASS_VOCAB))] = 1
@@ -155,7 +173,8 @@ def tabular(samples: list[dict], audit: dict, history: bool) -> np.ndarray:
     return np.vstack(rows)
 
 
-def fit_tabular(train: list[dict], test: list[dict], audit: dict, seed: int = 0) -> dict[str, Scores]:
+def fit_tabular(train: list[dict], test: list[dict], audit: dict, seed: int = 0,
+                legacy: bool = True) -> dict[str, Scores]:
     from sklearn.ensemble import HistGradientBoostingClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
@@ -170,8 +189,8 @@ def fit_tabular(train: list[dict], test: list[dict], audit: dict, seed: int = 0)
         ("gbt_now", False, HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=seed)),
         ("gbt_history", True, HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, random_state=seed)),
     ):
-        model.fit(tabular(train, audit, history), y)
-        out[name] = split(model.predict_proba(tabular(test, audit, history))[:, 1])
+        model.fit(tabular(train, audit, history, legacy), y)
+        out[name] = split(model.predict_proba(tabular(test, audit, history, legacy))[:, 1])
     return out
 
 
@@ -278,10 +297,12 @@ def main() -> None:
         name, rest = spec.split("=", 1)
         run_name, arch = rest.rsplit(":", 1)
         methods[name] = gru_scores(run_name, arch, manifest, test)
-    for name, scores in fit_tabular(train, test, audit).items():
+    for name, scores in fit_tabular(train, test, audit, legacy=legacy_units(manifest)).items():
         methods[name] = [(scores, scores)]
     base = [baseline_scores(s) for s in test]
-    rules = [rule_scores(s, audit[s["session"]]["fx"], audit[s["session"]]["image_width"], zone) for s in test]
+    legacy = legacy_units(manifest)
+    rules = [rule_scores(s, audit[s["session"]]["fx"], audit[s["session"]]["image_width"], zone, legacy)
+             for s in test]
     for name in list(base[0]) + list(rules[0]):
         sc = [b[name] for b in base] if name in base[0] else [r[name] for r in rules]
         methods[name] = [(sc, sc)]

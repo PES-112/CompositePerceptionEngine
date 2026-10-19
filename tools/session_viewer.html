@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPE session viewer</title>
+<style>
+  :root { --bg:#14161a; --panel:#1d2026; --line:#2c3038; --text:#e6e8eb; --muted:#9aa1ab;
+          --true:#3ccf7a; --late:#f0b429; --false:#ef5350; --override:#ff1744; --ranked:#ffd54f; --other:#7a8494; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; }
+  header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:6px 20px; align-items:baseline; }
+  header h1 { font-size:16px; margin:0; }
+  header .meta { color:var(--muted); font-size:12px; }
+  main { display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:12px; padding:12px 16px; }
+  @media (max-width: 1100px) { main { grid-template-columns:1fr; } }
+  .stage { position:relative; }
+  canvas#view { width:100%; height:auto; display:block; background:#000; border-radius:6px; }
+  #caption { margin-top:8px; min-height:30px; font-size:18px; font-weight:600; padding:4px 10px; border-radius:6px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; }
+  button, select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:5px; padding:5px 10px; cursor:pointer; }
+  input[type=range] { flex:1; min-width:200px; }
+  canvas#timeline { width:100%; height:70px; display:block; margin-top:8px; background:var(--panel); border-radius:6px; cursor:pointer; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); margin-top:6px; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-2px; margin-right:4px; }
+  aside { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 10px; }
+  section h2 { font-size:13px; margin:0 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { padding:3px 4px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  .list { max-height:220px; overflow:auto; font-size:12px; }
+  .item { padding:3px 4px; border-radius:4px; cursor:pointer; display:flex; gap:6px; }
+  .item:hover { background:#262a31; }
+  .item.cur { outline:1px solid var(--ranked); }
+  .tag { font-size:11px; padding:0 5px; border-radius:3px; color:#111; font-weight:600; }
+  .stats { display:grid; grid-template-columns:repeat(2, 1fr); gap:4px 12px; font-size:12px; }
+  .stats b { font-size:15px; }
+  .muted { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>CPE session viewer</h1>
+  <span class="meta" id="meta"></span>
+</header>
+<main>
+  <div>
+    <div class="stage"><canvas id="view"></canvas></div>
+    <div id="caption"></div>
+    <div class="controls">
+      <button id="play">▶ Play</button>
+      <button id="prev">◀</button><button id="next">▶</button>
+      <input type="range" id="seek" min="0" value="0">
+      <span id="clock" class="muted"></span>
+      <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1× (real time)</option><option value="2">2×</option></select>
+      <label><input type="checkbox" id="showAll" checked> all boxes</label>
+      <label><input type="checkbox" id="showTruth" checked> ground truth</label>
+    </div>
+    <canvas id="timeline"></canvas>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--override)"></span>safety override</span>
+      <span><span class="sw" style="background:var(--ranked)"></span>above threshold (ranked)</span>
+      <span><span class="sw" style="background:var(--other)"></span>tracked, not a threat</span>
+      <span><span class="sw" style="border:2px dashed var(--true)"></span>will enter path ≤ 4 s (truth)</span>
+      <span><span class="sw" style="background:var(--true)"></span>in path now (truth)</span>
+      <span>timeline: ticks = alerts (green true · amber late · red false), ◆ = arrivals (green warned early · amber warned at arrival · red missed)</span>
+    </div>
+  </div>
+  <aside>
+    <section><h2>Summary</h2><div class="stats" id="stats"></div></section>
+    <section><h2>Objects this frame</h2>
+      <table><thead><tr><th>object</th><th>dist m</th><th>closing m/s</th><th>P(arrive)</th><th>priority</th><th>truth</th></tr></thead>
+      <tbody id="objs"></tbody></table></section>
+    <section><h2>Alerts</h2><div class="list" id="alerts"></div></section>
+    <section><h2>Arrivals (truth)</h2><div class="list" id="arrivals"></div></section>
+  </aside>
+</main>
+<script src="data.js"></script>
+<script>
+const D = window.DATA, N = D.frames.length, S = D.step_s;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = { true: css('--true'), late: css('--late'), false: css('--false'), override: css('--override'),
+            ranked: css('--ranked'), other: css('--other') };
+const view = document.getElementById('view'), ctx = view.getContext('2d');
+view.width = D.image_w; view.height = D.image_h;
+const tl = document.getElementById('timeline'), tctx = tl.getContext('2d');
+const seek = document.getElementById('seek'); seek.max = N - 1;
+let k = 0, playing = false, timer = null;
+const imgs = [];
+for (let i = 0; i < N; i++) { const im = new Image(); im.src = `frames/${String(i).padStart(4, '0')}.jpg`; imgs.push(im); }
+imgs[0].onload = () => draw();
+
+document.getElementById('meta').textContent =
+  `session ${D.session} · ${N} frames (${(N * S).toFixed(0)} s at 5 Hz) · threshold ${D.threshold} · ` +
+  `${D.pose ? 'camera poses on' : 'camera frame (no poses)'} · SANPO depth as recorded`;
+
+const annByFrame = {}; D.announcements.forEach(a => annByFrame[a.frame] = a);
+function arrivalStatus(a) {
+  if (a.warned_at === null) return 'false';
+  return a.warned_at < a.frame ? 'true' : 'late';
+}
+
+function stats() {
+  const A = D.arrivals, n = A.length;
+  const early = A.filter(a => a.warned_at !== null && a.warned_at < a.frame).length;
+  const atArr = A.filter(a => a.warned_at === a.frame).length;
+  const t = D.announcements.reduce((m, a) => (m[a.truth]++, m), { true: 0, late: 0, false: 0 });
+  const mins = N * S / 60;
+  document.getElementById('stats').innerHTML = [
+    ['alerts', `${D.announcements.length} (${(D.announcements.length / mins).toFixed(1)}/min)`],
+    ['false alerts', `${t.false} (${(t.false / mins).toFixed(1)}/min)`],
+    ['arrivals', n], ['warned ≥ 0.2 s early', n ? `${early} / ${n}` : '—'],
+    ['warned only at arrival', n ? `${atArr} / ${n}` : '—'], ['missed', n ? `${n - early - atArr} / ${n}` : '—'],
+  ].map(([a, b]) => `<div class="muted">${a}</div><div><b>${b}</b></div>`).join('');
+  document.getElementById('alerts').innerHTML = D.announcements.map(a =>
+    `<div class="item" data-f="${a.frame}"><span class="muted">${(a.frame * S).toFixed(1)} s</span>` +
+    `<span class="tag" style="background:${a.kind === 'override' ? C.override : C[a.truth]}">${a.kind === 'override' ? 'STOP' : a.truth}</span>` +
+    `<span>${a.text}</span></div>`).join('') || '<div class="muted">no alerts</div>';
+  document.getElementById('arrivals').innerHTML = D.arrivals.map(a => {
+    const st = arrivalStatus(a);
+    const lead = a.warned_at === null ? 'missed' : `warned ${((a.frame - a.warned_at) * S).toFixed(1)} s before`;
+    return `<div class="item" data-f="${a.frame}"><span class="muted">${(a.frame * S).toFixed(1)} s</span>` +
+      `<span class="tag" style="background:${C[st]}">${a.class} #${a.track}</span><span>${lead}` +
+      ` <span class="muted">(visible ${((a.frame - a.seen) * S).toFixed(1)} s before)</span></span></div>`;
+  }).join('') || '<div class="muted">no arrivals in this clip</div>';
+  document.querySelectorAll('.item').forEach(el => el.onclick = () => go(+el.dataset.f));
+}
+
+function draw() {
+  const f = D.frames[k], showAll = document.getElementById('showAll').checked,
+        showTruth = document.getElementById('showTruth').checked;
+  if (imgs[k].complete) ctx.drawImage(imgs[k], 0, 0, view.width, view.height);
+  ctx.lineWidth = 2; ctx.font = '600 13px system-ui';
+  for (const b of f.boxes) {
+    const said = f.said === b.id;
+    const color = b.override ? C.override : b.prio !== null ? C.ranked : C.other;
+    if (!showAll && b.prio === null && !b.override && !said) continue;
+    const [x1, y1, x2, y2] = b.box;
+    if (showTruth && b.tte !== null && b.tte !== undefined) {
+      ctx.save(); ctx.strokeStyle = C.true; ctx.lineWidth = 4;
+      if (b.tte > 0) ctx.setLineDash([8, 6]); else { ctx.fillStyle = 'rgba(60,207,122,0.18)'; ctx.fillRect(x1, y1, x2 - x1, y2 - y1); }
+      ctx.strokeRect(x1 - 4, y1 - 4, x2 - x1 + 8, y2 - y1 + 8); ctx.restore();
+    }
+    ctx.strokeStyle = color; ctx.lineWidth = said || b.override ? 4 : 2; ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+    const label = `${said ? '🔊 ' : ''}${b.cls} #${b.id}  ${b.d !== null ? b.d.toFixed(1) + ' m' : ''}` +
+                  (b.p !== null ? `  P ${b.p.toFixed(2)}` : '');
+    const w = ctx.measureText(label).width + 8, ly = Math.max(0, y1 - 18);
+    ctx.fillStyle = color; ctx.fillRect(x1, ly, w, 18);
+    ctx.fillStyle = '#111'; ctx.fillText(label, x1 + 4, ly + 13);
+  }
+  // caption: the most recent alert, kept on screen ~1.5 s
+  let cap = null;
+  for (let j = k; j >= Math.max(0, k - 7); j--) if (annByFrame[j]) { cap = annByFrame[j]; break; }
+  const capEl = document.getElementById('caption');
+  if (cap) { capEl.textContent = `🔊 "${cap.text}"  (${cap.kind === 'override' ? 'safety override' : cap.truth})`;
+             capEl.style.background = cap.kind === 'override' ? C.override : C[cap.truth]; capEl.style.color = '#111'; }
+  else { capEl.textContent = ''; capEl.style.background = 'transparent'; }
+  document.getElementById('objs').innerHTML = [...f.boxes].sort((a, b) => (b.prio ?? -1) - (a.prio ?? -1)).map(b =>
+    `<tr${f.said === b.id ? ' style="color:var(--ranked)"' : ''}><td>${b.override ? '⛔ ' : ''}${b.cls} #${b.id}</td>` +
+    `<td>${b.d ?? '—'}</td><td>${b.closing ?? '—'}</td><td>${b.p ?? '—'}</td><td>${b.prio ?? '—'}</td>` +
+    `<td>${b.tte === null || b.tte === undefined ? '—' : b.tte === 0 ? 'in path' : 'in ' + (b.tte * S).toFixed(1) + ' s'}</td></tr>`).join('');
+  seek.value = k;
+  document.getElementById('clock').textContent = `${(k * S).toFixed(1)} s / ${((N - 1) * S).toFixed(1)} s · frame ${k}`;
+  document.querySelectorAll('.item').forEach(el => el.classList.toggle('cur', +el.dataset.f === k));
+  drawTimeline();
+}
+
+function drawTimeline() {
+  const W = tl.width = tl.clientWidth * devicePixelRatio, H = tl.height = 70 * devicePixelRatio;
+  const x = f => (f + 0.5) / N * W, s = devicePixelRatio;
+  tctx.clearRect(0, 0, W, H);
+  tctx.fillStyle = '#2c3038'; tctx.fillRect(0, H / 2 - s, W, 2 * s);
+  for (const a of D.announcements) {
+    tctx.fillStyle = a.kind === 'override' ? C.override : C[a.truth];
+    tctx.fillRect(x(a.frame) - 1.5 * s, a.kind === 'override' ? 4 * s : 12 * s, 3 * s, a.kind === 'override' ? 30 * s : 22 * s);
+  }
+  for (const a of D.arrivals) {
+    const cx = x(a.frame), cy = H - 18 * s, r = 7 * s;
+    tctx.fillStyle = C[arrivalStatus(a)];
+    tctx.beginPath(); tctx.moveTo(cx, cy - r); tctx.lineTo(cx + r, cy); tctx.lineTo(cx, cy + r); tctx.lineTo(cx - r, cy); tctx.fill();
+  }
+  tctx.fillStyle = '#fff'; tctx.fillRect(x(k) - s, 0, 2 * s, H);
+}
+
+function go(f) { k = Math.max(0, Math.min(N - 1, f)); draw(); }
+function tick() { if (k >= N - 1) return toggle(false); go(k + 1); }
+function toggle(on = !playing) {
+  playing = on; clearInterval(timer);
+  document.getElementById('play').textContent = playing ? '❚❚ Pause' : '▶ Play';
+  if (playing) timer = setInterval(tick, 1000 * S / +document.getElementById('speed').value);
+}
+document.getElementById('play').onclick = () => toggle();
+document.getElementById('prev').onclick = () => { toggle(false); go(k - 1); };
+document.getElementById('next').onclick = () => { toggle(false); go(k + 1); };
+document.getElementById('speed').onchange = () => playing && toggle(true);
+seek.oninput = () => go(+seek.value);
+document.getElementById('showAll').onchange = draw;
+document.getElementById('showTruth').onchange = draw;
+tl.onclick = e => go(Math.floor(e.offsetX / tl.clientWidth * N));
+addEventListener('keydown', e => {
+  if (e.key === ' ') { e.preventDefault(); toggle(); }
+  if (e.key === 'ArrowRight') go(k + 1);
+  if (e.key === 'ArrowLeft') go(k - 1);
+});
+addEventListener('resize', drawTimeline);
+stats(); draw();
+</script>
+</body>
+</html>

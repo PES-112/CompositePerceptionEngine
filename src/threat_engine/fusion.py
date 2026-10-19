@@ -39,18 +39,59 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-# ── Tuning (declared, not fitted; see docs/methodology.md §A) ────────────────
-ACCEL_STD = 1.5          # m/s², white-noise acceleration: pedestrians and cyclists change pace
-DEPTH_STD_BASE = 0.05    # m, depth noise at 0 m
-DEPTH_STD_QUAD = 0.01    # m per m², stereo depth noise grows ~ distance²
-BEARING_STD_DEG = 1.0    # box-centre jitter
-INIT_SPEED_STD = 3.0     # m/s, velocity is unknown on the first sighting
-GATE_NIS = 11.62         # chi² 2-dof, 99.7%: a depth jump past this is an outlier, not motion
+# ── Noise model ─────────────────────────────────────────────────────────────
+# The declared values the filter shipped with (2026-10-14) are kept as
+# NoiseModel.declared() for the before/after comparison. The defaults below are
+# fitted on SANPO's official *train* sessions (tools/fit_kalman_noise.py,
+# docs/methodology.md §4.13): box-median depth is far noisier and heavier-tailed
+# than stereo depth noise (robust σ ≈ 0.7 m even under 3 m, frame-to-frame jumps
+# of 30-50 % when the box median falls on background), so the filter uses a
+# linear-in-depth σ and a Student-t update that down-weights a jump instead of
+# rejecting it.
 MAX_GATED = 3            # this many outliers in a row = the track really moved (re-ID); restart it
 MAX_MISSES = 5           # frames without a measurement before a track is dropped
 MIN_HITS = 3             # updates before a track counts as confirmed
 EGO_SMOOTHING = 0.5      # EMA weight of the newest walker-velocity sample
 MIN_WALK_SPEED = 0.3     # m/s; below this the walking direction falls back to the camera heading
+
+STATIC_CLASSES = frozenset({"traffic light", "stop sign", "fire hydrant", "pole", "bollard", "stairs",
+                            "crosswalk", "pothole", "puddle", "bench"})
+
+
+@dataclass(frozen=True)
+class NoiseModel:
+    """
+    Kalman noise parameters. Depth σ = depth_base + depth_lin·d + depth_quad·d²
+    (m); bearing σ in degrees; white-noise acceleration per class group (m/s²).
+    robust_nu > 0 turns on the Student-t update (Roth et al. 2013 approximation:
+    R is inflated by (ν + NIS) / (ν + 2), so a measurement far from the
+    prediction moves the state less instead of being dropped); gate_nis then
+    only rejects jumps too large to be the same object (re-ID / box swap).
+    """
+
+    # Fitted 2026-10-18 on correct depth, 287 official-train sessions, by 1 s-ahead predictive log-likelihood
+    # (tools/fit_kalman_noise.py --objective ahead -> evaluation/benchmarks/kalman_noise_fit/fit_pose_ahead.json;
+    # Gaussian update, the Student-t half was not completed). Chosen on validation 1 s-ahead log-likelihood:
+    # -3.08 vs -3.43 declared() vs -3.57 for the one-step fit (fit_pose.json); NIS mean 2.26 (2 = calibrated).
+    accel_std: float = 0.504
+    static_accel_std: float = 2.14
+    depth_base: float = 0.033
+    depth_lin: float = 0.263
+    depth_quad: float = 0.0
+    bearing_std_deg: float = 0.277
+    init_speed_std: float = 0.883
+    robust_nu: float = 0.0
+    gate_nis: float = 11.62
+
+    @classmethod
+    def declared(cls) -> "NoiseModel":
+        """The hand-set values the filter shipped with on 2026-10-14 (Gaussian update, hard χ² gate)."""
+        return cls(accel_std=1.5, static_accel_std=1.5, depth_base=0.05, depth_lin=0.0, depth_quad=0.01,
+                   bearing_std_deg=1.0, init_speed_std=3.0, robust_nu=0.0, gate_nis=11.62)
+
+    def depth_std(self, d: float) -> float:
+        return self.depth_base + self.depth_lin * d + self.depth_quad * d * d
+
 
 # Camera axes in the camera's own frame. SANPO's fixed_camera_poses.csv uses the
 # OpenCV convention in a Z-up world; its original camera_poses.csv uses the ZED
@@ -138,6 +179,9 @@ class FusedTrack:
     confirmed: bool
     measured: bool               # updated by a measurement this frame (False = predicted only)
     row: dict | None = None
+    # 4×4 covariance of (lateral, forward, lateral speed, forward speed) relative to the walker,
+    # walking-direction axes; the walker's own velocity is treated as known. None if not from a tracker.
+    rel_cov: tuple[tuple[float, ...], ...] | None = None
 
     @property
     def ttc_s(self) -> float | None:
@@ -175,9 +219,10 @@ class _Filter:
 class GroundTracker:
     """Stateful per-track Kalman filtering. Call step() once per processed frame, in order."""
 
-    accel_std: float = ACCEL_STD
+    noise: NoiseModel = field(default_factory=NoiseModel)
     max_misses: int = MAX_MISSES
     min_hits: int = MIN_HITS
+    innovations: list | None = None   # set to [] to record (innovation, its covariance) per update (noise fitting)
     _filters: dict[str, _Filter] = field(default_factory=dict)
     _last_t: float | None = None
     _last_pose: EgoPose | None = None
@@ -250,8 +295,8 @@ class GroundTracker:
         depth = float(m.depth_m)
         theta = math.radians(m.bearing_deg)
         x_cam, z_cam = depth * math.tan(theta), depth
-        sd_depth = DEPTH_STD_BASE + DEPTH_STD_QUAD * depth ** 2
-        sd_lat = math.hypot(depth * math.radians(BEARING_STD_DEG), sd_depth * abs(math.tan(theta)))
+        sd_depth = self.noise.depth_std(depth)
+        sd_lat = math.hypot(depth * math.radians(self.noise.bearing_std_deg), sd_depth * abs(math.tan(theta)))
         B = pose.basis()
         R = B @ np.diag([sd_lat ** 2, sd_depth ** 2]) @ B.T
         return pose.to_world(x_cam, z_cam), R
@@ -259,7 +304,7 @@ class GroundTracker:
     def _new_filter(self, z: np.ndarray, R: np.ndarray, m: Measurement) -> _Filter:
         P = np.zeros((4, 4))
         P[:2, :2] = R
-        P[2:, 2:] = np.eye(2) * INIT_SPEED_STD ** 2
+        P[2:, 2:] = np.eye(2) * self.noise.init_speed_std ** 2
         # Start at the walker's own velocity: most objects are static, and a static
         # object moves at -ego velocity relative to the walker, i.e. 0 in the world.
         return _Filter(x=np.array([z[0], z[1], 0.0, 0.0]), P=P, class_name=m.class_name,
@@ -270,7 +315,7 @@ class GroundTracker:
             return
         F = np.eye(4)
         F[0, 2] = F[1, 3] = dt
-        q = self.accel_std ** 2
+        q = (self.noise.static_accel_std if f.class_name in STATIC_CLASSES else self.noise.accel_std) ** 2
         Q1 = np.array([[dt ** 4 / 4, dt ** 3 / 2], [dt ** 3 / 2, dt ** 2]]) * q
         Q = np.zeros((4, 4))
         Q[np.ix_([0, 2], [0, 2])] = Q1
@@ -285,8 +330,17 @@ class GroundTracker:
         y = z - H @ f.x
         S = H @ f.P @ H.T + R
         S_inv = np.linalg.inv(S)
-        if float(y @ S_inv @ y) > GATE_NIS:
+        nis = float(y @ S_inv @ y)
+        if self.innovations is not None:
+            self.innovations.append((y, S))
+        if nis > self.noise.gate_nis:
             return False
+        if self.noise.robust_nu > 0:
+            # Student-t measurement noise: inflate R by the innovation's own size, so a jump of the
+            # box median onto background moves the track a little rather than a lot.
+            R = R * (self.noise.robust_nu + nis) / (self.noise.robust_nu + 2.0)
+            S = H @ f.P @ H.T + R
+            S_inv = np.linalg.inv(S)
         K = f.P @ H.T @ S_inv
         f.x = f.x + K @ y
         I_KH = np.eye(4) - K @ H
@@ -300,8 +354,10 @@ class GroundTracker:
         dist = float(np.linalg.norm(p))
         closing = -float(p @ v) / dist if dist > 1e-6 else 0.0
         lateral_speed = float(v[0])
-        pos_cov = W.T @ f.P[:2, :2] @ W
-        vel_cov = W.T @ f.P[2:, 2:] @ W
+        W4 = np.zeros((4, 4))
+        W4[:2, :2] = W4[2:, 2:] = W
+        rel_cov = W4.T @ f.P @ W4
+        pos_cov, vel_cov = rel_cov[:2, :2], rel_cov[2:, 2:]
         return FusedTrack(
             track_id=tid,
             class_name=f.class_name,
@@ -320,6 +376,7 @@ class GroundTracker:
             confirmed=f.hits >= self.min_hits,
             measured=f.measured,
             row=f.row,
+            rel_cov=tuple(tuple(float(c) for c in r) for r in rel_cov),
         )
 
 

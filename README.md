@@ -11,7 +11,7 @@ Max; evaluation replays the SANPO egocentric dataset.
 ## Pipeline (v2)
 
 ```
-SANPO replay: RGB + dataset depth + camera pose      (on the phone: camera + LiDAR + ARKit pose)
+SANPO replay: RGB + SANPO depth (as is) + camera pose   (product: phone camera + external LiDAR)
   → Perception        YOLO26n v3 + ByteTrack + depth per box                         ✅
   → Sensor fusion     Kalman track per object, ground plane, head motion removed      ✅ (pose unvalidated on SANPO)
   → Scene context     walkable-surface segmentation (road / curb / sidewalk), 2–5 Hz  ⬜
@@ -42,6 +42,7 @@ baseline chain).
 ```text
 CompositePerceptionEngine/
 ├── .agents/AGENTS.md                # Required docs/changelog upkeep for agents
+├── .github/workflows/ios-timing.yml # macOS CI: bundle + Core ML export + build the iOS timing app; optional TestFlight upload
 ├── docs/                            # See docs/README.md for the full map
 │   ├── architecture.md              # v2 system design: components, simulation vs. iPhone, budgets, evaluation, limitations
 │   ├── progress.md                  # Status, key results with numbers, slide order, Q&A numbers
@@ -50,12 +51,14 @@ CompositePerceptionEngine/
 │   ├── paper_draft.md               # Paper text, final vs pending results (with owners), figure list
 │   ├── ablation_guide.md            # Stage-1 streaming, K0 ablation, VLM referee + human calibration run guide
 │   ├── related_work.md              # Verified citations by component
+│   ├── listening_study_plan.md      # Plan: seated BLV listening study (alert preference, tolerable rate); not run
 │   ├── sanpo_dataset.md             # SANPO layout, audited camera facts + official split, intake, server latency, gap analysis
 │   ├── yolo_training.md             # Detector datasets, checkpoints, commands, metrics
 │   └── CHANGELOG.md                 # Dated record of changes
 ├── src/
 │   ├── perception_stack/            # YOLO26n v3 + ByteTrack + depth sampling, physics (severity, pinhole bearing, K0)
-│   ├── threat_engine/               # v2: fusion.py (Kalman), envelope.py, priority.py (GRU/physics), announcer.py, engine.py
+│   ├── threat_engine/               # v2: fusion.py (Kalman, train-fitted noise), envelope.py, priority.py (GRU/physics),
+│   │                                #     kalman_arrival.py (P(enter corridor) over the track's uncertainty), announcer.py, engine.py
 │   ├── segmentation/                # v2 §6.3: labels.py (SANPO 31 -> 8 walkable classes), context.py (SceneContext per track, edge ahead), edge_alert.py ("Curb ahead." rule)
 │   ├── pipeline/                    # orchestrator.py — V2Pipeline (v2 + narration) and the v1 process_frame baseline
 │   ├── narration/                   # Scripted templates (distance buckets, all_phrases), phrase-table translation, TTS
@@ -64,7 +67,8 @@ CompositePerceptionEngine/
 │   ├── physics_verification/        # v1 baseline: judge; NarratorEvent (narration input type)
 │   └── cognitive_layer/             # v1 baseline: stub.py ranking
 ├── models/
-│   ├── GRU/                         # "When": arrival predictors (GRU/, GRU_attention/), train/evaluate/summarize
+│   ├── GRU/                         # "When": arrival predictors (GRU/, GRU_attention/), train/evaluate/summarize,
+│   │                                #     benchmark.py (baseline ladder), exports/ (Core ML, generated on macOS)
 │   ├── Ensemble/                    # Rank-average and stacked arrival ensembles; heldout.py (official test split)
 │   ├── yolo/                        # Detector registry: base_yolo26n, cpe_yolo26n_hazards_v1, ..._v3_from_base
 │   └── tts/piper/                   # Piper ONNX voice (live-synthesis benchmark)
@@ -74,17 +78,20 @@ CompositePerceptionEngine/
 │   ├── kinetic_ablation.py          # K0 term ablation, label-free metrics, encounter labels (reused for v2)
 │   ├── kinetic_ablation_stratified.py # Ablation restricted to severity-discriminating frames
 │   ├── encounter_blob_check.py      # encounter_top1 with/without untracked depth blobs
-│   ├── vlm_referee.py               # Blinded 3-VLM referee (local servers) + human calibration
+│   ├── vlm_referee.py               # Blinded VLM referee, protocol v2: numbered boxes, order swap, text-only control,
+│   │                                #     human ceiling, Gwet's AC1 / Krippendorff's α, pre-registered sample
 │   ├── topk_threat_validation.py    # K0 top-3 vs. blinded VLMs (v1 check)
 │   ├── generate_report_figures.py   # Regenerates evaluation/benchmarks/figures/
 │   ├── segmentation_metrics.py      # mIoU, false-safe rate, curb/stairs boundary F (walkable-surface model)
 │   ├── context_association.py       # Do the scene-context flags predict arrival? (risk ratios, distance-adjusted)
 │   └── benchmarks/
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
-│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics; oracle_context_* / model_context_* = segmentation on/off
+│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics (SANPO depth as is); oracle_context_* / model_context_* = segmentation on/off
 │       ├── scene_context/           # Scene-context flag vs arrival-label association (all / train / val+test; gt_* oracle, model_* trained model)
 │       ├── edge_alerts/             # Edge-ahead alert vs mask-implied step-offs (evaluate_edge_alerts.py; *_vs_gt_* = model alerts vs SANPO-mask step-offs)
 │       ├── segmentation/            # Walkable-surface model scores (evaluate_yolo26_sem_walkable.py); pilot_mps_* = M4 speed pilot
+│       ├── baseline_ladder/         # Held-out arrival ladder per label (cone, corridor): rules, Kalman, tabular, GRUs
+│       ├── kalman_noise_fit/        # Kalman noise model fitted on official-train sessions (fit_pose.json)
 │       ├── gru_encounter_eval/      # GRU cross-validation runs, one report.md per run
 │       ├── ensemble_eval/           # Ensemble reports, paired differences, stacker weights
 │       ├── kinetic_score_eval/      # K0 ablation run (2026-08-26)
@@ -96,10 +103,13 @@ CompositePerceptionEngine/
 ├── tools/
 │   ├── stream_sanpo_perception.py   # Stage 1 over SANPO streamed from the public bucket (per-session fps / fx)
 │   ├── audit_sanpo_sessions.py      # FPS / intrinsics / official split / mask coverage for all 462 sessions
-│   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 threat engines (--context-dir: context on/off)
+│   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 engines; --context-dir (context on/off), --latency-csv
 │   ├── build_sanpo_segmentation.py  # SANPO masks (237 sessions, head + chest) -> Ultralytics semantic dataset
 │   ├── build_scene_context.py       # Per-frame SceneContext for replay sessions (SANPO masks or a trained model)
 │   ├── evaluate_edge_alerts.py      # "Curb ahead." alerts over the 53 head-masked sessions at 2.5 Hz
+│   ├── fit_kalman_noise.py          # Fit the Kalman noise model by predictive likelihood on train sessions
+│   ├── build_session_viewer.py      # Visual check of one SANPO walk: boxes, engine scores, alerts vs. truth
+│   │                                #     (HTML viewer from session_viewer.html, written to data/viewer/)
 │   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler
 │   ├── run_perception.py            # Stage 1 on local frames
 │   ├── build_threat_events.py       # Stage-1 CSV → ThreatEvent JSONL
@@ -109,12 +119,17 @@ CompositePerceptionEngine/
 │   ├── gap_analysis_experiments.py  # Depth-vs-YOLO gap analysis
 │   └── visualize_stage1.py          # Stage-1 CSV visualisation
 ├── training/
-│   ├── scripts/                     # YOLO download, rebalance, train, evaluate, retention compare, export; *_sem_walkable.py (segmentation)
+│   ├── scripts/                     # YOLO download, rebalance, train, evaluate, retention compare, export; *_sem_walkable.py (segmentation);
+│   │                                #     export_gru_coreml.py (arrival GRU → Core ML)
 │   ├── configs/                     # 17-class taxonomy, Roboflow source manifest
 │   └── runs/                        # Ultralytics runs and checkpoints (v1, v2, v3); cpe_yolo26n_sem_walkable/ = segmentation (best.pt, best.mlpackage)
+├── ios/CPETiming/                   # On-device latency harness (SwiftUI, XcodeGen): detector + GRU per stage on SANPO data,
+│                                    #     prepare_bundle.py, analyze_timing.py, TestFlight how-to in its README
 ├── notebooks/                       # sanpo_yolo_gap_analysis.ipynb + gap_analysis_output/
+│                                    #     colab_rebuild.ipynb: Stage 1 + datasets + GRUs + Kalman + results on Colab
 ├── simulation/datasets/sanpo/       # valid_streams.json (462 sessions), session_audit.json, official_split.json
-├── tests/                           # Threat engine (fusion, envelope, priority, announcer), v1 routing, GRU, ensemble
+├── tests/                           # Threat engine (fusion, envelope, priority, announcer), Kalman arrival, latency-aware
+│                                    #     replay options, v1 routing, GRU, ensemble
 ├── data/                            # Local datasets (gitignored)
 └── requirements.txt
 ```

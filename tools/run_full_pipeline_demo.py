@@ -116,8 +116,7 @@ def build_v2_scenario() -> list[list[dict]]:
     """
     25 frames at 5 Hz. A car approaches from about 20° left at 3 m/s, starting
     14 m out; the walker closes on a pothole straight ahead at 1.4 m/s from
-    8 m. Rows carry no pose, so motion is camera-relative, as on a phone
-    without ARKit.
+    8 m. Rows carry no pose, so motion is camera-relative (no pose source).
     """
     frames = []
     for k in range(25):

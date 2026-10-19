@@ -12,6 +12,10 @@ CSVs needed). Camera poses come from each session's fixed_camera_poses.csv
 (public bucket; cached under data/sanpo_poses_fixed/). Processed frame k is
 source frame 3k (stride 3) and is replayed at t = 0.2·k s (15 FPS source).
 
+Depth is SANPO's own depth, as recorded, for every engine and every label
+(the demo replays pre-recorded video with depth; the product's depth sensor is
+an external LiDAR not modelled here).
+
 Units, corrected on the fly for everything except the GRU, which is fed the
 units it was trained in:
   speed    stored speeds are 2x too high (Stage 1 assumed 30 FPS) -> x0.5
@@ -26,6 +30,9 @@ Arms, each with one sensitivity knob swept densely:
                       the walking corridor, 0 otherwise; knob = ignore threshold
   v2_physics          v2 engine, physics (constant-velocity) arrival predictor
   v2_physics_nopose   same, camera-frame tracking (ego-motion ablation)
+  v2_kalman           v2 engine, Kalman arrival predictor: P(enter the corridor) over
+                      the fused track's own uncertainty (src/threat_engine/kalman_arrival.py)
+  v2_kalman_nopose    same, camera-frame tracking
   v2_gru              v2 engine, GRU arrival predictor
   v2_gru_nopose       same, camera-frame tracking
   v2_physics_ctx,     with --context-dir: the same arms with the scene-context multiplier
@@ -44,7 +51,14 @@ announcement about it in the 4 s up to and including arrival.
 Operating points are chosen on the official validation sessions, then scored
 once on test with session-bootstrap 95% CIs:
   budget_2 / budget_5 / budget_10   most arrivals warned with <= 2 / 5 / 10 false alerts per minute
+  early_budget_2 / _5 / _10         most arrivals warned >= 0.2 s *before* arrival (warned_before) within
+                                    the same budgets; `warned` also counts announcements on the arrival
+                                    frame itself, which the budget_* rules reward
   recall_50                         fewest false alerts with >= 50% of arrivals warned
+
+--announcer-sweep ARM ...: for those v2 arms the knob is (ignore threshold,
+announcer cooldown_s, switch_margin, stale_s) over ANNOUNCER_GRID instead of
+the threshold alone, so the announcer is tuned on validation too.
 Lead time is reported against the opportunity window (first sighting ->
 arrival): warned rate and lead among arrivals with a window of >= 1 s and
 >= 2 s, lead / window, and a Kaplan-Meier "not yet warned" curve over time
@@ -52,6 +66,13 @@ since first sighting (an arrival never warned is censored at arrival).
 
     python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_seed0
     python tools/replay_threat_engine.py --gru-run ... --context-dir data/sanpo_scene_context/gt --name oracle_context
+
+Latency-aware replay (--latency-csv, or a fixed --latency-ms): each
+announcement is heard that long after the frame that triggered it, using the
+per-frame totals the CPE Timing app measured on the phone (ios/CPETiming).
+Warned / lead time use the heard time; precision is still judged at the frame.
+
+    python tools/replay_threat_engine.py --gru-run ... --latency-csv cpe_timing_sustained30min_*.csv
 """
 
 from __future__ import annotations
@@ -64,6 +85,7 @@ import logging
 import math
 import sys
 import time
+import zlib
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -73,7 +95,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dataset.GRU.samples import load_dataset
+from dataset.GRU.samples import legacy_units, load_dataset
 from src.narration.pipeline import NarrationPipeline
 from src.narration.tts import CachedClipTTS
 from src.pipeline.orchestrator import process_frame
@@ -81,6 +103,7 @@ from src.threat_engine import envelope
 from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
 from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, sanpo_session_poses
+from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
 from src.threat_engine.priority import (Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat,
                                         SceneContext)
 from src.threat_prioritizer import build_threat_frame
@@ -96,6 +119,9 @@ LEGACY_HALF_FOV = 35.0
 SPEED_FIX = 0.5
 WARN_WINDOW_S = 4.0
 V2_THRESHOLDS = (0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
+# --announcer-sweep: thresholds x (cooldown_s, switch_margin, stale_s); announcer.py's defaults are (4.0, 1.25, 0.6)
+SWEEP_THRESHOLDS = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
+ANNOUNCER_GRID = tuple((c, m, st) for c in (2.0, 4.0, 8.0) for m in (1.0, 1.25, 2.0) for st in (0.6, 1.2))
 V1_LOW_K = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0)
 BUDGETS = (2.0, 5.0, 10.0)
 KM_TIMES = (0.5, 1.0, 2.0, 3.0, 4.0)
@@ -112,21 +138,28 @@ def session_poses(sid: str) -> list[EgoPose]:
     return sanpo_session_poses(list(csv.DictReader(io.StringIO(path.read_text(encoding="utf-8")))))
 
 
-def session_rows(samples: list[dict], fx: float, width: float) -> dict[int, list[dict]]:
-    """{frame_idx: Stage-1 rows} in corrected units, with the GRU's legacy inputs kept alongside."""
+def session_rows(samples: list[dict], fx: float, width: float, legacy: bool = True) -> dict[int, list[dict]]:
+    """
+    {frame_idx: Stage-1 rows} in correct units, with the stored values (what the GRU was trained on)
+    kept alongside. legacy: the dataset stores pre-2026-10-14 units (dataset.GRU.samples.legacy_units).
+    """
     frames = {}
     for s in samples:
         rows = []
         for j, tid in enumerate(s["track_ids"]):
             last = s["x"][j, -1]
             legacy_bearing = float(s["bearing"][j])
-            dx = legacy_bearing / LEGACY_HALF_FOV * width / 2
             legacy_speed = float(last[2]) * 5
+            if legacy:
+                bearing = math.degrees(math.atan2(legacy_bearing / LEGACY_HALF_FOV * width / 2, fx))
+                speed = legacy_speed * SPEED_FIX
+            else:
+                bearing, speed = legacy_bearing, legacy_speed
             rows.append({
                 "frame_idx": s["frame_idx"], "track_id": tid, "class": s["classes"][j],
                 "confidence": float(last[6]), "distance_m": float(s["distance"][j]),
-                "bearing_deg": math.degrees(math.atan2(dx, fx)),
-                "velocity_ms": legacy_speed * SPEED_FIX,
+                "bearing_deg": bearing,
+                "velocity_ms": speed,
                 "bbox_area_px": float(np.expm1(last[7] * 15)),
                 "_legacy": {"bearing_deg": legacy_bearing, "velocity_ms": legacy_speed},
                 "_tte": int(s["tte"][j]),
@@ -140,6 +173,17 @@ def session_contexts(path: Path) -> dict[int, dict[str, SceneContext]]:
     frames = json.loads(path.read_text(encoding="utf-8"))["frames"]
     return {int(k): {tid: SceneContext(*map(bool, v[1:])) for tid, v in f["tracks"].items()}
             for k, f in frames.items()}
+
+
+def load_latencies(paths: list[Path]) -> np.ndarray:
+    """total_ms of every non-warm-up frame in CPE Timing app CSVs (ios/CPETiming/analyze_timing.py format)."""
+    vals = []
+    for path in paths:
+        rows = csv.DictReader(line for line in path.read_text(encoding="utf-8").splitlines() if not line.startswith("#"))
+        vals += [float(r["total_ms"]) for r in rows if r["block"] != "warmup"]
+    if not vals:
+        raise SystemExit("no timing rows in --latency-csv")
+    return np.array(vals)
 
 
 def legacy_row(row: dict) -> dict:
@@ -176,9 +220,12 @@ class CachedPredictor:
 
 
 def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float,
+           announcer: tuple[float, float, float] | None = None,
            contexts: dict[int, dict[str, SceneContext]] | None = None):
-    engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(),
-                          announcer=AnnouncementManager())
+    """announcer: (cooldown_s, switch_margin, stale_s), or None for announcer.py's defaults."""
+    mgr = AnnouncementManager() if announcer is None else AnnouncementManager(
+        cooldown_s=announcer[0], switch_margin=announcer[1], stale_s=announcer[2])
+    engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(), announcer=mgr)
     log = []
     for k in sorted(frames):
         pose = poses[min(STRIDE * k, len(poses) - 1)] if poses else None
@@ -229,18 +276,23 @@ def arrivals(frames: dict[int, list[dict]]) -> dict[str, tuple[int, int]]:
     return {tid: (first_seen[tid], k) for tid, k in arrive.items() if first_seen[tid] < k}
 
 
-def session_metrics(frames, log, horizon_frames: int) -> dict:
+def session_metrics(frames, log, horizon_frames: int, delays: np.ndarray | None = None) -> dict:
+    """
+    delays: seconds added to each announcement in `log` (on-device latency, --latency-*); an
+    announcement decided at frame k is heard at k·STEP_S + delay. Labels are judged at frame k.
+    """
     arr = arrivals(frames)
     label = {(k, r["track_id"]): r["_tte"] for k, rows in frames.items() for r in rows}
-    window_frames = round(WARN_WINDOW_S / STEP_S)
+    heard = [k * STEP_S + (float(delays[i]) if delays is not None else 0.0) for i, (k, _, _) in enumerate(log)]
     per_arrival = []
     for tid, (seen, ka) in arr.items():
-        times = [k for k, a, _ in log if a == tid and ka - window_frames <= k <= ka]
+        ta = ka * STEP_S
+        times = [t for t, (_, a, _) in zip(heard, log) if a == tid and ta - WARN_WINDOW_S - 1e-9 <= t <= ta + 1e-9]
         warn = min(times) if times else None
         per_arrival.append({"window_s": (ka - seen) * STEP_S,
-                            "lead_s": (ka - warn) * STEP_S if warn is not None else None,
+                            "lead_s": ta - warn if warn is not None else None,
                             # time from first sighting to first warning (Kaplan-Meier event), or censored at arrival
-                            "time_to_warn_s": ((warn - seen) * STEP_S) if warn is not None else (ka - seen) * STEP_S,
+                            "time_to_warn_s": (warn - seen * STEP_S) if warn is not None else (ka - seen) * STEP_S,
                             "event": warn is not None})
     kinds = {"true": 0, "late": 0, "false": 0}
     for k, a, _ in log:
@@ -254,7 +306,9 @@ def session_metrics(frames, log, horizon_frames: int) -> dict:
 
 KEYS = ("warned", "precision", "late_share", "false_per_min", "alerts_per_min", "switches_per_min",
         "overrides_per_min", "median_lead_s", "warned_window_ge1", "warned_window_ge2", "lead_ge1_s",
-        "lead_over_window")
+        "lead_over_window", "warned_before", "warned_lead_ge1")
+# warned counts an announcement on the arrival frame itself (lead 0). warned_before needs at least
+# one processed step (0.2 s) of lead and warned_lead_ge1 at least 1 s.
 
 
 def point(sessions: list[dict]) -> np.ndarray:
@@ -281,6 +335,8 @@ def point(sessions: list[dict]) -> np.ndarray:
         rate(ge1), rate(ge2),
         float(np.median(leads_ge1)) if leads_ge1 else np.nan,
         float(np.median([a["lead_s"] / a["window_s"] for a in warned])) if warned else np.nan,
+        sum(a["event"] and a["lead_s"] >= STEP_S - 1e-9 for a in arr) / len(arr) if arr else np.nan,
+        sum(a["event"] and a["lead_s"] >= 1.0 - 1e-9 for a in arr) / len(arr) if arr else np.nan,
     ])
 
 
@@ -338,21 +394,29 @@ def window_profile(per_session: list[dict]) -> dict:
             "share_ge_4s": float(np.mean(w >= 4.0))}
 
 
-def pick(curve: dict, rule: str) -> float | None:
+def pick(curve: dict, rule: str):
     """Knob value for an operating rule from a {knob: aggregate} validation curve."""
     items = list(curve.items())
-    if rule.startswith("budget_"):
-        budget = float(rule.split("_")[1])
+    if "budget_" in rule:
+        budget = float(rule.rsplit("_", 1)[1])
+        target = "warned_before" if rule.startswith("early_") else "warned"
         ok = [(k, m) for k, m in items if m["false_per_min"][0] <= budget]
         if not ok:
             return None
-        return max(ok, key=lambda km: (np.nan_to_num(km[1]["warned"][0]), -km[1]["false_per_min"][0]))[0]
+        return max(ok, key=lambda km: (np.nan_to_num(km[1][target][0]), -km[1]["false_per_min"][0]))[0]
     if rule == "recall_50":
         ok = [(k, m) for k, m in items if np.nan_to_num(m["warned"][0]) >= 0.5]
         if not ok:
             return None
         return min(ok, key=lambda km: km[1]["false_per_min"][0])[0]
     raise ValueError(rule)
+
+
+def knob_str(k) -> str:
+    """A knob for tables and the CSV: a number, or threshold / cooldown / switch margin / stale."""
+    if isinstance(k, tuple):
+        return f"{k[0]:g} / cd {k[1]:g} / sm {k[2]:g} / st {k[3]:g}"
+    return f"{k:g}"
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -368,6 +432,13 @@ def main() -> None:
     p.add_argument("--max-sessions", type=int, default=0, help="Per split; 0 = all (smoke testing).")
     p.add_argument("--context-dir", type=Path, default=None,
                    help="tools/build_scene_context.py output; adds context-on arms, restricted to its sessions.")
+    p.add_argument("--latency-ms", type=float, default=0.0,
+                   help="Add this fixed on-device latency to every announcement (ms).")
+    p.add_argument("--latency-csv", type=Path, nargs="*", default=[],
+                   help="CPE Timing app CSVs (ios/CPETiming): each announcement is delayed by a total_ms drawn "
+                        "from them (warm-up excluded), seeded per session.")
+    p.add_argument("--announcer-sweep", nargs="*", default=[], metavar="ARM",
+                   help="v2 arms whose announcer (cooldown, switch margin, stale) is swept with the threshold.")
     args = p.parse_args()
 
     manifest, splits = load_dataset(args.dataset, splits=("val", "test"))
@@ -375,6 +446,7 @@ def main() -> None:
     if cfg["split"] != manifest["split"] or cfg["dataset_name"] != manifest["name"]:
         raise SystemExit(f"{args.gru_run} was not trained on {manifest['name']}")
     horizon = int(manifest["label"]["HORIZON_FRAMES"])
+    legacy = legacy_units(manifest)
     audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
 
     sessions = {}
@@ -384,11 +456,19 @@ def main() -> None:
             by[s["session"]].append(s)
         ids = sorted(sid for sid in by if args.context_dir is None or (args.context_dir / f"{sid}.json").exists())
         ids = ids[: args.max_sessions or None]
-        sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"]) for sid in ids}
+        sessions[part] = {sid: session_rows(by[sid], audit[sid]["fx"], audit[sid]["image_width"], legacy)
+                          for sid in ids}
     all_ids = [sid for part in sessions.values() for sid in part]
     contexts = {sid: session_contexts(args.context_dir / f"{sid}.json") for sid in all_ids} if args.context_dir else {}
     with ThreadPoolExecutor(max_workers=16) as pool:
         poses = dict(zip(all_ids, pool.map(session_poses, all_ids)))
+
+    latency_pool = load_latencies(args.latency_csv) if args.latency_csv else None
+
+    def delays_for(sid: str, n: int) -> np.ndarray | None:
+        if latency_pool is not None:
+            return np.random.default_rng(zlib.crc32(sid.encode())).choice(latency_pool, n) / 1000.0
+        return np.full(n, args.latency_ms / 1000.0) if args.latency_ms else None
 
     caches: dict[tuple, dict] = defaultdict(dict)
     gru_path = args.gru_run / "model.pt"
@@ -396,13 +476,20 @@ def main() -> None:
         "nearest_in_corridor": (True, lambda: NearestInCorridorPredictor()),
         "v2_physics": (True, lambda: PhysicsArrivalPredictor()),
         "v2_physics_nopose": (False, lambda: PhysicsArrivalPredictor()),
+        "v2_kalman": (True, lambda: KalmanArrivalPredictor()),
+        "v2_kalman_nopose": (False, lambda: KalmanArrivalPredictor()),
         "v2_gru": (True, lambda: LegacyGRU(gru_path)),
         "v2_gru_nopose": (False, lambda: LegacyGRU(gru_path)),
     }
     context_arms = {"v2_physics_ctx": "v2_physics", "v2_gru_ctx": "v2_gru"} if args.context_dir else {}
     for arm, base in context_arms.items():
         v2_arms[arm] = v2_arms[base]
-    arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K, **{a: V2_THRESHOLDS for a in v2_arms}}
+    unknown = set(args.announcer_sweep) - set(v2_arms)
+    if unknown:
+        raise SystemExit(f"--announcer-sweep: not v2 arms: {sorted(unknown)}")
+    sweep = tuple((t, *a) for t in SWEEP_THRESHOLDS for a in ANNOUNCER_GRID)
+    arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K,
+            **{a: sweep if a in args.announcer_sweep else V2_THRESHOLDS for a in v2_arms}}
 
     def run(part: str, arm: str, knob: float) -> list[dict]:
         per = []
@@ -413,13 +500,14 @@ def main() -> None:
                 use_pose, make = v2_arms[arm]
                 base = context_arms.get(arm, arm)    # context arms reuse their base arm's arrival cache
                 predictor = CachedPredictor(make(), caches[(base, sid)])
-                log = run_v2(frames, poses[sid] if use_pose else None, predictor, knob,
+                thr, ann = (knob[0], knob[1:]) if isinstance(knob, tuple) else (knob, None)
+                log = run_v2(frames, poses[sid] if use_pose else None, predictor, thr, ann,
                              contexts[sid] if arm in context_arms else None)
-            per.append(session_metrics(frames, log, horizon))
+            per.append(session_metrics(frames, log, horizon, delays_for(sid, len(log))))
         return per
 
     started = time.time()
-    rules = [f"budget_{b:g}" for b in BUDGETS] + ["recall_50"]
+    rules = [f"budget_{b:g}" for b in BUDGETS] + [f"early_budget_{b:g}" for b in BUDGETS] + ["recall_50"]
     curves = {"val": {}, "test": {}}
     test_runs: dict[str, dict[float, list[dict]]] = {}
     chosen: dict[str, dict[str, float | None]] = {}
@@ -428,7 +516,8 @@ def main() -> None:
         test_runs[arm] = {k: run("test", arm, k) for k in knobs}
         curves["test"][arm] = {k: aggregate(v, boot=False) for k, v in test_runs[arm].items()}
         chosen[arm] = {r: pick(curves["val"][arm], r) for r in rules}
-        print(f"{arm:20s} {time.time() - started:5.0f} s  chosen on val: {chosen[arm]}", flush=True)
+        print(f"{arm:20s} {time.time() - started:5.0f} s  chosen on val: "
+              f"{ {r: (knob_str(k) if k is not None else None) for r, k in chosen[arm].items()} }", flush=True)
 
     points = {arm: {r: (aggregate(test_runs[arm][k]) if k is not None else None) for r, k in by_rule.items()}
               for arm, by_rule in chosen.items()}
@@ -443,6 +532,8 @@ def main() -> None:
 
     stats = manifest["stats"]
     name = args.name or f"{manifest['label'].get('kind', 'cone')}_{time.strftime('%Y_%m_%d')}"
+    if latency_pool is not None or args.latency_ms:
+        name += "_latency"
     out = args.out_dir / name
     out.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -452,6 +543,14 @@ def main() -> None:
         f"first seen before it entered the zone). Operating points chosen on {len(sessions['val'])} validation "
         f"sessions, then scored once on test. GRU: `{args.gru_run.as_posix()}`. Generated "
         f"{time.strftime('%Y-%m-%d')} by `python tools/replay_threat_engine.py` ({time.time() - started:.0f} s).", "",
+    ]
+    if latency_pool is not None:
+        lines += [f"Latency: each announcement is heard after an on-device total drawn from {len(latency_pool)} "
+                  f"measured frames ({', '.join(p.name for p in args.latency_csv)}; median "
+                  f"{np.median(latency_pool):.1f} ms, p95 {np.percentile(latency_pool, 95):.1f} ms).", ""]
+    elif args.latency_ms:
+        lines += [f"Latency: every announcement is heard {args.latency_ms:g} ms after the frame that triggered it.", ""]
+    lines += [
         "## Opportunity window (first sighting -> arrival), test", "",
         f"Median {windows['median_window_s']:.1f} s; {windows['share_lt_1s']:.0%} of arrivals were first seen less "
         f"than 1 s before arriving, {windows['share_lt_2s']:.0%} less than 2 s, {windows['share_ge_4s']:.0%} at least "
@@ -460,17 +559,27 @@ def main() -> None:
     for rule in rules:
         lines += [f"## Operating point `{rule}` (test, 95% session-bootstrap CI)", "",
                   "| Arm | knob | warned ↑ | false alerts/min ↓ | precision ↑ | late share | alerts/min | switches/min ↓ "
-                  "| warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) |",
-                  "|---|---:|---|---|---|---|---|---|---|---|---|"]
+                  "| warned, window ≥ 1 s | warned, window ≥ 2 s | median lead, window ≥ 1 s (s) "
+                  "| warned ≥ 0.2 s before | warned ≥ 1 s before |",
+                  "|---|---:|---|---|---|---|---|---|---|---|---|---|---|"]
         for arm in arms:
             m = points[arm][rule]
             if m is None:
-                lines.append(f"| {arm} | — | no setting meets the rule on validation |||||||||")
+                lines.append(f"| {arm} | — | no setting meets the rule on validation |||||||||||")
                 continue
-            lines.append(f"| {arm} | {chosen[arm][rule]:g} | {cell(m['warned'])} | {cell(m['false_per_min'])} | "
+            lines.append(f"| {arm} | {knob_str(chosen[arm][rule])} | {cell(m['warned'])} | {cell(m['false_per_min'])} | "
                          f"{cell(m['precision'])} | {cell(m['late_share'])} | {cell(m['alerts_per_min'])} | "
                          f"{cell(m['switches_per_min'])} | {cell(m['warned_window_ge1'])} | "
-                         f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} |")
+                         f"{cell(m['warned_window_ge2'])} | {cell(m['lead_ge1_s'])} | "
+                         f"{cell(m['warned_before'])} | {cell(m['warned_lead_ge1'])} |")
+        lines.append("")
+    for km_rule in ("budget_5", "early_budget_5"):
+        lines += [f"## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, "
+                  f"`{km_rule}`)", "",
+                  "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
+        for arm in arms:
+            k = km[arm][km_rule]
+            lines.append(f"| {arm} | " + (" | ".join(f"{k[t]:.2f}" for t in KM_TIMES) if k else "n/a") + " |")
         lines.append("")
     paired = {}
     for arm, base in context_arms.items():
@@ -487,29 +596,27 @@ def main() -> None:
             lines.append(f"| {arm} | {rule} | {cell(d['warned'])} | {cell(d['false_per_min'])} | "
                          f"{cell(d['precision'])} | {cell(d['lead_ge1_s'])} |")
         lines.append("")
-    lines += ["## Kaplan-Meier: share of arrivals not yet warned, by time since first sighting (test, `budget_5`)", "",
-              "| Arm | " + " | ".join(f"{t:g} s" for t in KM_TIMES) + " |", "|---|" + "---:|" * len(KM_TIMES)]
-    for arm in arms:
-        k = km[arm]["budget_5"]
-        lines.append(f"| {arm} | " + (" | ".join(f"{k[t]:.2f}" for t in KM_TIMES) if k else "n/a") + " |")
     lines += ["", "## Operating curves (test; every knob value)", "",
               "Recall (warned) against false alerts per minute; the CSV next to this report has every column.", "",
-              "| Arm | knob | warned | false/min | precision | alerts/min |", "|---|---:|---:|---:|---:|---:|"]
+              "| Arm | knob | warned | warned ≥ 0.2 s before | false/min | precision | alerts/min |",
+              "|---|---:|---:|---:|---:|---:|---:|"]
     rows_csv = ["split,arm,knob," + ",".join(KEYS)]
     for split in ("val", "test"):
         for arm, curve in curves[split].items():
             for k, m in curve.items():
-                rows_csv.append(f"{split},{arm},{k:g}," + ",".join(f"{m[key][0]:.4f}" for key in KEYS))
-                if split == "test":
-                    lines.append(f"| {arm} | {k:g} | {m['warned'][0]:.2f} | {m['false_per_min'][0]:.1f} | "
-                                 f"{m['precision'][0]:.2f} | {m['alerts_per_min'][0]:.1f} |")
+                rows_csv.append(f"{split},{arm},{knob_str(k)}," + ",".join(f"{m[key][0]:.4f}" for key in KEYS))
+                if split == "test" and not isinstance(k, tuple):   # swept arms: see curves.csv
+                    lines.append(f"| {arm} | {k:g} | {m['warned'][0]:.2f} | {m['warned_before'][0]:.2f} | "
+                                 f"{m['false_per_min'][0]:.1f} | {m['precision'][0]:.2f} | {m['alerts_per_min'][0]:.1f} |")
     lines += ["", "Classes: true = the object enters the zone later within the horizon; late = it is already in the "
               "zone; false = it doesn't enter within the horizon. precision = (true + late) / all. warned = an "
               "announcement about the arriving track in the 4 s up to and including arrival.",
               "Open-loop: the recorded walker never heard these alerts. Labels and inputs share SANPO's depth.", ""]
     (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
     (out / "curves.csv").write_text("\n".join(rows_csv) + "\n", encoding="utf-8")
-    (out / "metrics.json").write_text(json.dumps({"chosen": chosen, "points": points, "kaplan_meier": km,
+    (out / "metrics.json").write_text(json.dumps({"chosen": {a: {r: (knob_str(k) if k is not None else None)
+                                                                  for r, k in by.items()} for a, by in chosen.items()},
+                                                  "points": points, "kaplan_meier": km,
                                                   "window_profile": windows,
                                                   "paired_context": {f"{a}|{r}": d for (a, r), d in paired.items()}},
                                                  indent=2, default=str), encoding="utf-8")

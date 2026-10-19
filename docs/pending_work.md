@@ -10,11 +10,14 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## Next three
 
-1. **Measure on the iPhone (P3.1–P3.2).** It's the one headline claim with no number yet. Needs a
-   Mac with Xcode; the Core ML export option is already in place.
-2. **Pick the announcement operating point (P2.2).** v2 is precise but quiet (26% of arrivals warned
-   at 17 alerts/min). Sweep the announcer and threshold on validation sessions and present the
-   precision/recall curve, not one point.
+1. **Measure on the iPhone (P3.1–P3.2).** It's the one headline claim with no number yet. The
+   timing app, the GRU export and the CI workflow exist (`ios/CPETiming/README.md`). What's left: an
+   Apple Developer account, the App Store Connect secrets, a green CI run, and the phone.
+2. **Make warnings earlier (P2.2).** Operating points are now chosen on `warned_before` and the
+   announcer was swept (done 2026-10-19, methodology §4.17). Neither creates lead: ≤ 0.22 of
+   arrivals are warned ≥ 0.2 s ahead. The predictors are the limit. Next: a GRU objective that
+   rewards early probability (time-to-arrival-weighted loss or a "≥ 1 s ahead" target) and a
+   rising-P(arrive) announcement trigger.
 3. **Walkable-surface segmentation (P1.1).** Trained (YOLO26n-sem @640 on the M4, 2026-10-18) and
    re-run with its masks. Context: no measurable effect. Edge alerts: well below the oracle on
    held-out sessions (1 of 7 step-offs warned vs 3 of 7). Next: n at a larger imgsz on a GPU
@@ -49,6 +52,17 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ---
 
+## Done on 2026-10-17 (branch `v2-kalman-lidar`)
+
+- Kalman noise fitted on train (Student-t); Kalman arrival predictor; replay before/after
+  (methodology §4.13).
+- Baseline ladder on the corridor label (methodology §4.14).
+- Lead-based recall columns in the replay (methodology §4.15). Depth stays SANPO's, as is; the
+  LiDAR-range simulation was removed.
+- On-device timing harness, GRU Core ML export and the latency-aware replay. This covers P3.1 (the
+  GRU part), P3.3 and the tooling for P3.2.
+- VLM referee protocol v2 (P2.4 tooling) and the BLV listening-study plan.
+
 ## Done on 2026-10-14 (moved to `progress.md`)
 
 - P0 data audit: 15 FPS everywhere (old CSVs assumed 30; units corrected), real intrinsics in
@@ -63,7 +77,29 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## P0. Data correctness
 
-1. **Rebuild Stage-1 CSVs at the correct rate (optional).** Existing CSVs work once converted (×0.5
+0. **Re-run Stage 1 with head-camera fx and the fixed size check (blocks every number; 2026-10-19).**
+   The 2026-10-18 rebuild used the chest camera's fx and a mis-scaled depth lookup (architecture §9
+   items 8–9). Run `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`, fresh Drive folders); it
+   redoes datasets, GRUs, the Kalman fit, ladder and replay. Then update methodology §4.17 and re-pick
+   the viewer threshold. History of the first rebuild:
+   **~~Rebuild everything on correctly decoded depth~~ (done 2026-10-18, methodology §4.16).** The
+   SANPO depth loader read each 720×1280 map as a scrambled 960×960 array, and depth-sweep boxes
+   masked real objects (`architecture.md` §9 item 0). Both were fixed in code (2026-10-17), then:
+   1. Re-run Stage 1 on all 462 sessions (`tools/stream_sanpo_perception.py`; GPU box).
+   2. Rebuild the GRU datasets and corridor labels (`dataset/GRU/build.py`, `resplit.py`,
+      `relabel.py`).
+   3. Retrain the GRUs (3 seeds per variant).
+   4. Refit the Kalman noise (`tools/fit_kalman_noise.py`).
+   5. Re-run the ladder, the replays and the before/after comparison.
+
+   Steps 1–5 ran as one pass of `notebooks/colab_rebuild.ipynb`. The viewer's legacy-input shim is
+   gone. Follow-ups it raised:
+   - ~~**The fitted Kalman no longer helps.**~~ Fixed 2026-10-19: refitted on 1 s-ahead likelihood
+     (methodology §4.17); a units bug in the label and replay tools was fixed at the same time.
+   - ~~**Alert budgets.**~~ Re-tuned on `warned_before` with an announcer sweep (§4.17). Validation
+     still under-predicts test false alerts (≤ 5 → 6.0–7.4 per minute).
+   - **Not finished:** the Student-t half of the 1 s Kalman fit (stopped twice by low memory).
+1. **~~Rebuild Stage-1 CSVs at the correct rate~~ (done by the P0.0 rebuild).** Existing CSVs work once converted (×0.5
    speed, pinhole bearing), and every ranking metric is unaffected. A rebuild with the updated
    `tools/stream_sanpo_perception.py` gives clean units for the paper and is needed anyway for
    ground masking (P1.1) and the chest camera (P2.6). Needs the GPU box (ultralytics).
@@ -119,8 +155,8 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
      K0's and from nearest-in-cone's.
    - Plus a 100–150-frame human calibration set with Cohen's κ.
    - Needs GPU-served local VLMs. Run guide: `ablation_guide.md` §4.
-5. **Optional: depth realism bound.** Re-run with SANPO depth truncated at 5 m and downsampled to
-   approximate iPhone LiDAR.
+5. **Dropped: depth realism bound.** Depth stays SANPO's, as is. The product uses an external
+   LiDAR, so an iPhone-LiDAR simulation doesn't apply. Revisit once the sensor is chosen.
 6. **Optional: chest camera.** Re-run Stage 1 on SANPO `camera_chest/` for the more phone-like
    mounting.
 

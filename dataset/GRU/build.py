@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 from dataset.GRU.samples import (
+    PINHOLE_UNITS,
     CLASS_VOCAB,
     DEFAULT_HISTORY,
     DEFAULT_MAX_OBJECTS,
@@ -39,6 +40,7 @@ from dataset.GRU.samples import (
 from evaluation.kinetic_ablation import D_HAZ_M, HORIZON_FRAMES, THETA_DEG
 
 HERE = Path(__file__).resolve().parent
+AUDIT = HERE.parents[1] / "simulation/datasets/sanpo/session_audit.json"
 GITHUB_WARN_MB = 50   # GitHub warns above 50 MB per file and rejects above 100 MB
 
 
@@ -86,6 +88,29 @@ def default_name(args: argparse.Namespace) -> str:
     return "_".join(parts)
 
 
+def csv_units(csvs: list[Path]) -> dict:
+    """
+    {"units": PINHOLE_UNITS} when every CSV has a stream sidecar with fx (written since 2026-10-14), else {}.
+    Pinhole CSVs must have used the head camera's fx (session_audit.json): CSVs streamed before the
+    2026-10-17 intrinsics fix used the chest camera's (~1974 vs ~1376 px), which also changed which
+    detections survived the size check, so they are refused rather than converted.
+    """
+    sidecars = [c.with_suffix(".frames.json") for c in csvs]
+    if not all(p.exists() and json.loads(p.read_text(encoding="utf-8")).get("fx") for p in sidecars):
+        return {}
+    audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
+    wrong = []
+    for c, p in zip(csvs, sidecars):
+        fx = float(json.loads(p.read_text(encoding="utf-8"))["fx"])
+        head_fx = audit.get(c.stem, {}).get("fx")
+        if head_fx and abs(fx / head_fx - 1) > 0.02:
+            wrong.append(c.stem)
+    if wrong:
+        raise SystemExit(f"{len(wrong)} CSVs were streamed with a focal length that isn't the head camera's "
+                         f"(e.g. {wrong[0]}): re-run tools/stream_sanpo_perception.py for them")
+    return {"units": PINHOLE_UNITS}
+
+
 def main() -> None:
     args = parse_args()
     name = args.name or default_name(args)
@@ -94,6 +119,8 @@ def main() -> None:
         raise SystemExit(f"{out} already exists (pass --overwrite or a different --name)")
 
     csvs = sorted(args.csv_dir.glob("*.csv"))
+    if not csvs:
+        raise SystemExit(f"no CSVs in {args.csv_dir}")
     corpus = load_corpus(args.csv_dir, history=args.history, future_only=args.future_only,
                          max_objects=args.max_objects, tracked_only=args.tracked_only, hazard_m=args.hazard_m)
     out.mkdir(parents=True, exist_ok=True)
@@ -102,7 +129,7 @@ def main() -> None:
         "name": name,
         "created": time.strftime("%Y-%m-%d"),
         "source": {"csv_dir": str(args.csv_dir), "csv_files": len(csvs), "fingerprint": csv_fingerprint(csvs),
-                   "sessions_with_samples": len(corpus)},
+                   "sessions_with_samples": len(corpus), **csv_units(csvs)},
         "params": {"history": args.history, "max_objects": args.max_objects, "hazard_m": args.hazard_m,
                    "future_only": args.future_only, "tracked_only": args.tracked_only, "folds": args.folds,
                    "split_seed": args.split_seed, "val_frac": args.val_frac, "test_frac": args.test_frac},

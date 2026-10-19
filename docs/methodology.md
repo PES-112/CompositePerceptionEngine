@@ -25,8 +25,8 @@ from pre-rendered audio. There is no language model at runtime; the v1 design's 
 narrator layers were dropped.
 
 The target device is an iPhone 17 Pro Max. All results come from **replaying SANPO-Real sessions**,
-with depth read from the dataset rather than from the phone's LiDAR (`architecture.md` §4); no live
-deployment or user study is run.
+with SANPO's recorded depth used as is everywhere (`architecture.md` §4; the product's depth sensor
+is an external LiDAR, not modelled); no live deployment or user study is run.
 
 This document covers the methodology for the parts that are implemented and measured: the
 **YOLO26n hazard detector** (§3), the **K0 kinetic-score ablation** that motivated the v2 design (§4.1–4.9),
@@ -258,16 +258,49 @@ behind Bradley-Terry/Elo ranking:
 4. The variant whose `argmax` matches the referee's pick wins that frame; aggregate to a win rate
    with a confidence interval.
 
-**Referee sourcing.** Three VLMs from three distinct model families (not three checkpoints of one
-family, since same-family models share a prior rather than independently verifying) serve as
-referees, run locally as OpenAI-compatible servers. VLM referee agreement is **not** treated as
-ground truth on its own: a human labels the same 100–150 disagreement frames blind, and Cohen's κ is
-reported between each VLM and the human label set before any VLM number is used as evidence. κ < 0.4
-means the referees are not measuring what a human means by "top threat," and the VLM numbers stay out
-of the paper; κ > 0.6 licenses using VLM win rates as a stand-in for a larger human-labeled set.
-Multi-VLM majority voting is deliberately **not** used as a substitute for the human calibration step,
-because VLM errors are correlated through shared training priors — agreement across models is not
-evidence of correctness. Implementation: `evaluation/vlm_referee.py`; step-by-step: `ablation_guide.md`.
+**Referee sourcing (protocol v1, 2026-08).** Three VLMs from three distinct model families (not
+three checkpoints of one family, since same-family models share a prior) serve as referees, run
+locally as OpenAI-compatible servers. VLM agreement is never treated as ground truth on its own, and
+multi-VLM majority voting is not a substitute for human calibration, because VLM errors are
+correlated through shared training priors.
+
+**Protocol v2 (2026-10-17), used for the v2 announcement-order check.** The judge literature showed
+that v1's design (object list, one presentation order, Cohen's κ against one human on 100–150
+frames) could not support a conclusion. `evaluation/vlm_referee.py` now implements:
+
+1. **Cases.** Frames where v2's top pick differs from K0's or from nearest-in-corridor's
+   (`cases.json` + `cases_key.json`, picks per engine). A sample of n = 250 is drawn round-robin
+   across sessions with a fixed seed.
+2. **Forced choice over numbered boxes.** Objects are numbered 1..k on the image and in the list, in
+   a seeded random order, and the referee answers a number.
+3. **Order swap.** Each case is asked twice, the second time in reversed order, so the numbers
+   change. Only order-consistent picks count, and the consistency rate is reported per referee.
+   Position bias is the commonest judge failure: GPT-4 was consistent on 65% of swapped pairs
+   (Zheng et al. 2023).
+4. **Text-only control.** The same list without the image. If a referee agrees with its text-only
+   self as much as with humans, it is reading the distance column, not the scene.
+5. **Human ceiling.** Two people label the same ≥ 50 cases independently on the same numbered
+   images. Human–human agreement bounds what any referee can reach; a fixed κ > 0.6 gate is
+   meaningless if humans agree at 0.5.
+6. **Coefficients.**
+   - Raw agreement, against the per-frame chance level mean(1/k).
+   - Gwet's AC1 for pairs. It is robust when one answer dominates; Cohen's κ collapses at high
+     prevalence, the "κ paradox".
+   - Krippendorff's α (nominal) across the referee panel; it handles missing ballots.
+   - For AC1 and α a pick is coded by its distance rank within the frame, so categories mean the
+     same thing across frames.
+   - Cohen's κ is kept only for binary reductions ("picked engine E's object?").
+   - Every coefficient gets a 95% session-cluster bootstrap CI (1,000 draws).
+7. **Sample size.** At p_o ≈ 0.8 with ~3 candidates, 100 cases give a 95% CI of about ±0.12, so a
+   point estimate of 0.6 can't clear a 0.6 gate; 250 cases give about ±0.08.
+8. **Pre-registration and gate.** The first run writes `protocol.json` (sample, seed, conditions,
+   coefficients, gate) and later runs refuse to change it. A referee's results stand in for human
+   labels only if the **lower 95% bound of its AC1 against every human is > 0.4**. Agreement on
+   disagreement-selected frames is lower than on random frames and is reported as such.
+
+Implementation: `evaluation/vlm_referee.py` (`--self-check` verifies AC1 against the κ paradox and α
+against Krippendorff's published worked example, α = 0.743). Step-by-step: `ablation_guide.md` §4.
+The BLV listening study (`listening_study_plan.md`) adds a small human check on the same question.
 
 ### 4.8 Statistical procedure
 
@@ -486,22 +519,362 @@ through each runtime engine, rebuilding Stage-1 rows for tracked objects from th
   Lead time is ≈ 0 s for every engine, because objects typically first appear near the 3 m zone.
 - **Caveats.** Open-loop; only tracked objects are replayed; inputs and labels share SANPO depth.
 
-### 4.13 Sensor fusion parameters and the camera-pose check
+### 4.13 Sensor fusion: noise model fitted on train, and the camera-pose check
 
-`src/threat_engine/fusion.py`: constant-velocity Kalman filter per track on the ground plane; white
-acceleration noise σ = 1.5 m/s²; depth noise σ = 0.05 + 0.01·d² m; bearing noise 1°; initial
-velocity σ = 3 m/s; χ² gate 11.62 (2 dof, 99.7%), with a track restarted after 3 consecutive gated
-measurements; tracks dropped after 5 missed frames and confirmed after 3 updates. All are declared
-values, not fitted.
+> **Superseded (2026-10-18).** The numbers in this section were computed on scrambled depth (architecture §9 item 0). The rebuild on correct depth is §4.16; the method described here is unchanged.
 
-Camera poses come from SANPO `camera_poses.csv` (ZED camera axes: x right, y up, looking along −z,
-confirmed against walking direction; the alternatives are 80–150° off). The world up axis differs
-between sessions, so it is estimated per session as the mean camera-up vector, and frames where
-visual tracking was lost repeat the last good pose. **Validation failed so far:** with either
-`camera_poses.csv` or `fixed_camera_poses.csv`, near (< 8 m) static objects move more per step in
-the world frame (median 0.52 m) than in the camera frame (0.32 m), which should not happen if poses
-and box depth agree. No frame offset or axis sign fixes it. Ego-motion removal is therefore reported
-only as an ablation until this is explained (`pending_work.md` P0.2).
+`src/threat_engine/fusion.py`: a constant-velocity Kalman filter per track on the ground plane. Tracks
+are dropped after 5 missed frames and confirmed after 3 updates.
+
+**Why the noise model was refitted (2026-10-17).** The hand-set values assumed stereo-like depth
+noise: σ = 0.05 + 0.01·d² m, acceleration 1.5 m/s², a Gaussian update and a hard χ² gate at 11.62.
+The Stage-1 depth is the median of SANPO depth inside the box, and it is far noisier than that, and
+heavy-tailed:
+- The robust σ from second differences on train sessions is ≈ 0.7 m even under 3 m, against 0.07 m
+  assumed.
+- Frame-to-frame jumps of 30–50% are common when the box median falls on background.
+
+With the declared values the filter was badly over-confident:
+- the mean normalised innovation squared (NIS) on validation was 17.5, where 2 is consistent;
+- 26% of measurements were rejected by the gate, restarting tracks;
+- so fused velocities were mostly noise.
+
+**Fitting.** `tools/fit_kalman_noise.py` chooses the noise model by **maximum one-step predictive
+log-likelihood on the 252 official-train sessions only**. It never looks at an arrival label.
+- **Free parameters:**
+  - acceleration σ (separately for static classes);
+  - depth σ = a + b·d;
+  - bearing σ;
+  - initial speed σ.
+- **Measurement noise:** Gaussian, or Student-t with ν = 4 (Roth et al.'s approximation: R is
+  inflated by (ν + NIS)/(ν + 2), so a jump is down-weighted instead of dropped). With ν = 4 the gate
+  only rejects jumps too large to be the same object (NIS > 60).
+- **Search:** Nelder–Mead on the log-parameters, 100 evaluations per ν.
+
+Results (`evaluation/benchmarks/kalman_noise_fit/fit_pose.json`):
+
+| | log-lik train | log-lik val | NIS mean / median, val | rejected, val |
+|---|---:|---:|---:|---:|
+| declared (2026-10-14) | −6.60 | −10.15 | 17.5 / 2.66 | 26% |
+| Gaussian fit | −4.26 | −3.63 | 1.76 / 0.48 | 3% |
+| **Student-t fit (ν = 4), the default** | **−4.13** | **−3.37** | 4.2 / 1.16 | 0.6% |
+
+Fitted values: acceleration σ 0.35 m/s² (static classes 0.098), depth σ 0.30 + 0.22·d m, bearing σ
+0.55°, initial speed σ 0.85 m/s. `NoiseModel.declared()` keeps the old values for comparison.
+
+The median 1 s-ahead position error on validation is 2.16 m fitted vs 1.98 m declared. The two
+aren't comparable: the declared filter keeps restarting tracks, so it only forecasts the 210 easy,
+stable ones, against 344 for the fitted filter.
+
+**Kalman arrival predictor.** `src/threat_engine/kalman_arrival.py` draws 128 fixed samples from
+each track's relative state covariance (`FusedTrack.rel_cov`, 4×4) and runs each forward at constant
+velocity. P(arrive) is the share of samples that enter the label's corridor within the horizon.
+Unlike the mean-state physics rule, which returns ≈ 0 or ≈ 1, it gives an uncertain track a middling
+probability, so the ignore threshold becomes a real knob. It is the replay arm `v2_kalman` and the
+ladder rung `cv_kalman`.
+
+**Results** (official test split, scored once):
+- **Held-out ladder** (§4.14): `cv_kalman` (fitted, probabilistic) vs. the declared mean-state rung:
+  AUROC 0.862 vs 0.822, Δ +0.040 [+0.023, +0.054]; AUPRC Δ +0.122 [+0.086, +0.175]; Holm p < 0.001
+  for both. It now **ties the GRU**: −0.013 [−0.039, +0.024], against −0.052 [−0.078, −0.013] before.
+- **Replay, same physics predictor, paired before/after at fixed thresholds**
+  (`kalman_noise_fit/replay_before_after_test.md`): false alerts/min fall by 7.3–14.5 (every CI
+  excludes 0) and precision rises by 0.08–0.22.
+  - With camera poses at threshold 0.95: 17.7 → 10.3 false alerts/min, Δ −7.3 [−10.7, −4.4].
+  - Without poses: 18.1 → 5.0, Δ −13.1 [−16.3, −10.1].
+  - Recall drops in two of the four settings: with poses at 0.95, 0.40 → 0.27, Δ −0.13 [−0.33, −0.04].
+- **v2_physics still meets no alert budget on validation with poses.**
+  - Without poses it now meets `budget_10`: warned 0.29 [0.20, 0.50] at 5.1 [3.1, 6.9] false/min.
+  - The probabilistic `v2_kalman` meets `budget_5` and `budget_10`. At `budget_5`: warned 0.22
+    [0.11, 0.44] at 4.7 false/min with poses, 0.27 [0.17, 0.52] at 4.6 without. Both are below the GRU
+    (0.32 [0.24, 0.50] at 4.1).
+  - Report: `evaluation/benchmarks/threat_engine_replay/corridor_kalman_2026_10_17/`.
+- **The tracker feeds every v2 arm**, so the GRU and nearest-in-corridor arms changed too:
+  - `v2_gru` at `budget_5`: warned 0.32 [0.24, 0.50], 4.1 false/min, precision 0.66 [0.55, 0.74],
+    against 0.32, 5.4 and 0.56 with the declared filter.
+  - `nearest_in_corridor` (corridor membership from fused positions) fell to 0.05 [0.00, 0.12] warned
+    at `budget_5`, from 0.24. Smoother positions enter the 0.75 m corridor later. Compare arms only
+    within one tracker version.
+
+**Camera poses.** SANPO's `fixed_camera_poses.csv` is used with OpenCV camera axes in a Z-up world,
+NOT_READY rows interpolated (`tools/validate_sanpo_poses.py`). Trajectory-level gates pass, but
+object-level reconciliation is still inconclusive. With the fitted filter, the no-pose arm does at
+least as well as the pose arm for every v2 predictor at `budget_5`: fewer or equal false alerts at
+equal or higher recall. Ego-motion removal remains an ablation, not a default claim.
+
+### 4.14 Baseline ladder on the corridor label (2026-10-17)
+
+> **Superseded (2026-10-18).** The numbers in this section were computed on scrambled depth (architecture §9 item 0). The rebuild on correct depth is §4.16; the method described here is unchanged.
+
+`python -m models.GRU.benchmark` on `…_official_corridor_w0.75_d3_h20`: 71 test sessions (20 with
+an arrival), 4,721 objects, positive rate 0.169. Learned models are averaged over 3 seeds. Paired
+session bootstrap (1,000 draws), two-sided p from the bootstrap SE, Holm within each stratum
+(30 tests). Report: `evaluation/benchmarks/baseline_ladder/<dataset>/report.md`;
+`ref_cv_kalman_declared/` holds the same ladder referenced to the old Kalman rung.
+
+| Method | AUROC | AUPRC | Δ AUROC vs GRU [95% CI] | Holm p |
+|---|---:|---:|---|---:|
+| GRU hist4 | 0.879 | 0.718 | +0.004 [+0.002, +0.009] | 0.43 |
+| GRU hist1 | 0.879 | 0.708 | +0.004 [−0.002, +0.012] | 1.00 |
+| **GRU (h8, reference)** | **0.875** | **0.713** | — | — |
+| GRU attention | 0.873 | 0.640 | −0.002 [−0.020, +0.018] | 1.00 |
+| GBT, current step | 0.865 | 0.693 | −0.010 [−0.026, +0.010] | 1.00 |
+| Kalman CV (fitted, probabilistic) | 0.862 | 0.675 | −0.013 [−0.039, +0.024] | 1.00 |
+| GBT, history | 0.859 | 0.676 | −0.016 [−0.033, −0.001] | 0.74 |
+| Logistic regression | 0.852 | 0.557 | −0.023 [−0.047, +0.004] | 0.74 |
+| Nearest in corridor | 0.851 | 0.696 | −0.024 [−0.040, +0.002] | 0.43 |
+| CVM, last two steps | 0.829 | 0.639 | −0.046 [−0.063, −0.010] | 0.016 |
+| Kalman CV (declared, mean state) | 0.822 | 0.553 | −0.052 [−0.078, −0.013] | 0.033 |
+| TTC in cone | 0.754 | 0.487 | −0.121 [−0.158, −0.058] | < 0.001 |
+| TTC | 0.663 | 0.434 | −0.212 [−0.264, −0.140] | < 0.001 |
+| K0 | 0.583 | 0.202 | −0.292 [−0.356, −0.194] | < 0.001 |
+
+**Reading.**
+- The learned models **do not significantly beat nearest-in-corridor, GBT on the current step, or
+  the fitted Kalman** once the label is the corridor. They beat only:
+  - the two-step CVM;
+  - the declared Kalman;
+  - TTC and K0.
+- **History length doesn't matter:** hist1 ≈ hist4 ≈ h8, which is Schöller et al.'s "history is
+  largely irrelevant" result.
+- **Cross-object attention:** it ties on AUROC, but its AUPRC is −0.073 [−0.116, −0.023] (Holm
+  p = 0.050), consistent with the earlier finding that neighbours' histories hurt.
+- **What the GRU does buy** is in ranking and announcements, not separability. Its flicker is 0.58
+  against 0.65 for nearest-in-corridor and 0.64 for the Kalman, and in the replay it reaches 0.32
+  warned at 4.1 false/min, against 0.22 for the Kalman and 0.05 for nearest-in-corridor at
+  `budget_5`.
+- **Strata.** Static objects (303, positive rate 0.086) are near-trivially separable for every
+  geometric method (AUROC ≈ 0.98). All differences live in the dynamic stratum.
+- **A statistics caveat.** For hist4 the percentile CI excludes 0, but the SE-based p does not
+  survive Holm. The bootstrap distribution is skewed; treat it as a tie.
+
+### 4.15 Lead-based recall (2026-10-17)
+
+> **Superseded (2026-10-18).** The numbers in this section were computed on scrambled depth (architecture §9 item 0). The rebuild on correct depth is §4.16; the method described here is unchanged.
+
+All numbers use SANPO's recorded depth as is. A LiDAR-range simulation that briefly existed on
+2026-10-17 was removed: the product uses an external LiDAR, not the phone's, and depth stays as
+recorded.
+
+**"Warned" includes lead-0 announcements.** The replay's `warned` counts an announcement made on the
+arrival frame itself. Two lead-based columns were added to every operating-point table:
+- `warned_before`: warned at least one processed step (0.2 s) before arrival;
+- `warned_lead_ge1`: warned at least 1 s before.
+
+**Results**, test, operating points chosen on validation
+(`evaluation/benchmarks/threat_engine_replay/corridor_kalman_2026_10_17/`):
+
+| Arm | budget | warned | warned ≥ 0.2 s before | warned ≥ 1 s before | false alerts/min | precision |
+|---|---|---|---|---|---|---|
+| v2_gru | 5 | 0.32 [0.24, 0.50] | 0.08 [0.00, 0.11] | 0.00 [0.00, 0.00] | 4.1 [2.1, 6.5] | 0.66 [0.55, 0.74] |
+| v2_gru | 10 | 0.38 [0.26, 0.67] | 0.13 [0.03, 0.29] | 0.02 [0.00, 0.07] | 5.5 [3.1, 7.9] | 0.62 [0.48, 0.72] |
+| v2_gru_nopose | 5 | 0.37 [0.25, 0.63] | 0.11 [0.00, 0.23] | 0.02 [0.00, 0.07] | 2.9 [1.4, 4.4] | 0.73 [0.64, 0.82] |
+| v2_kalman | 5 | 0.22 [0.11, 0.44] | 0.06 [0.00, 0.16] | 0.02 [0.00, 0.07] | 4.7 [2.3, 7.3] | 0.54 [0.39, 0.66] |
+| v2_physics_nopose | 10 | 0.29 [0.20, 0.50] | 0.08 [0.00, 0.11] | 0.06 [0.00, 0.09] | 5.1 [3.1, 6.9] | 0.53 [0.46, 0.60] |
+| nearest_in_corridor | 10 | 0.19 [0.11, 0.32] | 0.08 [0.03, 0.14] | 0.02 [0.00, 0.03] | 7.2 [3.7, 10.8] | 0.47 [0.37, 0.57] |
+
+**Reading.**
+- At every arm's alert-budget point, only 0.08–0.14 of arrivals are warned at least one step ahead,
+  and at most 0.06 at least 1 s ahead. Most of the headline `warned` is announcements on the arrival
+  frame.
+- The opportunity window isn't the limit: the median is 2.6 s, and 75% of arrivals are seen ≥ 1 s
+  before they arrive. The engines are.
+- Operating points were chosen to maximise `warned`, which rewards lead-0 announcements. They should
+  be re-chosen on `warned_before` (or lead-conditional recall) before any lead or recall claim goes
+  in the paper.
+
+### 4.16 Rebuild on correctly decoded depth (2026-10-18)
+
+> **Partly superseded (2026-10-19).** The labels, ladder, Kalman fit and replay below used bearings converted twice (§4.17). Dataset sizes and the Stage-1 rebuild stand; for numbers, use §4.17.
+
+Every number in §4.11–4.15 used depth maps read as 960×960 instead of a 2-value header plus a
+720×1280 image (architecture §9 item 0). Everything downstream of depth was redone with
+`notebooks/colab_rebuild.ipynb` (Colab T4), with no change to methods, settings or the split rule:
+- Stage 1 on all 462 sessions (300 frames, stride 3), then the arrival dataset, the official
+  split and the six corridor labels.
+- The Kalman noise refitted on train and written into `NoiseModel`'s defaults.
+- The four corridor GRU variants retrained (3 seeds each).
+- The ladder, the end-to-end replay (`threat_engine_replay/corridor_depthfix/`) and the Kalman
+  before/after comparison re-run, with thresholds chosen on validation and test scored once.
+
+**The dataset changed, not only the numbers.** More sessions now have tracked objects within reach:
+287 train / 47 validation / 83 test (32 test sessions with an arrival), against 252 / 41 / 71 (20)
+before. The corridor positive rate on test is 0.224 (was 0.169), and there are 96 test arrivals.
+The old and new results are therefore not paired and must not be compared as differences.
+
+**Kalman noise** (`kalman_noise_fit/fit_pose.json`). Correct depth is far less noisy, so the fit moved
+a lot:
+
+| | log-lik train | log-lik val | NIS mean / median, val | rejected, val | 1 s error, val (median) |
+|---|---:|---:|---:|---:|---:|
+| declared (2026-10-14) | −3.40 | −4.74 | 8.39 / 0.59 | 10.8% | 0.79 m (676 forecasts) |
+| **Student-t fit (ν = 4), the default** | **−1.85** | **−1.82** | 9.91 / 1.27 | 3.5% | 1.14 m (775 forecasts) |
+
+Fitted values: depth σ 0.058 + 0.053·d m (was 0.30 + 0.22·d on scrambled depth), acceleration σ
+2.93 m/s² (static classes 2.04), bearing σ 0.37°, initial speed σ 0.90 m/s. Student-t beat Gaussian
+(train log-lik −1.85 vs −2.47).
+
+**Contradiction, flagged.** The fitted filter is much better on one-step likelihood but worse where
+it matters:
+- **Ladder:** `cv_kalman` vs the declared rung: AUROC −0.016 [−0.023, −0.004] (Holm p 0.009), AUPRC
+  +0.010 [+0.001, +0.056] (Holm p 1.0).
+- **Replay:** paired before/after with the physics predictor shows no significant change in warned,
+  false alerts or precision (`kalman_noise_fit/replay_before_after_test.md`). Alerts/min rise by
+  2.4 [0.2, 4.5] at threshold 0.95 with poses.
+- **Forecasts:** the median 1 s-ahead error is higher (1.14 m vs 0.79 m), on more tracks.
+
+The likely cause is the objective. With accurate depth, the one-step likelihood explains frame-to-frame
+jumps (box shifts, residual ego-motion) as acceleration, and 2.9 m/s² makes velocity jumpy over a 4 s
+horizon. A fit on multi-step (≈ 1 s) predictive error on train is the next thing to try. Until then,
+the fitted filter is not shown to help, and either noise model is defensible.
+
+**Baseline ladder** (`baseline_ladder/…_corridor_w0.75_d3_h20/report.md`; 83 test sessions, 5,974
+objects; learned models averaged over 3 seeds; Holm within stratum, 30 tests):
+
+| Method | AUROC | AUPRC | Δ AUROC vs GRU [95% CI] | Holm p |
+|---|---:|---:|---|---:|
+| GRU attention | 0.915 | 0.793 | +0.006 [−0.005, +0.012] | 1.00 |
+| GBT, history | 0.914 | 0.796 | +0.005 [+0.000, +0.010] | 0.49 |
+| GBT, current step | 0.914 | 0.798 | +0.005 [−0.001, +0.011] | 1.00 |
+| GRU hist1 | 0.910 | 0.788 | +0.001 [−0.004, +0.008] | 1.00 |
+| GRU hist4 | 0.909 | 0.790 | +0.000 [−0.003, +0.004] | 1.00 |
+| **GRU (h8, reference)** | **0.909** | **0.788** | — | — |
+| Nearest | 0.899 | 0.744 | −0.011 [−0.021, +0.006] | 1.00 |
+| Logistic regression | 0.898 | 0.736 | −0.011 [−0.020, +0.001] | 0.51 |
+| Kalman CV (declared, mean state) | 0.882 | 0.741 | −0.028 [−0.038, −0.013] | 0.001 |
+| CVM, last two steps | 0.879 | 0.754 | −0.030 [−0.040, −0.016] | < 0.001 |
+| Nearest in corridor | 0.871 | 0.734 | −0.039 [−0.054, −0.021] | < 0.001 |
+| Kalman CV (fitted, probabilistic) | 0.866 | 0.751 | −0.043 [−0.056, −0.019] | < 0.001 |
+| TTC in cone | 0.771 | 0.592 | −0.138 [−0.171, −0.115] | < 0.001 |
+| TTC | 0.678 | 0.533 | −0.232 [−0.289, −0.196] | < 0.001 |
+| K0 | 0.549 | 0.243 | −0.360 [−0.412, −0.311] | < 0.001 |
+
+**Reading.**
+- Every method separates better on correct depth (GRU 0.909, was 0.875 on a different test set).
+- **Learned models and GBT tie.** The four GRU variants, GBT and attention all fall in 0.909–0.915,
+  and no difference survives Holm. History length still doesn't matter.
+- **Plain distance is close behind.** `nearest` is −0.011 [−0.021, +0.006]; its AUPRC is lower,
+  −0.044 [−0.068, −0.020] (Holm p 0.002).
+- **Learned models do beat every dynamics rule now:** both Kalman rungs, the two-step CVM,
+  nearest-in-corridor, TTC and K0 (Holm p ≤ 0.001). This differs from §4.14, where the fitted
+  Kalman and nearest-in-corridor tied the GRU.
+- Some percentile CIs sit off-centre or exclude their own point estimate (e.g. declared Kalman ΔAUPRC
+  −0.047 [−0.143, −0.037]). The bootstrap distribution is skewed, so use the Holm p.
+
+**End-to-end replay** (`threat_engine_replay/corridor_depthfix/report.md`; operating points chosen
+on 47 validation sessions, test scored once; 96 test arrivals). The opportunity window (first
+sighting → arrival) has a median of 2.0 s: 27% of arrivals are first seen < 1 s before, and 25%
+≥ 4 s before.
+
+| Arm | budget | knob | warned | warned ≥ 0.2 s before | warned ≥ 1 s before | false/min | precision | alerts/min |
+|---|---|---:|---|---|---|---|---|---|
+| v2_gru | 5 | 0.8 | 0.35 [0.26, 0.53] | 0.12 [0.05, 0.22] | 0.04 [0.01, 0.08] | 8.5 [5.2, 12.1] | 0.56 [0.46, 0.66] | 19.3 |
+| nearest_in_corridor | 5 | 0.95 | 0.29 [0.22, 0.40] | 0.11 [0.05, 0.20] | 0.03 [0.00, 0.06] | 7.5 [4.6, 10.7] | 0.44 [0.34, 0.52] | 13.4 |
+| v2_gru | 10 | 0.7 | 0.44 [0.33, 0.65] | 0.16 [0.08, 0.28] | 0.06 [0.02, 0.13] | 9.0 [5.6, 12.7] | 0.56 [0.47, 0.64] | 20.5 |
+| v2_gru_nopose | 10 | 0.7 | 0.48 [0.39, 0.66] | 0.19 [0.10, 0.31] | 0.07 [0.02, 0.14] | 10.1 [6.6, 14.0] | 0.54 [0.44, 0.63] | 22.0 |
+| v2_kalman | 10 | 0.95 | 0.39 [0.28, 0.58] | 0.17 [0.09, 0.30] | 0.07 [0.03, 0.15] | 9.8 [5.9, 13.7] | 0.52 [0.41, 0.62] | 20.4 |
+| nearest_in_corridor | 10 | 0.4 | 0.40 [0.29, 0.57] | 0.18 [0.09, 0.31] | 0.06 [0.02, 0.12] | 12.6 [8.8, 16.6] | 0.45 [0.35, 0.52] | 22.8 |
+| v1_k0_announcer | 10 | 1.5 | 0.19 [0.10, 0.36] | 0.10 [0.05, 0.21] | 0.07 [0.02, 0.15] | 8.2 [6.1, 10.4] | 0.28 [0.15, 0.41] | 11.4 |
+
+**Reading.**
+- **The alert budgets are now hard to meet.** With correct depth, many more objects really are
+  close, and the engines speak far more often (~20 alerts/min at the chosen points). No v2 arm meets
+  `budget_2` on validation; only `v2_gru` and nearest-in-corridor meet `budget_5`; v2_physics meets
+  none.
+- **Validation doesn't transfer.** At `budget_5`, v2_gru's test false-alert rate is 8.5 [5.2, 12.1]
+  per minute, above the 5/min it was chosen for.
+- **Early warning is still the weak point.** At most 0.19 of arrivals are warned ≥ 0.2 s ahead and
+  0.07 ≥ 1 s ahead, while 73% of arrivals are seen ≥ 1 s ahead.
+- **Between arms, the CIs overlap everywhere.** v2_gru has the highest precision; nearest-in-corridor
+  and the Kalman are within the CIs on recall.
+- **Next:** re-choose operating points on `warned_before` instead of `warned`, and reconsider the
+  announcer's rate limits and the false-alert budgets now that real close-range traffic is this dense.
+
+### 4.17 Units fix, 1 s-ahead Kalman fit and lead-based tuning (2026-10-19)
+
+> **Provisional (2026-10-19).** The Stage-1 CSVs behind these numbers used the chest camera's fx and a mis-scaled depth lookup in the detector's size check (architecture §9 items 8–9). Stage 1 is being re-run (`notebooks/colab_rebuild.ipynb`, `RUN_TAG = "headfx"`); the methods stand, the numbers will change.
+
+**A units bug in the rebuild, found and fixed.** The rebuilt Stage-1 CSVs already store pinhole
+bearings (from the session's fx) and speeds at the true frame rate. But `relabel.py`, the ladder's
+rule baselines and tabular features, the replay and both Kalman tools still treated the stored
+bearing as the pre-2026-10-14 linear ±35° value and converted it again. That shrank every bearing
+by about 10–15% (20° became 17.7°), so objects looked more central: about 13 cm at 3 m and 20°. The
+replay also halved the already-correct speeds.
+- **Fix:** `dataset/GRU/build.py` records `source.units = "pinhole_bearing_true_fps"` when every
+  CSV has a stream sidecar with fx. Every consumer converts only when `legacy_units(manifest)` is
+  true. The eight rebuilt manifests were marked. Tests: `tests/test_dataset_units.py`.
+- **Redone:** the six corridor labels, all GRU runs (4 variants × 3 seeds), the Kalman fit, the
+  ladder, the before/after comparison and the replay.
+- **Labels moved a little:** the test positive rate went from 0.224 to 0.212, and test sessions
+  with an arrival from 32 to 29. The §4.16 labels, ladder, Kalman fit and replay numbers are
+  superseded by this section.
+
+**Kalman noise, fitted on 1 s-ahead likelihood.** `tools/fit_kalman_noise.py --objective ahead`
+scores each candidate by the log-likelihood of the position measured 1 s later, under the filter's
+own 5-step forecast and its propagated covariance plus the measurement's R. The one-step objective
+was refitted for comparison. The default was chosen by validation 1 s-ahead log-likelihood:
+
+| Noise model | val 1 s log-lik ↑ | val NIS mean (2 = calibrated) | val median 1 s error | forecasts |
+|---|---:|---:|---:|---:|
+| declared (2026-10-14) | −3.43 | 8.6 | 0.77 m | 675 |
+| one-step fit, Student-t ν = 4 (`fit_pose.json`) | −3.57 | 12.2 | 1.11 m | 761 |
+| **1 s-ahead fit, Gaussian (`fit_pose_ahead.json`), the default** | **−3.08** | **2.3** | 1.09 m | 751 |
+
+- **Fitted values:** acceleration σ 0.50 m/s² (static classes 2.14), depth σ 0.033 + 0.263·d m,
+  bearing σ 0.28°, initial speed σ 0.88 m/s, Gaussian update with the χ² gate at 11.62.
+- **Not completed:** the Student-t half of the 1 s fit, which was stopped twice by low memory on
+  the laptop.
+- **Why the old filter's median error is lowest:** it restarts tracks often, so it only forecasts
+  the 675 steadiest ones.
+
+**Results** (test, scored once):
+- **Ladder** (83 sessions, 29 with an arrival, 5,974 objects, positive rate 0.212):
+  - GRU 0.905. It ties attention (0.914, +0.008 [−0.006, +0.014]), GBT (0.911–0.912), the other
+    GRU variants and the fitted Kalman (0.893, −0.013 [−0.023, +0.002], Holm p 0.53).
+  - The GRU beats `nearest` (−0.016 [−0.026, −0.002]; AUPRC −0.060, Holm p < 0.001), logistic
+    regression, the declared Kalman, the two-step CVM, nearest-in-corridor, TTC and K0.
+  - **The §4.16 contradiction is resolved:** the 1 s fit beats the declared Kalman by AUROC +0.017
+    [+0.009, +0.026] (Holm p 0.003) and AUPRC +0.044 [+0.026, +0.113].
+- **Replay, physics predictor, paired before/after at fixed thresholds:** false alerts/min fall
+  by 5.5–13.6 and precision rises by 0.04–0.14 (every CI excludes 0). Recall `warned` falls by
+  0.14–0.16 (CIs exclude 0): smoother velocities predict fewer entries.
+
+**Lead-based tuning** (`threat_engine_replay/corridor_tuned/`). New operating rules
+`early_budget_{2,5,10}` maximise `warned_before` (warned ≥ 0.2 s ahead) within each false-alert
+budget on validation. `--announcer-sweep` also tunes the announcer for v2_gru, v2_kalman and
+nearest-in-corridor: 10 thresholds × cooldown {2, 4, 8} s × switch margin {1, 1.25, 2} × stale
+drop {0.6, 1.2} s. Test has 94 arrivals; the opportunity window has a median of 2.2 s, 29% of
+arrivals are seen < 1 s ahead and 26% ≥ 4 s ahead.
+
+| Arm | rule | knob (threshold / announcer) | warned | warned ≥ 0.2 s | warned ≥ 1 s | false/min | precision | alerts/min |
+|---|---|---|---|---|---|---|---|---|
+| v2_gru | early_budget_5 | 0.5 / cd 4 / sm 1 / st 0.6 | 0.37 [0.26, 0.57] | 0.19 [0.11, 0.36] | 0.06 [0.01, 0.13] | 7.0 [4.8, 9.5] | 0.58 [0.47, 0.66] | 16.7 |
+| v2_gru_nopose | early_budget_5 | 0.5 (default announcer) | 0.36 [0.26, 0.57] | 0.18 [0.11, 0.33] | 0.04 [0.00, 0.10] | 6.0 [3.8, 8.5] | 0.61 [0.49, 0.71] | 15.2 |
+| v2_kalman | early_budget_5 | 0.7 / cd 4 / sm 1 / st 0.6 | 0.27 [0.14, 0.46] | 0.17 [0.08, 0.28] | 0.07 [0.02, 0.14] | 7.2 [4.7, 9.9] | 0.54 [0.43, 0.63] | 15.7 |
+| nearest_in_corridor | early_budget_5 | 0.5 / cd 8 / sm 2 / st 0.6 | 0.17 [0.09, 0.30] | 0.07 [0.03, 0.16] | 0.03 [0.00, 0.09] | 7.4 [4.4, 10.3] | 0.44 [0.32, 0.55] | 13.1 |
+| v2_gru | early_budget_10 | 0.4 / cd 2 / sm 1 / st 1.2 | 0.34 [0.21, 0.61] | 0.22 [0.10, 0.46] | 0.05 [0.01, 0.12] | 10.3 [7.7, 13.4] | 0.51 [0.39, 0.60] | 20.9 |
+| v2_gru | early_budget_2 | 0.9 / cd 4 / sm 1 / st 0.6 | 0.15 [0.08, 0.28] | 0.04 [0.00, 0.11] | 0.02 [0.00, 0.07] | 3.9 [2.0, 6.2] | 0.64 [0.49, 0.77] | 10.9 |
+| v1_k0_announcer | early_budget_10 | 12 | 0.39 [0.28, 0.59] | 0.20 [0.11, 0.31] | 0.11 [0.05, 0.17] | 10.2 [7.7, 12.7] | 0.39 [0.25, 0.50] | 16.9 |
+
+**Reading.**
+- **Tuning on lead doesn't create lead.** The `early_*` points are the same as, or next to, the
+  `budget_*` points. The best arms warn about 0.19–0.22 of arrivals ≥ 0.2 s ahead and ≤ 0.07 ≥ 1 s
+  ahead, while 71% are seen ≥ 1 s ahead. The limit is the predictors: they rarely put an
+  object above threshold early enough.
+- **The announcer barely matters.** At equal threshold, the best announcer setting beats the
+  default (cooldown 4 s, switch margin 1.25, stale 0.6 s) by at most +0.06 `warned_before` on
+  validation, and by ≤ +0.03 on test. Switch margin 1.0 is chosen most often. The announcer
+  defaults stay as declared.
+- **Validation under-predicts test false alerts.** Every point chosen for ≤ 5 false/min on 47
+  validation sessions gives 6.0–7.4 on test. Budgets should be read as "about", or chosen with a
+  margin.
+- **Ego-motion removal still doesn't help:** the no-pose GRU matches the pose GRU on recall and
+  lead, with fewer false alerts (6.0 vs 7.0) and higher precision (0.61 vs 0.58), with overlapping CIs.
+- **v1's ≥ 1 s rate (0.11) is the highest**, but at precision 0.39. It speaks about everything
+  near, so some of it is early by chance.
+- **Next, for lead:** train the GRU on an objective that rewards early probability mass (e.g. a
+  loss weighted by time-to-arrival, or a "will arrive in ≥ 1 s" target), and give the announcer a
+  "rising P(arrive)" trigger instead of a fixed threshold.
 
 ### 4.14 Scene context from walkable-surface segmentation (2026-10-17)
 
@@ -714,14 +1087,29 @@ Three kinds of latency number exist and must never be conflated in a paper:
 - **Legacy analytical proxy (retired 2026-10-14):** the Jetson Orin Nano 8GB profile scaled GB10
   latency by 4.0× and added 3.0 ms (avg p95 34.31 ms). It was a screening heuristic for a target that
   is no longer planned, so don't report it as edge evidence.
-- **On-device measurement (planned):** each runtime model is exported to Core ML and timed on the
-  target iPhone 17 Pro Max over SANPO frames. Report median and p95, warm-up separately, and a
-  sustained run of several minutes to expose thermal throttling. This is the only number that
-  supports a "runs on the phone" claim (`pending_work.md` P3).
+- **On-device measurement (harness built 2026-10-17, not yet run):** `ios/CPETiming` is a SwiftUI app
+  built by GitHub Actions on macOS and installed through TestFlight (no team Mac needed). It runs:
+  - YOLO26n v3 (FP16 Core ML) on 300 bundled SANPO test frames;
+  - the arrival GRU (`training/scripts/export_gru_coreml.py`; FP16, fixed [1, 32, 8, 9] input,
+    softmax in the graph) on recorded SANPO test-split features.
 
-**Latency-aware replay.** The SANPO replay is open-loop, so latency cannot change what the walker
-does. It does change *when* an alert would have fired. System metrics (warning lead time, missed
-arrivals) are therefore computed after delaying each alert by the measured on-device latency.
+  It writes per-stage times (decode/resize, detector, output read, GRU, total) as CSV rows and
+  `os_signpost` intervals, with the thermal state and battery. The phone's camera and LiDAR are not
+  used: frames and depth-derived inputs come from SANPO. Protocol:
+  - a 60-frame warm-up, excluded;
+  - 10 blocks of 150 frames paced at 15 FPS;
+  - a 20–40 min sustained run.
+
+  Reported: median, p95 and p99 per stage; p95 per 5-minute window; time in each thermal state;
+  battery drop per hour (`ios/CPETiming/analyze_timing.py`). This is the only number that supports a
+  "runs on the phone" claim. It times two models per frame, not the whole app, and SANPO frames come
+  from a different camera than the phone's.
+
+**Latency-aware replay.** The SANPO replay is open-loop, so latency can't change what the walker
+does. It does change *when* an alert is heard. `tools/replay_threat_engine.py --latency-csv
+<timing CSVs>` delays each announcement by a total drawn from the measured per-frame totals, seeded
+per session (`--latency-ms` gives a fixed delay instead). Warned and lead time use the heard time;
+precision is still judged at the frame that triggered the alert.
 
 The GB10 development host: NVIDIA GB10, ARM64, 20 CPU cores, ~119 GiB unified memory, Ubuntu 24.04,
 PyTorch 2.13 + CUDA 13.0, Ultralytics 8.4.95 (observed 2026-07-22).
@@ -782,7 +1170,8 @@ section of this document (§1–6 above) as additional grounding context first.
 > deterministic physics safety envelope: an object with time-to-collision under 1 s in the walking
 > path always triggers an alert. Alerts are scripted phrases from pre-rendered audio; there is no
 > language model at runtime. The target device is an iPhone 17 Pro Max; evaluation replays the
-> SANPO egocentric dataset with dataset depth standing in for phone LiDAR, and no human ground-truth
+> SANPO egocentric dataset with its recorded depth used as is (the product uses an external LiDAR),
+> and no human ground-truth
 > labels are needed except a small calibration set for a blinded referee.
 >
 > Please write an Academic Abstract (250 words max) and an Introduction. The Introduction should
@@ -825,8 +1214,8 @@ section of this document (§1–6 above) as additional grounding context first.
 >   against base YOLO26n with explicit class-name remapping. This repaired the v2 retained-class
 >   regression while preserving custom hazard improvements.
 > - We process every 3rd source frame. Between processed frames, tracks are carried by the tracker.
-> - Depth comes from the SANPO dataset in our replay; on the target iPhone 17 Pro Max it would come
->   from the LiDAR scene depth via ARKit. State this substitution explicitly. Distance (d) is the
+> - Depth is SANPO's recorded depth, used as is; the product will use an external LiDAR sensor,
+>   which is not modelled. State this explicitly. Distance (d) is the
 >   median depth in the central patch of each box, masking closer overlapping objects. Object bearing
 >   is computed from the box centroid pixel and the camera's horizontal field of view:
 >   `bearing_deg = ((cx_px − frame_width/2) / (frame_width/2)) × (hfov_deg/2)`.
@@ -965,6 +1354,6 @@ section of this document (§1–6 above) as additional grounding context first.
 > announces 17 times a minute with precision 0.59 vs. v1's 119 at 0.24, but warns about 26% of
 > arrivals vs. 65%. Discuss that the ceiling is set by the input features, motivating scene context,
 > and that the camera-pose check failed (§4.13), so ego-motion removal is not claimed. State the
-> limitations: open-loop replay, dataset depth standing in for phone LiDAR, head-mounted camera, no
+> limitations: open-loop replay, SANPO depth used as is (external LiDAR not modelled), head-mounted camera, no
 > user study, declared severity / announcer parameters. Do not claim a live deployment, phone FPS that
 > was not measured, or results for components that have not been run."
