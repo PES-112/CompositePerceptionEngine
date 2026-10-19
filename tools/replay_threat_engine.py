@@ -65,7 +65,7 @@ arrival): warned rate and lead among arrivals with a window of >= 1 s and
 since first sighting (an arrival never warned is censored at arrival).
 
     python tools/replay_threat_engine.py --gru-run models/GRU/GRU/runs/corridor_h8_seed0
-    python tools/replay_threat_engine.py --gru-run ... --context-dir data/sanpo_scene_context/gt --name oracle_context
+    python tools/replay_threat_engine.py --gru-run ... --context-dir data/sanpo_scene_context_v2/gt --name oracle_context
 
 Latency-aware replay (--latency-csv, or a fixed --latency-ms): each
 announcement is heard that long after the frame that triggered it, using the

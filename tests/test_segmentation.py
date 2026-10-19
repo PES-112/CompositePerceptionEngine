@@ -132,6 +132,17 @@ class EdgeAlertTests(unittest.TestCase):
         self.assertEqual(a.step(5.2, EdgeAhead(STAIRS, 3.5)).kind, "stairs")
 
 
+class ColumnTests(unittest.TestCase):
+    def test_bearing_to_image_column(self):
+        from tools.build_scene_context import column_frac
+        fx, width = 1380.0, 2208.0
+        edge = np.degrees(np.arctan(width / 2 / fx))
+        self.assertAlmostEqual(column_frac(0.0, fx, width, legacy=False), 0.5)
+        self.assertAlmostEqual(column_frac(edge, fx, width, legacy=False), 1.0)
+        self.assertAlmostEqual(column_frac(-edge, fx, width, legacy=False), 0.0)
+        self.assertAlmostEqual(column_frac(35.0, fx, width, legacy=True), 1.0)   # legacy: linear onto ±35°
+
+
 class MetricTests(unittest.TestCase):
     def test_perfect_prediction(self):
         cls, _ = street()

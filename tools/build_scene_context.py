@@ -21,7 +21,13 @@ re-running Stage 1 on the chest stream.
     python tools/build_scene_context.py --source training/runs/cpe_yolo26s_sem_walkable/weights/best.pt --all-sessions
     python tools/build_scene_context.py --source .../best.pt --all-sessions --device mps --imgsz 768   # Apple silicon
 
-Writes data/sanpo_scene_context/<source name>/<session>.json:
+Depth is decoded with decode_sanpo_depth (the [H, W] header first). Results
+built before 2026-10-19 used a decoder that scrambled every map; they live in
+the old data/sanpo_scene_context/ and must not be reused, hence the new root.
+Bearings: datasets marked with pinhole units (dataset.GRU.samples.legacy_units)
+store the true angle; older ones the legacy linear ±35° mapping.
+
+Writes data/sanpo_scene_context_v2/<source name>/<session>.json:
     {"frames": {k: {"walker": cls|null, "edge": [cls, m]|null,
                     "tracks": {track_id: [surface|null, in_path, near_boundary, other_surface]}}}}
 """
@@ -41,8 +47,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
 
-from dataset.GRU.samples import load_dataset
-from src.perception_stack.depth_loader import _infer_sanpo_shape
+from dataset.GRU.samples import legacy_units, load_dataset
+from src.perception_stack.depth_loader import decode_sanpo_depth
 from src.segmentation.context import ObjectRef, scene_frame
 from src.segmentation.labels import read_sanpo_mask
 from tools.audit_sanpo_sessions import fetch, object_url
@@ -50,7 +56,7 @@ from tools.download_sanpo_valid_streams import BASE_PREFIX
 
 DEFAULT_DATASET = PROJECT_ROOT / "dataset/GRU/sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20"
 AUDIT = PROJECT_ROOT / "simulation/datasets/sanpo/session_audit.json"
-OUT_ROOT = PROJECT_ROOT / "data/sanpo_scene_context"
+OUT_ROOT = PROJECT_ROOT / "data/sanpo_scene_context_v2"   # v2: correct depth decoding (2026-10-19)
 STRIDE = 3
 LEGACY_HALF_FOV = 35.0      # Stage-1 CSVs before 2026-10-14 mapped the image linearly onto ±35°: exact pixel column
 DOWNSAMPLE = 4              # class maps are scored at 1/4 resolution (552 x 310 for 2208 x 1242)
@@ -58,10 +64,8 @@ MIN_HALF_WIDTH = 0.005
 
 
 def depth_map(sid: str, frame: int) -> np.ndarray:
-    raw = np.frombuffer(gzip.decompress(fetch(object_url(
-        f"{BASE_PREFIX}/{sid}/camera_head/left/depth_maps/{frame:06d}.float16.gz"))), dtype=np.float16)
-    h, w = _infer_sanpo_shape(raw)
-    return raw[: h * w].reshape(h, w).astype(np.float32)
+    return decode_sanpo_depth(np.frombuffer(gzip.decompress(fetch(object_url(
+        f"{BASE_PREFIX}/{sid}/camera_head/left/depth_maps/{frame:06d}.float16.gz"))), dtype=np.float16))
 
 
 def class_map_source(source: str, imgsz: int = 1024, device: str | None = None):
@@ -87,23 +91,30 @@ def class_map_source(source: str, imgsz: int = 1024, device: str | None = None):
     return predicted
 
 
-def objects(sample: dict, width: float) -> list[ObjectRef]:
+def column_frac(bearing_deg: float, fx: float, width: float, legacy: bool) -> float:
+    """Box-centre column / image width from a stored bearing."""
+    if legacy:
+        return 0.5 + bearing_deg / LEGACY_HALF_FOV * 0.5
+    return 0.5 + fx * np.tan(np.radians(bearing_deg)) / width
+
+
+def objects(sample: dict, fx: float, width: float, legacy: bool) -> list[ObjectRef]:
     out = []
     for j, tid in enumerate(sample["track_ids"]):
         area = float(np.expm1(sample["x"][j, -1][7] * 15))         # log_area feature -> box area, px²
-        out.append(ObjectRef(tid, 0.5 + float(sample["bearing"][j]) / LEGACY_HALF_FOV * 0.5,
+        out.append(ObjectRef(tid, column_frac(float(sample["bearing"][j]), fx, width, legacy),
                              float(sample["distance"][j]), max(MIN_HALF_WIDTH, 0.5 * area ** 0.5 / width)))
     return out
 
 
-def session_context(sid: str, samples: list[dict], width: float, get_class_map) -> dict:
+def session_context(sid: str, samples: list[dict], fx: float, width: float, legacy: bool, get_class_map) -> dict:
     frames = {}
     for s in sorted(samples, key=lambda s: s["frame_idx"]):
         k = s["frame_idx"]
         cls = get_class_map(sid, STRIDE * k)
         if cls is None:
             continue
-        f = scene_frame(cls[::DOWNSAMPLE, ::DOWNSAMPLE], depth_map(sid, STRIDE * k), objects(s, width))
+        f = scene_frame(cls[::DOWNSAMPLE, ::DOWNSAMPLE], depth_map(sid, STRIDE * k), objects(s, fx, width, legacy))
         frames[str(k)] = {
             "walker": f.walker_surface,
             "edge": [f.edge.kind, round(f.edge.distance_m, 2)] if f.edge else None,
@@ -129,7 +140,8 @@ def main() -> None:
     if args.source == "gt" and args.all_sessions:
         raise SystemExit("--source gt needs head-camera masks; drop --all-sessions")
     audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
-    _, splits = load_dataset(args.dataset, splits=tuple(args.splits))
+    manifest, splits = load_dataset(args.dataset, splits=tuple(args.splits))
+    legacy = legacy_units(manifest)
     by: dict[str, list[dict]] = {}
     for part in splits.values():
         for s in part:
@@ -140,13 +152,13 @@ def main() -> None:
     out = OUT_ROOT / name
     out.mkdir(parents=True, exist_ok=True)
     get_class_map = class_map_source(args.source, args.imgsz, args.device)
-    print(f"{len(ids)} sessions -> {out}", flush=True)
+    print(f"{len(ids)} sessions -> {out} ({'legacy' if legacy else 'pinhole'} bearings)", flush=True)
     started = time.time()
 
     def one(sid: str) -> str:
         path = out / f"{sid}.json"
         if not path.exists():
-            ctx = session_context(sid, by[sid], audit[sid]["image_width"], get_class_map)
+            ctx = session_context(sid, by[sid], audit[sid]["fx"], audit[sid]["image_width"], legacy, get_class_map)
             path.write_text(json.dumps(ctx), encoding="utf-8")
         return sid
 

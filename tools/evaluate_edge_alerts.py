@@ -8,7 +8,7 @@ Every 6th source frame (2.5 Hz, the low end of §6.3's segmentation rate; on
 SANPO these are the HUMAN_ANNOTATED frames) of each session with head-camera
 masks: class map (SANPO's own masks with --source gt, or a trained model) +
 depth -> walker surface and edge ahead (src/segmentation/context.py). The
-per-frame track is cached in data/sanpo_edge_track/<source>/; EdgeAlerter then
+per-frame track is cached in data/sanpo_edge_track_v2/<source>/; EdgeAlerter then
 runs over it.
 
 There is no annotated "stepped off the curb" event in SANPO, so the reference
@@ -56,7 +56,7 @@ SOURCE_FPS = 15
 FRAME_STEP = 6                  # 2.5 Hz
 LOOKBACK_S = 10.0
 STEP_OFF_HOLD = 2               # frames on walkable ground before a step-off counts
-OUT_ROOT = PROJECT_ROOT / "data/sanpo_edge_track"
+OUT_ROOT = PROJECT_ROOT / "data/sanpo_edge_track_v2"   # v2: correct depth decoding (2026-10-19)
 N_BOOT = 1000
 
 

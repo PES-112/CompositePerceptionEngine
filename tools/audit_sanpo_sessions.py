@@ -27,6 +27,7 @@ Writes two files next to valid_streams.json:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import sys
 import time
@@ -58,8 +59,8 @@ def fetch(url: str, retries: int = 3) -> bytes:
                 raise
             if attempt == retries - 1:
                 raise
-        except urllib.error.URLError:
-            if attempt == retries - 1:
+        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.IncompleteRead):
+            if attempt == retries - 1:   # read timeouts and dropped connections, not only HTTP errors
                 raise
         time.sleep(2 ** attempt)
     raise RuntimeError("unreachable")

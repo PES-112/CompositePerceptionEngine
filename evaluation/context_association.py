@@ -22,8 +22,8 @@ approaching*. The second is also adjusted over distance x approaching strata
 A revised rule is chosen with --splits train and checked once with
 --splits val test.
 
-    python -m evaluation.context_association --context-dir data/sanpo_scene_context/gt
-    python -m evaluation.context_association --context-dir data/sanpo_scene_context/gt --splits train
+    python -m evaluation.context_association --context-dir data/sanpo_scene_context_v2/gt
+    python -m evaluation.context_association --context-dir data/sanpo_scene_context_v2/gt --splits train
 """
 
 from __future__ import annotations
