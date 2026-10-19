@@ -25,7 +25,7 @@ that any alert rate is acceptable.
 | 6.1 | Baseline ladder on the corridor label | **[PENDING: head-camera Stage-1 rebuild]**; methodology §4.16–4.17 are provisional | teammate (Day 2) |
 | 6.2 | System replay at alert budgets | **[PENDING: head-camera rebuild]**; every replay before it used scrambled depth | teammate (Day 2) |
 | 6.3 | Scene context, oracle (SANPO masks) | **[PENDING: redo on correct depth]**: the 2026-10-17 numbers and the near-boundary decision are superseded | segmentation (Day 2) |
-| 6.4 | Edge-ahead alerts, oracle | **[re-running on correct depth]** | `edge_alerts/gt_depthfix_*` (Day 1) |
+| 6.4 | Edge-ahead alerts, oracle | final (correct depth; rule kept by a train-only sweep) | `edge_alerts/gt_depthfix_*` |
 | 6.5 | Segmentation model (YOLO26n-sem @640) | final (scored once on test) | `segmentation/cpe_yolo26n_sem_walkable_test/` |
 | 6.6 | Scene context and edge alerts with the model's masks | **[PENDING: redo on correct depth]**: the 2026-10-18 runs are superseded | Mac (Days 1–3) |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
@@ -256,23 +256,19 @@ Data: 47 replay sessions have head-camera masks (32 train / 5 val / 10 test), gi
 
 ### 6.4 Edge-ahead alerts (oracle)
 
-> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
+Source: `evaluation/benchmarks/edge_alerts/gt_depthfix_2026_10_19/`, `_sustained_`,
+`_trainsweep_`. Data: 53 head-masked sessions, 26.6 min at 2.5 Hz, with SANPO's masks as the class
+map, on correct depth.
 
-
-Source: `evaluation/benchmarks/edge_alerts/gt_2026_10_17/` and `gt_sustained_2026_10_17/`. Data:
-53 head-masked sessions, 26.6 min at 2.5 Hz, with SANPO's masks as the class map.
-
-- **Rate.** The rule fires 0.79 [0.49, 1.12] times per minute.
-- **Warned.** 29% [13, 47] of mask-implied step-offs are warned, with a median lead of 1.2 s. This
-  rises to 35% [14, 59] when one-frame mask flicker is excluded (sensitivity, chosen post hoc).
+- **Rate and recall.** The rule fires 0.68 [0.40, 1.01] times per minute. It warns 18%
+  [6, 33] of mask-implied step-offs, with a median lead of 0.8 s; 19% excluding one-frame flicker.
 - **Stairs.** All 3 stairs step-offs are warned.
-- **Road.** Most road step-offs are missed. Either the edge is only seen beyond 5 m, or no edge is
-  in the centre band before the walker turns onto the road.
-- **Followed.** About half of alerts are followed by a step-off within 10 s; the rest are edges
-  the walker stopped at, turned from or walked along.
-- **Not tuned.** The rule wasn't tuned on these sessions. The obvious levers (range, band width,
-  confirmation) need a train-only sweep, and the model-mask re-run (§6.6) gives the
-  model-vs-oracle gap.
+- **Road.** Only 12% of road step-offs are warned. The usual miss is an edge first seen 6–10 m
+  ahead that never gets confirmed inside the 5 m range: a head-mounted camera sees no ground closer
+  than about 2.6 m, so the window is about 1.5 s.
+- **Trade-off (train-only sweep).** Recall can be bought with alerts: 0.18 at 0.7 alerts/min,
+  0.34 at 1.1, 0.58 at 2.2 and 0.76 at 3.2. The declared ≤ 1/min budget keeps the 5 m rule. Where
+  on that curve a blind walker wants to be is a question for the listening study, not for us.
 
 ### 6.5 Segmentation model
 
