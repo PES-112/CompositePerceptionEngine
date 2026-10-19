@@ -5,10 +5,10 @@ Replace the arrival label of a built GRU dataset with the "in my path"
 corridor label, keeping the inputs (x) unchanged.
 
 Why. The original label — within hazard_m inside a ±30° bearing cone — was
-written for a 70° camera. SANPO's real field of view is 51-60°, so ±30° is
-almost the whole image and the cone is ~3.5 m wide at 3 m: "arrives" mostly
-meant "is near and in view", which is why the nearest-object rule ties every
-learned model.
+written for a 70° camera. SANPO's head camera (ZED-M) is 70-78°, so ±30° is
+most of the image, and the cone is ~3.5 m wide at 3 m whatever the camera:
+"arrives" mostly meant "is near and in view", which is why the nearest-object
+rule ties every learned model.
 
 The corridor label, per object and frame T:
 

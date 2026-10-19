@@ -6,11 +6,13 @@ public GCS bucket (no frames are downloaded). It answers the P0 data questions
 in docs/pending_work.md:
 
   - What frame rate and field of view does each session really have?
-    (Stage 1 used to assume 30 FPS and a 70° HFOV; SANPO-Real reports 15 FPS
-    and ~58.4°.)
+    (Stage 1 used to assume 30 FPS and a 70° HFOV; SANPO-Real's head camera
+    reports 15 FPS and ~77.5°.)
   - Which sessions are in SANPO's official train / test split?
     (sanpo-real/splits/{train,test}_session_ids.txt)
-  - Which sessions have segmentation masks and camera poses?
+  - Which sessions have segmentation masks and camera poses? Masks exist on
+    the chest camera only, so both cameras are checked; mask_frames counts the
+    HUMAN_ANNOTATED vs propagated frames per session.
 
 Writes two files next to valid_streams.json:
 
@@ -41,6 +43,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from tools.download_sanpo_valid_streams import BASE_PREFIX, BUCKET, DEFAULT_VALID_STREAMS, load_manifest
 
 OUT_DIR = DEFAULT_VALID_STREAMS.parent
+MASK_CAMERA = "chest"
+ANNOTATION_TYPES = "frame_segmentation_annotation_type.json"
 SPLIT_FILES = {"train": "splits/train_session_ids.txt", "test": "splits/test_session_ids.txt"}
 
 
@@ -75,6 +79,21 @@ def list_dirs(prefix: str) -> tuple[set[str], set[str]]:
     return dirs, files
 
 
+def camera_details(desc: dict, camera: str) -> dict:
+    """
+    The description.json entry for one camera. session_camera_details is parallel to
+    session_camera_location (["camera_chest", "camera_head"] in every session checked):
+    the chest camera is a ZED 2i (fx ~1973, HFOV 51-60 deg), the head camera a ZED-M
+    (fx ~1368, HFOV 70-78 deg). Taking element 0 silently reads the chest camera.
+    """
+    details = desc.get("session_camera_details") or [{}]
+    locations = desc.get("session_camera_location") or []
+    name = f"camera_{camera}"
+    if name not in locations:
+        raise KeyError(f"{name} not in session_camera_location {locations}")
+    return details[locations.index(name)]
+
+
 def load_official_split() -> dict[str, set[str]]:
     return {part: set(fetch(object_url(f"{BASE_PREFIX}/{rel}")).decode().split())
             for part, rel in SPLIT_FILES.items()}
@@ -87,8 +106,7 @@ def audit_session(entry: dict, split: dict[str, set[str]]) -> dict:
                     "split": next((p for p, ids in split.items() if sid in ids), None)}
     try:
         desc = json.loads(fetch(object_url(f"{BASE_PREFIX}/{sid}/description.json")))
-        cams = desc.get("session_camera_details") or [{}]
-        cam = cams[0]
+        cam = camera_details(desc, camera)
         params = cam.get(f"{view}_camera_params", {})
         record.update(
             camera_model=cam.get("model"),
@@ -100,6 +118,8 @@ def audit_session(entry: dict, split: dict[str, set[str]]) -> dict:
             image_height=params.get("image_height"),
             ego_motion=desc.get("session_video_metadata", {}).get("ego_motion"),
         )
+        chest = camera_details(desc, MASK_CAMERA).get(f"{view}_camera_params", {})
+        record.update(chest_fx=chest.get("fx"), chest_h_fov=chest.get("h_fov"))
     except urllib.error.HTTPError as err:
         record["description_error"] = f"HTTP {err.code}"
     _, cam_files = list_dirs(f"{BASE_PREFIX}/{sid}/camera_{camera}/")
@@ -109,6 +129,13 @@ def audit_session(entry: dict, split: dict[str, set[str]]) -> dict:
         streams=sorted(view_dirs),
         segmentation_masks=any(d.startswith("segmentation_mask") for d in view_dirs),
     )
+    # SANPO's panoptic masks are on the chest camera only; count them for the segmentation work.
+    chest_dirs, chest_files = list_dirs(f"{BASE_PREFIX}/{sid}/camera_{MASK_CAMERA}/{view}/")
+    record["chest_segmentation_masks"] = "segmentation_masks" in chest_dirs
+    if record["chest_segmentation_masks"] and ANNOTATION_TYPES in chest_files:
+        kinds = json.loads(fetch(object_url(f"{BASE_PREFIX}/{sid}/camera_{MASK_CAMERA}/{view}/{ANNOTATION_TYPES}")))
+        record["mask_frames"] = {"human": sum(v == "HUMAN_ANNOTATED" for v in kinds.values()),
+                                 "machine": sum(v == "MACHINE_ANNOTATED" for v in kinds.values())}
     return record
 
 
@@ -127,6 +154,11 @@ def summarize(records: list[dict]) -> dict:
         "split": counts("split"),
         "with_segmentation_masks": sum(r["segmentation_masks"] for r in records),
         "with_segmentation_masks_by_split": counts_by(records, "segmentation_masks"),
+        "with_chest_segmentation_masks": sum(r.get("chest_segmentation_masks", False) for r in records),
+        "with_chest_segmentation_masks_by_split": counts_by(records, "chest_segmentation_masks"),
+        "chest_mask_frames_by_split": mask_frames_by_split(records),
+        "chest_fx": value_range(records, "chest_fx"),
+        "chest_h_fov": value_range(records, "chest_h_fov"),
         "with_camera_poses": sum(r["camera_poses"] for r in records),
         "description_errors": sum("description_error" in r for r in records),
     }
@@ -140,7 +172,14 @@ def value_range(records: list[dict], key: str) -> dict[str, float]:
 
 
 def counts_by(records: list[dict], flag: str) -> dict[str, int]:
-    return {str(k): v for k, v in Counter(r["split"] for r in records if r[flag]).most_common()}
+    return {str(k): v for k, v in Counter(r["split"] for r in records if r.get(flag)).most_common()}
+
+
+def mask_frames_by_split(records: list[dict]) -> dict[str, dict[str, int]]:
+    out: dict[str, Counter] = {}
+    for r in records:
+        out.setdefault(str(r["split"]), Counter()).update(r.get("mask_frames", {}))
+    return {k: dict(v) for k, v in out.items()}
 
 
 def main() -> None:

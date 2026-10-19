@@ -46,7 +46,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.perception_stack import run_perception_stream, StreamingCSVWriter
-from tools.audit_sanpo_sessions import fetch, object_url
+from tools.audit_sanpo_sessions import camera_details, fetch, object_url
 from tools.download_sanpo_valid_streams import (
     BASE_PREFIX,
     DEFAULT_SAMPLE_SEED,
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
 def session_camera(entry: dict) -> dict:
     """fps, fx and image width for one session's camera/view, from SANPO's description.json."""
     desc = json.loads(fetch(object_url(f"{BASE_PREFIX}/{entry['session_id']}/description.json")))
-    cam = (desc.get("session_camera_details") or [{}])[0]
+    cam = camera_details(desc, entry.get("camera", "head"))
     params = cam.get(f"{entry.get('view', 'left')}_camera_params", {})
     return {"fps": cam.get("fps"), "fx": params.get("fx"), "image_width": params.get("image_width"),
             "h_fov": params.get("h_fov")}

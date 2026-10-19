@@ -42,8 +42,8 @@ ALLOWED_CLASSES = {
 
 # ── Expected pixel height at 1m for size sanity check ─────────────────────────
 # pixel_height ≈ (real_height_m / distance_m) * focal_length_px
-# Fallback for a 1280 px wide ~70° HFOV phone frame. SANPO's ZED 2i is
-# fx ≈ 1910-1990 px at 2208 px wide; pass the real value as YoloTracker(focal_px=...).
+# Fallback for a 1280 px wide ~70° HFOV phone frame. SANPO's head camera (ZED-M) is
+# fx ≈ 1367-1391 px at 1920-2208 px wide; pass the real value as YoloTracker(focal_px=...).
 FOCAL_PX = 960.0
 CLASS_REAL_HEIGHT_M = {
     "person":        1.7,

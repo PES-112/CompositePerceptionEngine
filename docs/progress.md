@@ -147,10 +147,12 @@ Report: `evaluation/benchmarks/threat_engine_replay/official_2026_10_14/report.m
   10.0 × the per-step depth slope (IQR 9.99–10.01), i.e. 10 Hz assumed for what is 5 Hz. Stored speeds
   are 2× too high and every old "2 s" is really 4 s. Rankings and step-based labels are unaffected,
   so every metric above stands. Stage 1 now reads the real rate.
-- **Real field of view is 51–60°,** not the 70° assumed. Stage 1 now uses each session's focal length.
-  With the real FOV, the ±30° "cone" covers almost the whole image.
+- **The head camera's real field of view is 70–78°** (ZED-M), close to the 70° assumed. Stage 1 now
+  uses each session's focal length. (The 2026-10-14 audit read the chest ZED 2i, 51–60°, by mistake;
+  fixed 2026-10-17 and the corridor labels rebuilt.) The ±30° "cone" covers most of the image.
 - **SANPO has an official split**: 374 train / 88 test of our sessions. All final numbers use it.
-- **53 sessions have segmentation masks** (43 train, 10 test).
+- **Segmentation masks:** 53 sessions on the head camera (43 train, 10 test) and 130 on the chest
+  camera (102 train, 28 test; 10,840 human-annotated frames).
 - **Camera poses don't reconcile with box depth yet.** Ego-motion removal is built and unit-tested
   but unvalidated on SANPO; it is reported as an ablation (`architecture.md` §9).
 
