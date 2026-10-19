@@ -16,6 +16,13 @@ Rules, in order:
      steadier top pick pays off.
   4. Cooldown. The same track isn't repeated within COOLDOWN_S unless its
      priority has risen by ESCALATION (×) since it was last announced.
+  5. Edges. An edge-ahead alert ("Curb ahead.", src/segmentation/edge_alert.py)
+     ranks below overrides and above object threats: the edge alerter fires
+     once per edge, so an edge that loses its turn is not offered again. It
+     waits for a playing clip like any non-override message, but for up to
+     EDGE_STALE_S, one clip: an edge doesn't move, so a "Curb ahead." that is
+     one clip late is still ahead of the walker, unlike a late object warning.
+     No hysteresis or cooldown; the alerter already debounces edges.
 
 Times are seconds on the replay (or device) clock. The manager never looks at
 labels, so the same parameters run in replay and on the phone; they are
@@ -25,7 +32,7 @@ declared values, to be tuned on train sessions only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Protocol
 
 from src.threat_engine.envelope import Override
 from src.threat_engine.priority import RankedThreat
@@ -36,8 +43,16 @@ SWITCH_MARGIN = 1.25
 OVERRIDE_REPEAT_S = 2.0
 STALE_S = 0.6
 CLIP_S = 1.2            # typical pre-rendered phrase length
+EDGE_STALE_S = 1.2      # an edge can wait out one clip
 
-Kind = Literal["override", "threat"]
+Kind = Literal["override", "threat", "edge"]
+EDGE_PREFIX = "edge:"
+
+
+class Edge(Protocol):
+    """What the announcer needs from an edge alert (src.segmentation.edge_alert.EdgeAlert)."""
+    kind: str
+    distance_m: float
 
 
 @dataclass(frozen=True)
@@ -48,6 +63,7 @@ class Announcement:
     class_name: str
     priority: float
     reason: str
+    distance_m: float | None = None       # edges only; objects take theirs from the track
 
 
 @dataclass
@@ -58,14 +74,19 @@ class AnnouncementManager:
     override_repeat_s: float = OVERRIDE_REPEAT_S
     stale_s: float = STALE_S
     clip_s: float = CLIP_S
+    edge_stale_s: float = EDGE_STALE_S
     _busy_until: float = -1e9
     _current: str | None = None
     _last_said: dict[str, tuple[float, float]] = field(default_factory=dict)   # track -> (t, priority)
     _last_override: dict[str, float] = field(default_factory=dict)
     _pending: tuple[float, RankedThreat] | None = None
+    _pending_edge: tuple[float, Edge] | None = None
 
-    def step(self, t: float, overrides: list[Override], ranked: list[RankedThreat]) -> Announcement | None:
-        """At most one announcement for time t."""
+    def step(self, t: float, overrides: list[Override], ranked: list[RankedThreat],
+             edge: Edge | None = None) -> Announcement | None:
+        """At most one announcement for time t. edge: a new edge-ahead alert this frame, if any."""
+        if edge is not None:
+            self._pending_edge = (t, edge)                    # kept even if an override plays now
         for o in overrides:
             tid = o.track.track_id
             if t - self._last_override.get(tid, -1e9) >= self.override_repeat_s:
@@ -74,6 +95,16 @@ class AnnouncementManager:
                 self._pending = None
                 self._current = tid
                 return Announcement(t, "override", tid, o.track.class_name, float("inf"), o.reason)
+
+        if self._pending_edge is not None:
+            seen_at, e = self._pending_edge
+            if t - seen_at > self.edge_stale_s:
+                self._pending_edge = None                     # stale: dropped like any late message
+            elif t >= self._busy_until:
+                self._pending_edge = None
+                self._busy_until = t + self.clip_s
+                return Announcement(t, "edge", EDGE_PREFIX + e.kind, e.kind, float("nan"),
+                                    f"edge ahead, {e.distance_m:.1f} m", e.distance_m)
 
         candidate = self._choose(t, ranked)
         if candidate is not None and (self._pending is None or candidate.track.track_id != self._pending[1].track.track_id):

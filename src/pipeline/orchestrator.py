@@ -130,8 +130,9 @@ class V2Pipeline:
         self.target_lang = target_lang
 
     def step(self, frame_idx: int, t: float, rows: list[dict], pose: EgoPose | None = None,
-             contexts: dict[str, SceneContext] | None = None) -> V2FrameResult:
-        frame = self.engine.step(frame_idx, t, rows, pose, contexts)
+             contexts: dict[str, SceneContext] | None = None, edge=None) -> V2FrameResult:
+        """edge: a new edge-ahead alert this frame (src.segmentation.edge_alert.EdgeAlert), if any."""
+        frame = self.engine.step(frame_idx, t, rows, pose, contexts, edge)
         event = frame.narrator_event()
         out = self.narration.process(event, target_lang=self.target_lang) if event else None
         return V2FrameResult(frame, event, out)

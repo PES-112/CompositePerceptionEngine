@@ -7,6 +7,7 @@ boxes 2, 4 and 5):
     Stage-1 rows (+ camera pose) ─> GroundTracker (Kalman, ego-motion removed)
         ─> safety envelope (override)        ─┐
         ─> ArrivalPredictor ─> fused priority ─┴─> AnnouncementManager ─> NarratorEvent
+    segmentation edge alert (optional) ─────────────┘
 
 It replaces the v1 chain "K0 routing -> cognitive stub -> PhysicsVerification"
 (still available as src.pipeline.orchestrator.process_frame, the baseline the
@@ -21,7 +22,7 @@ from dataclasses import dataclass, field
 
 from src.physics_verification.physics_verification import NarratorEvent
 from src.threat_engine import envelope
-from src.threat_engine.announcer import Announcement, AnnouncementManager
+from src.threat_engine.announcer import Announcement, AnnouncementManager, Edge
 from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, Measurement
 from src.threat_engine.priority import (IGNORE_THRESHOLD, SEVERITY_GAMMA, ArrivalPredictor,
                                         PhysicsArrivalPredictor, RankedThreat, SceneContext, rank)
@@ -50,6 +51,10 @@ class EngineFrame:
         a = self.announcement
         if a is None:
             return None
+        if a.kind == "edge":                                  # straight ahead; reason routes it to the edge phrases
+            return NarratorEvent(track_id=a.track_id, object_class=a.class_name,
+                                 distance_m=a.distance_m, closing_velocity_ms=0.0,
+                                 bearing_deg=0.0, reason="edge ahead", is_override=False)
         track = next(t for t in self.tracks if t.track_id == a.track_id)
         return NarratorEvent(track_id=a.track_id, object_class=a.class_name, distance_m=track.distance_m,
                              closing_velocity_ms=max(0.0, track.closing_speed_ms),
@@ -65,7 +70,7 @@ class ThreatEngine:
     announcer: AnnouncementManager = field(default_factory=AnnouncementManager)
 
     def step(self, frame_idx: int, t: float, rows: list[dict], pose: EgoPose | None = None,
-             contexts: dict[str, SceneContext] | None = None) -> EngineFrame:
+             contexts: dict[str, SceneContext] | None = None, edge: Edge | None = None) -> EngineFrame:
         measurements = [_measurement(r) for r in rows
                         if not str(r.get("track_id", "")).startswith(UNTRACKED_PREFIX)]
         tracks = self.tracker.step(t, measurements, pose)
@@ -73,7 +78,7 @@ class ThreatEngine:
         arrivals = self.predictor.predict(frame_idx, tracks)
         ranked = rank([tr for tr in tracks if tr.confirmed or tr.measured], arrivals, gamma=self.gamma,
                       contexts=contexts, ignore_threshold=self.ignore_threshold)
-        announcement = self.announcer.step(t, overrides, ranked)
+        announcement = self.announcer.step(t, overrides, ranked, edge)
         return EngineFrame(frame_idx, t, tuple(tracks), tuple(overrides), tuple(ranked), announcement)
 
 
