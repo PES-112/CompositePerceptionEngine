@@ -142,7 +142,7 @@ Branch `v2-seg-training` (from `v2-segmentation`, which it merged at `879dbe7`).
 - Test, scored once (48 sessions): mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062],
   road as walkable 0.173 (over ground-truth road pixels), boundary F curb 0.30 / stairs 0.06.
 - `weights/best.mlpackage`: Core ML FP16, argmax in the graph, 3.1 MB.
-- **Superseded: depth decoding bug (2026-10-17).** Model scene context for the 112 replay val/test sessions; `scene_context/model_val_test_*`,
+- **Superseded (scrambled depth).** Model scene context for the 112 replay val/test sessions; `scene_context/model_val_test_*`,
   `threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_sem_walkable_*`.
   - Context flags match the oracle on its 15 sessions.
   - Context on vs. off in the replay: warned +0.04 [−0.06, +0.08], not measurable.

@@ -182,7 +182,7 @@ methodology §4.18. Chest masks (130 more curated sessions) need Stage 1 re-run 
 stream: the two cameras' poses are in separate world frames, so head tracks can't be projected
 into chest masks.
 
-**With the model's masks (2026-10-18).** **Superseded: depth decoding bug (2026-10-17).** Re-run on correct depth pending.
+**With the model's masks (2026-10-18).** **Superseded (scrambled depth).** Re-run on correct depth pending.
 - **Context flags.** On the oracle's 15 sessions they match the oracle's.
 - **Replay.** The context on vs. off replay over 71 test sessions shows no measurable change.
 - **Edge alerts.** Held out, they warn about 1 of 7 mask step-offs; the oracle warns about 3 of 7.
