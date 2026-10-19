@@ -1,10 +1,14 @@
 """Stage-1 units: legacy datasets (linear ±35° bearings, 2x speeds) are converted, pinhole ones are not."""
 
+import json
 import math
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 
+from dataset.GRU.build import AUDIT, csv_units
 from dataset.GRU.samples import FEATURES, PINHOLE_UNITS, legacy_units
 from models.GRU.benchmark import positions
 from tools.replay_threat_engine import session_rows
@@ -39,6 +43,20 @@ class UnitsTest(unittest.TestCase):
         _, x, z = positions(sample(20.0, 0.0), FX, WIDTH, legacy=False)
         self.assertAlmostEqual(float(x[0, -1]), 3.0 * math.tan(math.radians(20)), places=4)
         self.assertAlmostEqual(float(z[0, -1]), 3.0, places=4)
+
+    def test_build_refuses_chest_camera_csvs(self):
+        a = json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"][0]
+        with tempfile.TemporaryDirectory() as d:
+            csv = Path(d) / f"{a['session_id']}.csv"
+            csv.write_text("x")
+            sidecar = csv.with_suffix(".frames.json")
+            sidecar.write_text(json.dumps({"fx": a["fx"]}))
+            self.assertEqual(csv_units([csv]), {"units": PINHOLE_UNITS})
+            sidecar.write_text(json.dumps({"fx": a["chest_fx"]}))
+            with self.assertRaises(SystemExit):
+                csv_units([csv])
+            sidecar.unlink()
+            self.assertEqual(csv_units([csv]), {})          # no sidecar: legacy CSVs
 
 
 if __name__ == "__main__":

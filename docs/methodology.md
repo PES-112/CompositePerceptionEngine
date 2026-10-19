@@ -792,6 +792,8 @@ sighting → arrival) has a median of 2.0 s: 27% of arrivals are first seen < 1 
 
 ### 4.17 Units fix, 1 s-ahead Kalman fit and lead-based tuning (2026-10-19)
 
+> **Provisional (2026-10-19).** The Stage-1 CSVs behind these numbers used the chest camera's fx and a mis-scaled depth lookup in the detector's size check (architecture §9 items 8–9). Stage 1 is being re-run (`notebooks/colab_rebuild.ipynb`, `RUN_TAG = "headfx"`); the methods stand, the numbers will change.
+
 **A units bug in the rebuild, found and fixed.** The rebuilt Stage-1 CSVs already store pinhole
 bearings (from the session's fx) and speeds at the true frame rate. But `relabel.py`, the ladder's
 rule baselines and tabular features, the replay and both Kalman tools still treated the stored

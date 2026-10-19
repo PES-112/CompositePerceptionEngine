@@ -320,6 +320,16 @@ Open:
    bearings at the true rate, but the label, ladder, replay and Kalman tools converted them again as
    legacy ±35° values (bearings 10–15% too central; replay speeds halved). Datasets now record
    `source.units`, and conversion happens only for legacy data (methodology §4.17).
+8. **Head vs chest camera intrinsics (found by the teammate, 2026-10-17; merged 2026-10-19).**
+   `description.json` lists `[camera_chest, camera_head]`; the tools read element 0, the chest ZED 2i
+   (fx ≈ 1974 px), for head-camera (ZED-M, fx ≈ 1376 px) frames. The Colab rebuild ran before the fix,
+   so its bearings are ~30% too central and its detector size check used the wrong fx.
+   `dataset/GRU/build.py` now refuses CSVs whose sidecar fx isn't the head camera's.
+9. **Detector size check read depth at unscaled coordinates (fixed 2026-10-19).**
+   `yolo_tracker.depth_rescore` used frame pixels (2208×1242) directly on the 1280×720 depth map, so
+   boxes right of x ≈ 1280 or below y ≈ 720 read the wrong depth and could be wrongly dropped. It now
+   uses `scale_point_to_depth` (`tests/test_depth_rescore.py`). Items 8 and 9 together, on one test
+   walk: +9% detections (48 new, 9 lost of 426), mean |bearing| 12.4° → 17.1°. Stage 1 is being re-run.
 
 ## 10. Limitations to state in the paper
 

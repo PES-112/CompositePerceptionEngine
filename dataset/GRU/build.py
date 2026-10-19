@@ -40,6 +40,7 @@ from dataset.GRU.samples import (
 from evaluation.kinetic_ablation import D_HAZ_M, HORIZON_FRAMES, THETA_DEG
 
 HERE = Path(__file__).resolve().parent
+AUDIT = HERE.parents[1] / "simulation/datasets/sanpo/session_audit.json"
 GITHUB_WARN_MB = 50   # GitHub warns above 50 MB per file and rejects above 100 MB
 
 
@@ -88,11 +89,26 @@ def default_name(args: argparse.Namespace) -> str:
 
 
 def csv_units(csvs: list[Path]) -> dict:
-    """{"units": PINHOLE_UNITS} when every CSV has a stream sidecar with fx (written since 2026-10-14), else {}."""
+    """
+    {"units": PINHOLE_UNITS} when every CSV has a stream sidecar with fx (written since 2026-10-14), else {}.
+    Pinhole CSVs must have used the head camera's fx (session_audit.json): CSVs streamed before the
+    2026-10-17 intrinsics fix used the chest camera's (~1974 vs ~1376 px), which also changed which
+    detections survived the size check, so they are refused rather than converted.
+    """
     sidecars = [c.with_suffix(".frames.json") for c in csvs]
-    if all(p.exists() and json.loads(p.read_text(encoding="utf-8")).get("fx") for p in sidecars):
-        return {"units": PINHOLE_UNITS}
-    return {}
+    if not all(p.exists() and json.loads(p.read_text(encoding="utf-8")).get("fx") for p in sidecars):
+        return {}
+    audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
+    wrong = []
+    for c, p in zip(csvs, sidecars):
+        fx = float(json.loads(p.read_text(encoding="utf-8"))["fx"])
+        head_fx = audit.get(c.stem, {}).get("fx")
+        if head_fx and abs(fx / head_fx - 1) > 0.02:
+            wrong.append(c.stem)
+    if wrong:
+        raise SystemExit(f"{len(wrong)} CSVs were streamed with a focal length that isn't the head camera's "
+                         f"(e.g. {wrong[0]}): re-run tools/stream_sanpo_perception.py for them")
+    return {"units": PINHOLE_UNITS}
 
 
 def main() -> None:

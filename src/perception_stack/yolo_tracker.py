@@ -107,12 +107,12 @@ def depth_rescore(detections: list[dict], depth_map: np.ndarray | None, frame_sh
     if depth_map is None:
         return detections
 
-    h_dm, w_dm = depth_map.shape[:2]
+    # Boxes are in frame pixels; the depth map can be smaller (SANPO: 2208×1242 RGB, 1280×720 depth).
+    frame_h, frame_w = frame_shape if frame_shape is not None else depth_map.shape[:2]
 
     # ── Attach raw center depth to every detection ────────────────
     for det in detections:
-        cx = min(int(det["cx"]), w_dm - 1)
-        cy = min(int((det["y1"] + det["y2"]) / 2), h_dm - 1)
+        cx, cy = scale_point_to_depth(det["cx"], (det["y1"] + det["y2"]) / 2, frame_w, frame_h, depth_map.shape)
         v  = float(depth_map[cy, cx])
         det["_depth"] = v if (0.3 < v < 30.0) else None
 
