@@ -48,7 +48,8 @@ array until 2026-10-17; `architecture.md` §9). Kept for the record:
 - `scene_context/oracle_gt_*`, `gt_train_*`, `gt_val_test_*`, `model_val_test_*`;
 - `threat_engine_replay/oracle_context_*`, `model_context_*`;
 - `edge_alerts/*` before `*_depthfix_*`;
-- the near-boundary decision (×1.25 → ×1.0), which must be redone on train sessions;
+- the near-boundary decision (×1.25 → ×1.0). Redone on train sessions on 2026-10-20 with the
+  head-camera rerun: it stays ×1.0 (`scene_context/gt_headfx_*`, methodology §4.19);
 - the cached tracks in `data/sanpo_scene_context/` and `data/sanpo_edge_track/` (the `_v2` roots
   replace them).
 
@@ -57,7 +58,7 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
 | Day | Teammate | Segmentation (DeviousDrops) | Mac (M4) | Narration |
 |---|---|---|---|---|
 | 1 (10-19) | Fast-forward `v2-threat-engine`; start the head-camera rebuild | Merge + depth fix; oracle edge alerts on correct depth | Model edge alerts on correct depth | Push branch; phrase review; renderer |
-| 2 | Rebuild in: ladder, Kalman, replay | Oracle scene context; near-boundary decision on train; oracle replay | Model scene context, val + test (overnight) | Render; clip durations vs `CLIP_S` |
+| 2 | ~~Rebuild in: ladder, Kalman, replay~~ (done) | ~~Oracle scene context; near-boundary decision on train; oracle replay~~ (done; `oracle_context_headfx_2026_10_20`) | Model scene context, val + test (overnight), from `v2-segmentation` ≥ `1db4730` with a fresh `data/sanpo_scene_context_v2/` | Render; clip durations vs `CLIP_S` |
 | 3 | iPhone timing if the account is ready; latency-aware replay; review the announcer PR | "Curb ahead." through the announcer; merge narration; paper numbers | Context on/off replay; model vs oracle; docs | Edge phrases, loader, tests; PR |
 | 4 | Final methodology numbers | Paper freeze; merge to `main` | Paper figures (F2–F6) | Latency and size numbers |
 

@@ -175,18 +175,21 @@ stands on, where the walkable area ends, and which depth pixels are just ground.
 | flat-ground mask | per frame | walkable, crosswalk, road, non-walkable (curbs and stairs stay in) | obstacle sweep (§6.1) |
 
 **Oracle check (SANPO's own masks).** Only 53 curated sessions have masks on the head camera that
-the tracks come from (32 train / 5 val / 10 test). `tools/build_scene_context.py --source gt` builds
+the tracks come from (35 train / 8 val / 10 test in the head-camera rerun). `tools/build_scene_context.py --source gt` builds
 context for them; `tools/replay_threat_engine.py --context-dir` runs the context-on arms and
 `evaluation/context_association.py` tests each flag against the arrival label. Results:
-methodology §4.19. Chest masks (130 more curated sessions) need Stage 1 re-run on the chest
+methodology §4.19. On correct depth and the head-camera rerun (2026-10-20), near a boundary still
+points the wrong way on train, so it stays ×1.0; the context-on replay (27 test arrivals) shows no
+effect beyond what a lower threshold gives. Chest masks (130 more curated sessions) need Stage 1 re-run on the chest
 stream: the two cameras' poses are in separate world frames, so head tracks can't be projected
 into chest masks.
 
-**With the model's masks (2026-10-18).** **Superseded (scrambled depth).** Re-run on correct depth pending.
+**With the model's masks (2026-10-18).** **Superseded (scrambled depth).** Flags and replay to be
+re-run on correct depth and the head-camera rerun; the edge alerts below were re-run (2026-10-19).
 - **Context flags.** On the oracle's 15 sessions they match the oracle's.
 - **Replay.** The context on vs. off replay over 71 test sessions shows no measurable change.
-- **Edge alerts.** Held out, they warn about 1 of 7 mask step-offs; the oracle warns about 3 of 7.
-  Thin edges are the weak point (methodology §4.19).
+- **Edge alerts, on correct depth.** Held out, they warn 1 of 7 mask step-offs (oracle: 1 of 7);
+  over all 53 sessions 0.20 vs the oracle's 0.18. Thin edges are the weak point (methodology §4.19).
 
 ### 6.4 Threat engine
 

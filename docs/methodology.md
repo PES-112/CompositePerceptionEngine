@@ -931,7 +931,7 @@ window median 2.6 s, 24% seen < 1 s ahead, 33% ≥ 4 s ahead):
 
 ### 4.19 Scene context from walkable-surface segmentation (2026-10-17)
 
-> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The scene-context flags and context replays also take object bearings from the Stage-1 datasets, so they are re-run on the head-camera rerun (§4.18); the edge alerts use only masks and depth. The segmentation model's pixel scores don't use depth and stand.
+> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The scene-context flags and context replays also take object bearings from the Stage-1 datasets, so they are re-run on the head-camera rerun (§4.18): the oracle part is done ("Scene context, oracle, on correct depth and the head-camera rerun", below), the model part is pending. The edge alerts use only masks and depth. The segmentation model's pixel scores don't use depth and stand.
 
 
 **Taxonomy and training data** (`src/segmentation/labels.py`, `tools/build_sanpo_segmentation.py`).
@@ -1016,6 +1016,38 @@ merged.
   (`threat_engine_replay/oracle_context_neutral_boundary_2026_10_17/`): GRU context on vs. off,
   warned +0.05 [0.00, +0.07], false alerts/min +0.50 [0.00, +1.35]. Under ×1.25 the false-alert
   change was 0.00. Both are within noise at 20 arrivals.
+
+**Scene context, oracle, on correct depth and the head-camera rerun (2026-10-20).** This supersedes
+the 2026-10-17 oracle check and near-boundary revision above, which used scrambled depth and the
+chest-camera Stage 1. Same masks, flags, thresholds and decision rule. Head-camera masks now cover
+53 of the 421 replay sessions (35 train / 8 val / 10 test). Distance-adjusted RR, session-bootstrap
+95% CI (`scene_context/gt_headfx_train_2026_10_20/`, `gt_headfx_val_test_2026_10_20/`,
+`gt_headfx_2026_10_20/`):
+
+| Flag | declared × | train (4,145 obs.) | val + test, once (1,753) | all 53 (5,898) |
+|---|---:|---|---|---|
+| in path | 1.5 | 1.18 [0.86, 2.33] | 1.55 [0.42, 2.03] | 1.32 [0.93, 2.09] |
+| near a boundary | 1.0 | 0.60 [0.23, 0.83] | 0.80 [0.38, 3.37] | 0.69 [0.42, 0.87] |
+| near a boundary and approaching | — | 0.51 [0.00, 0.84] | 0.69 [0.13, 2.65] | 0.55 [0.21, 0.81] |
+| other surface | 0.5 | 1.01 [0.16, 1.38] | 0.67 [0.00, 2.73] | 0.89 [0.38, 1.22] |
+| approaching (motion only) | — | 0.86 [0.59, 0.99] | 0.96 [0.48, 2.35] | 0.88 [0.67, 0.97] |
+
+- **Near a boundary stays ×1.0.** Under the declared rule, neither the flag nor its approaching
+  variant has an RR above 1 on train. The held-out check is consistent with neutral. Same
+  conclusion as on scrambled depth.
+- **In path** points the right way but its CI includes 1. **Other surface** is near 1, so its
+  ×0.5 is not supported. Changing it would need a declared rule and train sessions; none was
+  declared, so the multipliers stay.
+- **Oracle replay, context on vs. off** (`threat_engine_replay/oracle_context_headfx_2026_10_20/`;
+  10 test sessions, 27 arrivals; GRU `corridor_h8_seed0`, the run behind §4.18). At `budget_5` both
+  arms choose threshold 0.4. With context, warned is unchanged (0.30), false alerts/min rise by
+  +1.49 [0.00, +3.86] and precision changes by −0.04 [−0.20, +0.02]. At `early_budget_5` the arms
+  choose different thresholds (off 0.7, on 0.6), which gives warned +0.19 [0.00, +0.21] at false
+  alerts/min +0.50 [0.00, +1.23]. The difference comes from the threshold, not from context. At a
+  fixed threshold of 0.6, context gives 0.26 warned and 3.0 false/min, against 0.15 and 2.5 without
+  it. In path (×1.5) covers 75% of objects, so context mostly scales scores up, much like a lower
+  threshold. Twenty-seven arrivals cannot separate the two. The powered test is the model's context
+  on all 85 test sessions.
 
 **Edge-ahead alerts, oracle, on correct depth (2026-10-19).** This supersedes the 2026-10-17
 paragraph below, which used scrambled depth. Same rule, sessions and step-off reference.

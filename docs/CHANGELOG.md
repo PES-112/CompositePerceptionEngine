@@ -2,6 +2,17 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-20, oracle scene context] - Flags, near-boundary decision and replay on the head-camera rerun
+
+### Results (methodology §4.19)
+- Oracle context for the 53 head-masked sessions (35 / 8 / 10), `data/sanpo_scene_context_v2/gt/`.
+- Near a boundary, train only, distance-adjusted RR 0.60 [0.23, 0.83] (approaching variant 0.51
+  [0.00, 0.84]): under the declared rule it stays ×1.0. Held-out check 0.80 [0.38, 3.37].
+- In path 1.32 [0.93, 2.09] and other surface 0.89 [0.38, 1.22] on all 53; multipliers unchanged.
+- Oracle replay, context on − off (10 test sessions, 27 arrivals; `oracle_context_headfx_2026_10_20`):
+  at `budget_5`, warned ±0, false alerts/min +1.49 [0.00, +3.86]. The `early_budget_5` gain
+  (+0.19 warned) comes from a different validation-chosen threshold, not from context.
+
 ## [2026-10-20, integration] - Head-camera rerun merged into segmentation
 
 Branch `v2-segmentation` (PR #7).
