@@ -147,7 +147,9 @@ Reported metrics (§ current numbers): `yolo_training.md`, `evaluation/benchmark
 K0 was the v1 threat ranking. The ablation below, plus the arrival-prediction results in §4.10
 (K0 AUROC 0.57 as an arrival predictor), are why v2 keeps only K0's **severity** term ("how bad") and
 takes arrival from a learned model. The evaluation machinery built here — label-free metrics,
-formula-free encounter labels, session bootstrap, blinded referee — is reused unchanged for v2.
+formula-free encounter labels, session bootstrap — is reused unchanged for v2. The blinded
+referee (§4.7) is not: it was dropped from the paper on 2026-10-20 (evaluation-only, needs GPU-served
+VLMs) and is future work.
 
 ### 4.1 Formula
 
