@@ -77,6 +77,18 @@ Branch `v2-segmentation` (PR #7).
 ### Added
 - `tools/evaluate_edge_alerts.py`: `--alert-m`, `--confirm-frames`, `--sweep` (chosen on
   official-train sessions only).
+## [2026-10-19, edge announcer] - "Curb ahead." through the announcement manager
+
+Branch `v2-edge-announcer` (PR into `v2-segmentation`, for the threat-engine owner's review).
+
+### Added
+- `AnnouncementManager.step(..., edge=None)`: an edge lane below overrides and above object threats.
+  - Edges wait up to `EDGE_STALE_S` = 1.2 s (one clip), against 0.6 s for objects.
+  - An edge that arrives in the same frame as an override is kept and plays afterwards.
+  - `Announcement.distance_m` is set for edges.
+- `ThreatEngine.step(..., edge=None)` and `V2Pipeline.step(..., edge=None)`. `EngineFrame.narrator_event()`
+  turns an edge into a `NarratorEvent(reason="edge ahead", bearing 0)`.
+- `tests/test_edge_announcement.py` (4 tests; 95 pass, 2 skipped).
 
 ## [2026-10-19, integration] - Segmentation branches merged with the depth fix; 4-day plan
 

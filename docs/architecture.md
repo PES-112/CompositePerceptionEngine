@@ -244,9 +244,16 @@ Decides **whether** to speak, separately from **what** is most dangerous:
   where the GRU's lower flicker (0.59 vs. 0.73) pays off.
 - **Override preempts:** a safety-envelope alert interrupts any narration in progress.
 - **Drop stale:** a message that can't play within its time budget is discarded, not queued.
+- **Edges:** a segmentation edge-ahead alert ("Curb ahead.", §6.3) ranks below overrides and above
+  object threats.
+  - It can wait out one playing clip (1.2 s) instead of 0.6 s: an edge doesn't move, and the edge
+    alerter never re-offers it.
+  - It reaches narration as a `NarratorEvent` with `reason="edge ahead"` and bearing 0.
+  - It isn't in the replay. Edge alerts are scored on their own (§6.3), so the interplay with
+    object alerts is not measured.
 
 Code: `src/threat_engine/announcer.py` (cooldown 4 s, escalation ×1.5, switch margin ×1.25,
-override repeat 2 s, stale after 0.6 s; declared values). `src/threat_engine/engine.py` composes
+override repeat 2 s, stale after 0.6 s, edges 1.2 s; declared values). `src/threat_engine/engine.py` composes
 §6.2–6.5 per frame, and `src/pipeline/orchestrator.V2Pipeline` adds narration.
 
 ### 6.6 Narration & audio
