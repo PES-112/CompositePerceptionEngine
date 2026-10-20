@@ -59,7 +59,7 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
 |---|---|---|---|---|
 | 1 (10-19) | Fast-forward `v2-threat-engine`; start the head-camera rebuild | Merge + depth fix; oracle edge alerts on correct depth | Model edge alerts on correct depth | Push branch; phrase review; renderer |
 | 2 | ~~Rebuild in: ladder, Kalman, replay~~ (done) | ~~Oracle scene context; near-boundary decision on train; oracle replay~~ (done; `oracle_context_headfx_2026_10_20`) | Model scene context, val + test (overnight), from `v2-segmentation` ≥ `1db4730` with a fresh `data/sanpo_scene_context_v2/` | Render; clip durations vs `CLIP_S` |
-| 3 | iPhone timing if the account is ready; latency-aware replay; review the announcer PR | "Curb ahead." through the announcer; merge narration; paper numbers | Context on/off replay; model vs oracle; docs | Edge phrases, loader, tests; PR |
+| 3 | iPhone timing if the account is ready; latency-aware replay; ~~review the announcer PR~~ (merged 2026-10-20 without review) | ~~"Curb ahead." through the announcer~~ (PR #8, `f122dde`); merge narration; paper numbers | Context on/off replay; model vs oracle; docs | Edge phrases, loader, tests; PR |
 | 4 | Final methodology numbers | Paper freeze; merge to `main` | Paper figures (F2–F6) | Latency and size numbers |
 
 ---
