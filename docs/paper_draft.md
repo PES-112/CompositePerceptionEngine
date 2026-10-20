@@ -478,7 +478,21 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 
 ## 9. Conclusion
 
-[Write last.]
+[Draft, 2026-10-20; revise once §6.8 is in.]
+
+Hazard alerts for blind and low-vision walkers should be judged by the alerts a user would hear,
+not by detection accuracy. We framed alerting as forecasting which objects will enter the
+walker's path within 4 s, built formula-free arrival labels for SANPO-Real, and replayed complete
+alert engines at fixed false-alert budgets. A small GRU ranks arrivals as well as gradient-boosted
+trees and better than every geometric rule. At 5 false alerts per minute, it warns 0.35 of
+arrivals at precision 0.55, against 0.23 at 0.39 for the nearest-object rule. Two results limit
+what any engine can do today: a quarter of arrivals are first seen less than a second before they
+happen, and few warnings come early. Scene context from walkable-surface segmentation, tested with
+SANPO's own masks and with a trained model, does not change the alerts, and one plausible
+context rule points the wrong way. Context rules and severity weights should be tested on data
+before they are trusted. The next steps are training for earlier warnings, a chest-mounted camera
+and a phone's own depth, and a study with blind and low-vision users. [PENDING: one sentence on
+on-device latency, §6.8.]
 
 ---
 
