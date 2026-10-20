@@ -31,7 +31,7 @@ that any alert rate is acceptable.
 | 6.6 | Edge alerts with the model's masks | final (correct depth) | `edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*` |
 | 6.6 | Scene context with the model's masks | final (head-camera rerun; methodology §4.19) | `scene_context/model_headfx_*`, `threat_engine_replay/model_context_headfx_2026_10_20/` |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
-| 6.8 | On-device latency, latency-aware replay | **[PENDING: iPhone run]** (sideloaded build, `ios/CPETiming/RUN_ON_IPHONE.md`) | teammate |
+| 6.8 | On-device latency, latency-aware replay | **[PENDING: iPhone run]** (sideloaded build, `ios/CPETiming/RUN_ON_IPHONE.md`) | EssKae1234 |
 | 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
 | — | English audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]**; translation is future work | `v2-narration` (Days 1–4) |
 | — | BLV listening study (ASSETS version only) | **[PENDING: ethics]** | teammate (`listening_study_plan.md`) |
@@ -485,4 +485,4 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 | T1 | Baseline ladder | `baseline_ladder/…_corridor_w0.75_d3_h20/` | §6.1 table |
 | T2 | Replay at budgets | `threat_engine_replay/corridor_headfx/` | §6.2 table |
 | T3 | Segmentation scores | `segmentation/cpe_yolo26n_sem_walkable_test/` | §6.5 table |
-| T4 | On-device latency | teammate | **[PENDING]** |
+| T4 | On-device latency | EssKae1234 | **[PENDING]** |

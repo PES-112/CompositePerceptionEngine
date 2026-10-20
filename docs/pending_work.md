@@ -59,8 +59,8 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
 |---|---|---|---|---|
 | 1 (10-19) | Fast-forward `v2-threat-engine`; start the head-camera rebuild | Merge + depth fix; oracle edge alerts on correct depth | Model edge alerts on correct depth | Push branch; phrase review; renderer |
 | 2 | ~~Rebuild in: ladder, Kalman, replay~~ (done) | ~~Oracle scene context; near-boundary decision on train; oracle replay~~ (done; `oracle_context_headfx_2026_10_20`) | ~~Model scene context, val + test~~ (done here on CPU, `6cd7c3f`) | Render; clip durations vs `CLIP_S` |
-| 3 | iPhone timing if the account is ready; latency-aware replay; ~~review the announcer PR~~ (merged 2026-10-20 without review) | ~~"Curb ahead." through the announcer~~ (PR #8, `f122dde`); merge narration; ~~paper numbers~~ (`9633a0f`; model context added) | ~~Context on/off replay; model vs oracle; docs~~ (done here; `model_context_headfx_2026_10_20`) | Edge phrases, loader, tests; PR |
-| 4 | Final methodology numbers | Paper freeze; merge to `main` | Paper figures (F2–F6) | Latency and size numbers |
+| 3 | Latency-aware replay (iPhone timing moved to EssKae1234); ~~review the announcer PR~~ (merged 2026-10-20 without review) | ~~"Curb ahead." through the announcer~~ (PR #8, `f122dde`); merge narration; ~~paper numbers~~ (`9633a0f`; model context added) | ~~Context on/off replay; model vs oracle; docs~~ (done here; `model_context_headfx_2026_10_20`) | Edge phrases, loader, tests; PR |
+| 4 | Final methodology numbers | Paper freeze; merge to `main` | iPhone timing (§6.8, sideloaded `CPETiming`); paper figures (F2–F6) | Latency and size numbers |
 
 ---
 
@@ -187,8 +187,10 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
    Xcode**; confirm one is available.
 3. **Latency-aware replay.** Delay each alert in `tools/replay_threat_engine.py` by the measured
    on-device latency.
-4. **Optional demo app.** An on-device replay of one SANPO session: bundled frames + depth, models
-   run live, audio clips played. Only needed for a live demo; P3.2 alone is enough for the paper.
+4. **Demo (needed, 2026-10-20).** A video showing the engine working. Desktop: the session viewer
+   (`tools/build_session_viewer.py`) replays a test walk with every box, the engine's scores and the
+   alerts spoken aloud (browser TTS); screen-record it. On the phone: an on-device replay of one
+   SANPO session (bundled frames + depth, models run live, clips played), EssKae1234.
 5. **Update the retired Jetson tooling.** `tools/benchmark_edge_realtime.py` still carries the
    Jetson proxy profile. Keep it for the server measurement and drop the proxy from reporting.
 
