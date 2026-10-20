@@ -13,7 +13,11 @@ on:
       frames:
         description: "SANPO frames to bundle"
         default: "300"
+  # A tag ios-testflight* also ships to TestFlight: workflow_dispatch only shows up in the Actions tab for
+  # workflows on the default branch (main), which this one isn't on. Path filters don't apply to tag pushes.
   push:
+    branches: ["**"]
+    tags: ["ios-testflight*"]
     paths:
       - "ios/**"
       - "training/scripts/export_gru_coreml.py"
@@ -78,7 +82,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build | tail -n 40
 
       - name: Archive and upload to TestFlight
-        if: ${{ inputs.testflight }}
+        if: ${{ inputs.testflight || startsWith(github.ref, 'refs/tags/ios-testflight') }}
         env:
           ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}

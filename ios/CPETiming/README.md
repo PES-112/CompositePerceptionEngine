@@ -60,7 +60,10 @@ One-time setup by the account holder (needs a paid Apple Developer Program membe
    - `CPE_TEAM_ID`: your 10-character team ID.
 4. If the default runner's Xcode is too old for App Store uploads (Xcode 26 is required since April
    2026), set the repository variable `MACOS_RUNNER` to a runner image that has it.
-5. Run the workflow with **testflight** ticked. Processing in App Store Connect takes 5–30 min.
+5. Start a TestFlight build by pushing a tag: `git tag ios-testflight-1 && git push origin ios-testflight-1`
+   (next time `-2`, and so on). The **Run workflow** button with **testflight** ticked works too, but
+   GitHub only shows it once the workflow is on the default branch (`main`). Processing in App Store
+   Connect takes 5–30 min.
 6. In App Store Connect → TestFlight, add the phone owner as an internal tester. They install
    **TestFlight** from the App Store and accept the invite.
 
