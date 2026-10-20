@@ -27,18 +27,20 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 `v2-threat-engine` is the integration branch.
 
-| Branch | Owner | State (2026-10-19) |
+| Branch | Owner | State (2026-10-20) |
 |---|---|---|
-| `v2-kalman-lidar` | teammate | Depth-decoder fix, fitted Kalman, latency replay. Stage 1 is being re-run with head-camera fx (Colab); its numbers are provisional until then. Contains all of `v2-threat-engine`, so it fast-forwards. |
-| `v2-segmentation` | segmentation | Contains `v2-seg-training` and `v2-kalman-lidar` (merged `3a92602`, conflicts resolved), plus the depth fix for the segmentation scripts (`a5f7b4e`). PR #7. |
+| `v2-kalman-lidar` | teammate | Depth-decoder fix, fitted Kalman, latency replay, and the head-camera Stage-1 rerun (methodology §4.18). Contains all of `v2-threat-engine`, so it fast-forwards. |
+| `v2-segmentation` | segmentation | Contains `v2-seg-training` and `v2-kalman-lidar` up to the head-camera rerun (`767dd88`; conflicts resolved, segmentation renumbered §4.18 → §4.19), plus the depth fix for the segmentation scripts (`a5f7b4e`) and the model's edge alerts on correct depth. PR #7. |
 | `v2-seg-training` | Mac (M4) | Retired, folded into `v2-segmentation`. |
 | `v2-narration` | narration | English clip library; translation is future work. |
 
 Order:
 1. Fast-forward `v2-threat-engine` to `v2-kalman-lidar`.
 2. Merge PR #7. It now merges cleanly.
-3. When the head-camera rebuild lands, merge `v2-threat-engine` into `v2-kalman-lidar`, then
-   fast-forward again.
+3. ~~When the head-camera rebuild lands, merge `v2-threat-engine` into `v2-kalman-lidar`, then
+   fast-forward again.~~ The rebuild landed on `v2-kalman-lidar` itself, so step 1 covers it; it
+   was merged into `v2-segmentation` on 2026-10-20. Scene context and context replays read bearings from the Stage-1 datasets, so they run on
+   `v2-segmentation` from this merge on (fresh `data/sanpo_scene_context_v2/`).
 4. `v2-narration` merges via its own PR.
 
 **Superseded by the depth-decoding bug** (every SANPO depth map was read as a scrambled 960×960
@@ -86,11 +88,12 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
 
 ## P0. Data correctness
 
-0. **Re-run Stage 1 with head-camera fx and the fixed size check (blocks every number; 2026-10-19).**
-   The 2026-10-18 rebuild used the chest camera's fx and a mis-scaled depth lookup (architecture §9
-   items 8–9). Run `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`, fresh Drive folders); it
-   redoes datasets, GRUs, the Kalman fit, ladder and replay. Then update methodology §4.17 and re-pick
-   the viewer threshold. History of the first rebuild:
+0. **~~Re-run Stage 1 with head-camera fx and the fixed size check~~ (done 2026-10-20, methodology
+   §4.18).** The 2026-10-18 rebuild used the chest camera's fx and a mis-scaled depth lookup
+   (architecture §9 items 8–9). Re-run with `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`;
+   `tools/rebuild_local.py` does the same off Colab); the viewer threshold was re-picked. Follow-up:
+   the fitted Kalman no longer beats the declared one on the test ladder (no credible difference).
+   History of the first rebuild:
    **~~Rebuild everything on correctly decoded depth~~ (done 2026-10-18, methodology §4.16).** The
    SANPO depth loader read each 720×1280 map as a scrambled 960×960 array, and depth-sweep boxes
    masked real objects (`architecture.md` §9 item 0). Both were fixed in code (2026-10-17), then:
@@ -125,13 +128,13 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
    oracle replay and flag-association analysis. To do, in order:
    - ~~Train and score the model.~~ Done 2026-10-18 (`v2-seg-training`): YOLO26n-sem @640, test
      mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062], curb / stairs boundary F 0.30 /
-     0.06 (methodology §4.18).
+     0.06 (methodology §4.19).
    - ~~Model context over all 112 val/test sessions and the powered replay.~~ Done 2026-10-18:
      context on vs off, warned +0.04 [−0.06, +0.08] at `budget_10`, no measurable effect.
    - **Next:** n at a larger imgsz (≥ 1024) on a GPU machine, for curb and stair edges. Then re-run
      the edge alerts and score the 10 official-test sessions.
    - ~~Decide the multipliers from train sessions only if the declared ones are contradicted.~~
-     Done 2026-10-17: near a boundary ×1.25 → ×1.0 (train-only check; methodology §4.18).
+     Done 2026-10-17: near a boundary ×1.25 → ×1.0 (train-only check; methodology §4.19).
    - Stage 1 on the chest stream for the 130 chest-masked curated sessions (lab server), to get an
      oracle bound on 28 test sessions instead of 10.
    - Edge-ahead alert rule and its oracle evaluation: done 2026-10-17
