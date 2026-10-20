@@ -476,7 +476,12 @@ announcement order is future work, and is not part of the system.
   walkable is 0.173: ground-truth road pixels predicted walkable or crosswalk, over all
   ground-truth road pixels. YOLO26n-sem was kept at 640 px for the training budget on an M4; s was
   not tried (§6.5).
-- **Only tracked objects** are scored; the untracked depth sweep is excluded.
+- **Only tracked objects** are scored; the untracked depth sweep is excluded (and does not work:
+  it fires on the ground, methodology §4.21).
+- **The detector sees people far better than other hazards on SANPO.** On SANPO head-camera test
+  frames it finds 0.77 of pedestrians within 10 m but 1 of 8 vehicles and 1 of 22 poles
+  (methodology §4.21), so the benchmark is mostly about people. Fine-tuning on SANPO-derived boxes
+  is future work.
 
 ## 9. Conclusion
 

@@ -1314,6 +1314,31 @@ on train sessions before any replay:
 closing speed per class (so the GRU stays the only source of motion), plus a separate trip-hazard
 weight for static classes.
 
+### 4.21 What the live pipeline misses: detector recall on SANPO, walker surface, the depth sweep (2026-10-20)
+
+Found while rendering the demo videos (`tools/render_demo_video.py`). None of this changes a
+replay number (the replay scores tracked objects only), but it bounds what the system can warn about.
+
+- **The v3 detector misses most non-person hazards on SANPO.** On its own Roboflow test split, v3
+  scores pole recall 0.93 and bollard 0.97. On SANPO head-camera frames it finds few of them
+  (`evaluation/detector_recall_sanpo.py`; 80 human-annotated frames from the 10 head-masked
+  official-test sessions; an object is a connected component of a SANPO class covering ≥ 0.3% of
+  the image within 10 m; found if a box of a matching class at the pipeline's confidence 0.30
+  covers ≥ 50% of it): pedestrians 0.77 (34/44), vehicles 0.12 (1/8), poles 0.05 (1/22), SANPO
+  "obstacle" 0.00 (0/20). The training data differs in viewpoint and framing; SANPO's panoptic
+  masks could supply boxes to fine-tune on. Small sample; the person/vehicle split of the replay
+  (73% people, §4.20) is partly this.
+- **Walker surface: crosswalk vs. sidewalk is harmless, road vs. walkable is not.** Both crosswalk
+  and walkable count as walkable for context, so mixing them changes nothing. Calling road walkable
+  does: on the 18 head-masked val/test sessions the model's walker surface agrees with SANPO's in
+  0.967 of frames, but of the 16 frames where the walker is on road, it says walkable or crosswalk
+  in 9. On the demo 2 walk (all 148 frames, SANPO masks incl. machine-annotated): road called
+  walkable 8 and crosswalk 4 of 24 road frames; sidewalk called crosswalk 4 of 96.
+- **The depth sweep for unlabeled obstacles does nothing.** `detect_unlabeled_obstacles` flags any
+  pixel in the lower 60% of a column closer than 8 m that no box covers; that is always the ground
+  ahead, so all 5 columns fire on every frame. Its pseudo-objects get a new id each frame, so the
+  engine skips them by design (`engine.py`, `obs_*`). Unlabeled obstacles never reach the user.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate
