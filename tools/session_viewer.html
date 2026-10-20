@@ -56,6 +56,7 @@
       <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1× (real time)</option><option value="2">2×</option></select>
       <label><input type="checkbox" id="showAll" checked> all boxes</label>
       <label><input type="checkbox" id="showTruth" checked> ground truth</label>
+      <label><input type="checkbox" id="speak" checked> speak alerts</label>
     </div>
     <canvas id="timeline"></canvas>
     <div class="legend">
@@ -184,9 +185,18 @@ function drawTimeline() {
 }
 
 function go(f) { k = Math.max(0, Math.min(N - 1, f)); draw(); }
-function tick() { if (k >= N - 1) return toggle(false); go(k + 1); }
+// Speak each alert as playback reaches it (browser TTS, a stand-in for the clip library);
+// an override interrupts whatever is being said, as the announcer's override lane does.
+function say(a) {
+  if (!document.getElementById('speak').checked || !('speechSynthesis' in window)) return;
+  if (a.kind === 'override') speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(a.text); u.lang = 'en-US'; u.rate = 1.2;
+  speechSynthesis.speak(u);
+}
+function tick() { if (k >= N - 1) return toggle(false); go(k + 1); if (annByFrame[k]) say(annByFrame[k]); }
 function toggle(on = !playing) {
   playing = on; clearInterval(timer);
+  if (!playing && 'speechSynthesis' in window) speechSynthesis.cancel();
   document.getElementById('play').textContent = playing ? '❚❚ Pause' : '▶ Play';
   if (playing) timer = setInterval(tick, 1000 * S / +document.getElementById('speed').value);
 }
