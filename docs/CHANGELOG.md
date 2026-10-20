@@ -2,6 +2,27 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-20, head-camera results] - Stage-1 rerun ingested; current numbers in methodology §4.18
+
+### Changed
+- Datasets, GRU runs (4 variants × 3 seeds), Kalman fit, ladder and before/after comparison
+  replaced by the head-camera Colab rerun (`RUN_TAG = "headfx"`; 421 walks with samples, 288/48/85
+  official split). The replay (`threat_engine_replay/corridor_headfx/`) and before/after comparison
+  were run locally after the Colab GPU quota ran out.
+- `src/threat_engine/fusion.py`: `NoiseModel` defaults from the 1 s-ahead fit, which chose the
+  Student-t update (ν = 4, gate 60) on validation (−3.09 vs −3.51 declared).
+- `tools/build_session_viewer.py`: threshold 0.6 with announcer cooldown 8 s, switch margin 1,
+  stale 0.6 s (v2_gru `early_budget_5` on the rerun).
+- Docs: methodology §4.18 (current numbers; §4.13–4.17 superseded), architecture §6.2 and §10,
+  pending_work P0.0 closed.
+
+### Found
+- GRU AUROC 0.911 ties GBT and attention and beats every rule and Kalman baseline (all CIs exclude 0).
+- The fitted Kalman no longer beats the declared one on the ladder (AUROC −0.013 [−0.022, +0.001],
+  Holm p 0.30), contradicting §4.17; in the replay it still cuts 3.1–5.7 false alerts/min.
+- At ≤ 5 false/min, v2_gru warns 0.35 of arrivals, 0.14 ≥ 0.2 s ahead and 0.04 ≥ 1 s ahead,
+  precision 0.55; only v2_gru and nearest-in-corridor meet that budget on validation.
+
 ## [2026-10-19, local rebuild] - Run the Stage-1 rerun off Colab
 
 ### Added

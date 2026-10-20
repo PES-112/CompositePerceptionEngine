@@ -69,19 +69,20 @@ class NoiseModel:
     only rejects jumps too large to be the same object (re-ID / box swap).
     """
 
-    # Fitted 2026-10-18 on correct depth, 287 official-train sessions, by 1 s-ahead predictive log-likelihood
-    # (tools/fit_kalman_noise.py --objective ahead -> evaluation/benchmarks/kalman_noise_fit/fit_pose_ahead.json;
-    # Gaussian update, the Student-t half was not completed). Chosen on validation 1 s-ahead log-likelihood:
-    # -3.08 vs -3.43 declared() vs -3.57 for the one-step fit (fit_pose.json); NIS mean 2.26 (2 = calibrated).
-    accel_std: float = 0.504
-    static_accel_std: float = 2.14
-    depth_base: float = 0.033
-    depth_lin: float = 0.263
+    # Fitted 2026-10-19 on the head-camera Stage-1 rerun, 288 official-train sessions, by 1 s-ahead predictive
+    # log-likelihood (tools/fit_kalman_noise.py --objective ahead -> evaluation/benchmarks/kalman_noise_fit/
+    # fit_pose_ahead.json; Student-t update, nu = 4). Chosen on validation 1 s-ahead log-likelihood: -3.09 vs
+    # -3.51 declared(). On the test ladder it does not beat declared() (AUROC -0.013 [-0.022, +0.001]); see
+    # methodology §4.18.
+    accel_std: float = 0.839
+    static_accel_std: float = 1.58
+    depth_base: float = 0.0117
+    depth_lin: float = 0.0738
     depth_quad: float = 0.0
-    bearing_std_deg: float = 0.277
-    init_speed_std: float = 0.883
-    robust_nu: float = 0.0
-    gate_nis: float = 11.62
+    bearing_std_deg: float = 0.281
+    init_speed_std: float = 0.857
+    robust_nu: float = 4.0
+    gate_nis: float = 60.0
 
     @classmethod
     def declared(cls) -> "NoiseModel":

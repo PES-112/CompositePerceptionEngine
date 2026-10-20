@@ -138,9 +138,9 @@ This removes the "ground ahead" pseudo-objects that dominated the encounter labe
 | Why | Head turns currently look like every object moving sideways. Velocity is differentiated depth and is noisy. The fused priority can down-weight uncertain tracks |
 | Cost | Under 1 ms per frame |
 | Code | `src/threat_engine/fusion.py` (`GroundTracker`, `EgoPose`, `sanpo_session_poses`); tests in `tests/test_threat_engine.py` (head turn ≠ object motion, retreat is negative, coasting through missing depth, outlier gating) |
-| Noise model | Fitted on official-train sessions by 1 s-ahead predictive likelihood (`tools/fit_kalman_noise.py --objective ahead`, methodology §4.17), chosen on validation over the one-step fit and the declared values: Gaussian update, χ² gate 11.62, depth σ = 0.033 + 0.263·d m, acceleration σ 0.50 m/s² (static classes 2.14), bearing σ 0.28°. `NoiseModel.declared()` keeps the 2026-10-14 hand-set values |
+| Noise model | Fitted on official-train sessions by 1 s-ahead predictive likelihood (`tools/fit_kalman_noise.py --objective ahead`, methodology §4.18), chosen on validation over the declared values: Student-t update (ν = 4, gate 60), depth σ = 0.012 + 0.074·d m, acceleration σ 0.84 m/s² (static classes 1.58), bearing σ 0.28°. `NoiseModel.declared()` keeps the 2026-10-14 hand-set values |
 | Uncertainty out | `FusedTrack.rel_cov` (4×4 relative position/velocity covariance) feeds the Kalman arrival predictor (`kalman_arrival.py`: P(enter the corridor) over 128 samples) |
-| Status | Built, fitted and unit-tested. The 1 s fit beats the declared filter on the ladder (AUROC +0.017 [+0.009, +0.026]) and ties the GRU; in the replay it cuts 5.5–13.6 false alerts/min at the cost of recall (methodology §4.17). Ego-motion removal stays an ablation (§9) |
+| Status | Built, fitted and unit-tested. On the head-camera rerun the fit does not beat the declared filter on the ladder (AUROC −0.013 [−0.022, +0.001]) and both trail the GRU; in the replay it cuts 3.1–5.7 false alerts/min at some cost in recall (methodology §4.18). Ego-motion removal stays an ablation (§9) |
 
 ### 6.3 Scene context: walkable-surface segmentation ⬜
 
@@ -329,7 +329,8 @@ Open:
    `yolo_tracker.depth_rescore` used frame pixels (2208×1242) directly on the 1280×720 depth map, so
    boxes right of x ≈ 1280 or below y ≈ 720 read the wrong depth and could be wrongly dropped. It now
    uses `scale_point_to_depth` (`tests/test_depth_rescore.py`). Items 8 and 9 together, on one test
-   walk: +9% detections (48 new, 9 lost of 426), mean |bearing| 12.4° → 17.1°. Stage 1 is being re-run.
+   walk: +9% detections (48 new, 9 lost of 426), mean |bearing| 12.4° → 17.1°. Stage 1 was re-run
+   (2026-10-20, methodology §4.18).
 
 ## 10. Limitations to state in the paper
 
@@ -337,12 +338,13 @@ Open:
   was used.
 - **Depth.** All results use SANPO's recorded depth as is (§4). The product's external LiDAR is not
   modelled; its range and noise relative to SANPO depth are unknown until the sensor is chosen.
-- **Lead time.** Even with operating points and the announcer tuned for early warnings, at most
-  0.22 of arrivals are warned at least 0.2 s ahead and ≤ 0.07 (v2) at least 1 s ahead, though 71%
-  are seen ≥ 1 s ahead. The headline "warned" counts announcements on the arrival frame itself
-  (methodology §4.15, §4.17).
-- **Alert budgets.** The engines speak 15–21 times a minute at the chosen points, and points
-  chosen for ≤ 5 false alerts/min on validation give 6.0–7.4 on test (methodology §4.17).
+- **Lead time.** Even with operating points and the announcer tuned for early warnings, at ≤ 5
+  false alerts/min only 0.14 of arrivals are warned at least 0.2 s ahead and 0.04 at least 1 s
+  ahead, though 76% are seen ≥ 1 s ahead. The headline "warned" counts announcements on the arrival
+  frame itself (methodology §4.15, §4.18).
+- **Alert budgets.** Only the GRU engine and nearest-in-corridor meet ≤ 5 false alerts/min on
+  validation (4.9–5.6 on test); the Kalman and physics engines need ≤ 10. The GRU engine speaks
+  about 13 times a minute at that point (methodology §4.18).
 - **Declared choices.** λ and the behaviour multipliers are declared design choices.
 - **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
   the chest; SANPO's `camera_chest/` stream exists but is unused.

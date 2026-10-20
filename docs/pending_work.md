@@ -48,12 +48,12 @@ Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **
 
 ## P0. Data correctness
 
-0. **Re-run Stage 1 with head-camera fx and the fixed size check (blocks every number; 2026-10-19).**
-   The 2026-10-18 rebuild used the chest camera's fx and a mis-scaled depth lookup (architecture §9
-   items 8–9). Run `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`, fresh Drive folders) or, off
-   Colab, `tools/rebuild_local.py` (same steps); it
-   redoes datasets, GRUs, the Kalman fit, ladder and replay. Then update methodology §4.17 and re-pick
-   the viewer threshold. History of the first rebuild:
+0. **~~Re-run Stage 1 with head-camera fx and the fixed size check~~ (done 2026-10-20, methodology
+   §4.18).** The 2026-10-18 rebuild used the chest camera's fx and a mis-scaled depth lookup
+   (architecture §9 items 8–9). Re-run with `notebooks/colab_rebuild.ipynb` (`RUN_TAG = "headfx"`;
+   `tools/rebuild_local.py` does the same off Colab); the viewer threshold was re-picked. Follow-up:
+   the fitted Kalman no longer beats the declared one on the test ladder (no credible difference).
+   History of the first rebuild:
    **~~Rebuild everything on correctly decoded depth~~ (done 2026-10-18, methodology §4.16).** The
    SANPO depth loader read each 720×1280 map as a scrambled 960×960 array, and depth-sweep boxes
    masked real objects (`architecture.md` §9 item 0). Both were fixed in code (2026-10-17), then:

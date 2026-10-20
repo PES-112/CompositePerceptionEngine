@@ -792,7 +792,7 @@ sighting → arrival) has a median of 2.0 s: 27% of arrivals are first seen < 1 
 
 ### 4.17 Units fix, 1 s-ahead Kalman fit and lead-based tuning (2026-10-19)
 
-> **Provisional (2026-10-19).** The Stage-1 CSVs behind these numbers used the chest camera's fx and a mis-scaled depth lookup in the detector's size check (architecture §9 items 8–9). Stage 1 is being re-run (`notebooks/colab_rebuild.ipynb`, `RUN_TAG = "headfx"`); the methods stand, the numbers will change.
+> **Superseded numbers (2026-10-20).** The Stage-1 CSVs behind this section used the chest camera's fx and a mis-scaled depth lookup in the detector's size check (architecture §9 items 8–9). The methods here stand; the current numbers are in §4.18.
 
 **A units bug in the rebuild, found and fixed.** The rebuilt Stage-1 CSVs already store pinhole
 bearings (from the session's fx) and speeds at the true frame rate. But `relabel.py`, the ladder's
@@ -875,6 +875,59 @@ arrivals are seen < 1 s ahead and 26% ≥ 4 s ahead.
 - **Next, for lead:** train the GRU on an objective that rewards early probability mass (e.g. a
   loss weighted by time-to-arrival, or a "will arrive in ≥ 1 s" target), and give the announcer a
   "rising P(arrive)" trigger instead of a fixed threshold.
+
+### 4.18 Head-camera Stage-1 rerun: current numbers (2026-10-20)
+
+Stage 1 was re-run on all 462 walks with the head camera's fx and the fixed size-check depth lookup
+(architecture §9 items 8–9; `notebooks/colab_rebuild.ipynb`, `RUN_TAG = "headfx"`; the replay and
+before/after comparison were run locally after the Colab GPU quota ran out). Methods, settings and
+the split rule are those of §4.16–4.17. 421 walks have samples; the official split gives 288 train,
+48 val and 85 test sessions. Every number in §4.13–4.17 is superseded by this section.
+
+**Kalman noise (1 s-ahead fit).** The fit chose the Student-t update (ν = 4, gate 60): acceleration
+σ 0.84 m/s² (static classes 1.58), depth σ 0.012 + 0.074·d m, bearing σ 0.28°, initial speed σ
+0.86 m/s. Validation 1 s-ahead log-likelihood −3.09 vs −3.51 for `declared()`, so it is the default.
+Caveat: the two are scored on slightly different forecast sets (905 vs 848), because gating changes
+which tracks survive long enough to forecast.
+
+**Ladder** (test once; 85 sessions, 24 with an arrival, 6,628 objects, positive rate 0.161):
+- **GRU 0.911.** It ties GBT with history (0.917, +0.006 [−0.005, +0.014]), attention (0.916), GBT
+  now (0.912) and the other GRU variants; no Holm-adjusted p is below 0.05.
+- **The GRU beats** logistic regression (−0.024 [−0.039, −0.010]), `nearest` (−0.025 [−0.041,
+  −0.006]; AUPRC −0.122, Holm p < 0.001), the two-step CVM (−0.031), the declared Kalman (−0.035),
+  nearest-in-corridor (−0.039), the fitted Kalman (−0.048), TTC and K0.
+- **Contradiction with §4.17:** the fitted Kalman no longer beats the declared one. AUROC −0.013
+  [−0.022, +0.001] (Holm p 0.30), AUPRC +0.027 [+0.010, +0.082] (Holm p 1.0): no credible
+  difference either way. The validation likelihood win does not carry over to the ranking.
+- **Static classes** (463 objects): simple rules rank them at least as well as the GRU
+  (nearest-in-corridor +0.082 [+0.002, +0.147]), but nothing survives Holm.
+
+**Replay, physics predictor, before/after at fixed thresholds** (fitted − declared): false alerts/min
+fall by 3.1–5.7 and precision rises by 0.04–0.05 (all CIs exclude 0). Recall falls by 0.03–0.11; for
+the no-pose arms the CIs exclude 0.
+
+**Replay, operating points** (`threat_engine_replay/corridor_headfx/`; 79 test arrivals; opportunity
+window median 2.6 s, 24% seen < 1 s ahead, 33% ≥ 4 s ahead):
+
+| Arm | rule | knob (threshold / announcer) | warned | warned ≥ 0.2 s | warned ≥ 1 s | false/min | precision | alerts/min |
+|---|---|---|---|---|---|---|---|---|
+| v2_gru | early_budget_5 = budget_5 | 0.6 / cd 8 / sm 1 / st 0.6 | 0.35 [0.23, 0.52] | 0.14 [0.06, 0.25] | 0.04 [0.00, 0.07] | 5.6 [3.4, 8.1] | 0.55 [0.40, 0.69] | 12.6 |
+| nearest_in_corridor | early_budget_5 = budget_5 | 0.95 / cd 2 / sm 1 / st 0.6 | 0.23 [0.11, 0.35] | 0.10 [0.02, 0.19] | 0.03 [0.00, 0.04] | 4.9 [3.1, 7.0] | 0.39 [0.25, 0.52] | 8.1 |
+| v2_gru | budget_10 | 0.4 / cd 8 / sm 1 / st 0.6 | 0.46 [0.36, 0.64] | 0.23 [0.14, 0.37] | 0.06 [0.03, 0.13] | 7.2 [4.4, 10.2] | 0.53 [0.39, 0.65] | 15.1 |
+| v2_gru | early_budget_10 | 0.3 / cd 8 / sm 1 / st 0.6 | 0.46 [0.36, 0.64] | 0.24 [0.16, 0.40] | 0.09 [0.04, 0.21] | 8.7 [5.8, 11.9] | 0.49 [0.36, 0.62] | 16.9 |
+| v2_kalman | budget_10 | 0.8 / cd 4 / sm 1.25 / st 0.6 | 0.38 [0.25, 0.57] | 0.23 [0.14, 0.40] | 0.09 [0.04, 0.19] | 9.8 [6.7, 13.2] | 0.43 [0.31, 0.53] | 17.1 |
+
+**Reading.**
+- **Only v2_gru and nearest-in-corridor meet a 5 false/min budget on validation**; nothing meets
+  2/min. The Kalman, physics and no-pose arms only fit within 10/min. v2_gru is the only engine
+  with precision above 0.5 at ≤ 5 false/min.
+- **Lead is still the limit.** At ≤ 5 false/min, 0.14 of arrivals are warned ≥ 0.2 s ahead and
+  0.04 ≥ 1 s ahead, though 76% are seen ≥ 1 s ahead. Relaxing to 10/min roughly doubles the
+  ≥ 0.2 s share (0.23–0.24). The §4.17 next steps for lead stand.
+- **Validation and test false alerts agree better:** the ≤ 5/min points give 4.9–5.6 on test
+  (vs 6.0–7.4 in §4.17).
+- **Viewer default:** `tools/build_session_viewer.py` uses threshold 0.6 with cooldown 8 s, switch
+  margin 1, stale 0.6 s (the v2_gru `early_budget_5` point).
 
 ## 5. Latency methodology
 
