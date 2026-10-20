@@ -10,6 +10,9 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
   (`main`), which this one isn't on. Branch pushes still build unsigned when `ios/**` or the export
   scripts change (they pass on `v2-threat-engine` with the head-camera GRU).
 - `ios/CPETiming/README.md`: setup step 5 uses the tag.
+- `.github/workflows/ios-timing.yml`: every run also uploads an unsigned `.ipa` artifact, so the app can
+  be installed with a free Apple ID through Sideloadly (no paid account, no Mac; 7-day installs).
+  README section added.
 
 ## [2026-10-20, head-camera results] - Stage-1 rerun ingested; current numbers in methodology §4.18
 

@@ -77,9 +77,24 @@ jobs:
 
       - name: Build (unsigned, device SDK)
         run: |
+          set -o pipefail
           xcodebuild -project ios/CPETiming/CPETiming.xcodeproj -scheme CPETiming \
-            -destination 'generic/platform=iOS' -configuration Release \
+            -destination 'generic/platform=iOS' -configuration Release -derivedDataPath "$RUNNER_TEMP/dd" \
             CODE_SIGNING_ALLOWED=NO build | tail -n 40
+
+      # Unsigned .ipa for a free Apple ID: Sideloadly (Windows/macOS) signs it with the user's own Apple ID
+      # and installs it over USB. No paid account or TestFlight needed; the install lasts 7 days.
+      - name: Package the unsigned .ipa
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/CPETiming.app" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry CPETiming-unsigned.ipa Payload)
+          ls -lh "$RUNNER_TEMP/ipa/CPETiming-unsigned.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CPETiming-unsigned-ipa
+          path: ${{ runner.temp }}/ipa/CPETiming-unsigned.ipa
 
       - name: Archive and upload to TestFlight
         if: ${{ inputs.testflight || startsWith(github.ref, 'refs/tags/ios-testflight') }}

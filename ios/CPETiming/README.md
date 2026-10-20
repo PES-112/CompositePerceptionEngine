@@ -46,6 +46,20 @@ does the following on a macOS runner:
 
 Tick **testflight** to also archive, sign and upload.
 
+## Run it on the iPhone with a free Apple ID (no Mac, no paid account)
+
+Every workflow run also uploads `CPETiming-unsigned-ipa` (Actions → the latest green **ios-timing**
+run → Artifacts). To install it from a Windows PC:
+
+1. Install iTunes (the Apple website version, not the Microsoft Store one) and
+   [Sideloadly](https://sideloadly.io). Plug in the iPhone and tap **Trust**.
+2. Unzip the artifact, drag `CPETiming-unsigned.ipa` into Sideloadly, enter the Apple ID, Start.
+3. On the phone: Settings → Privacy & Security → **Developer Mode** on (restarts), then Settings →
+   General → VPN & Device Management → trust the Apple ID's developer profile.
+
+Free-account installs expire after 7 days (re-install the same way). The timing is the same as a
+TestFlight build: both are Release builds of the same app.
+
 ## Run it on an iPhone 17 Pro Max via TestFlight
 
 One-time setup by the account holder (needs a paid Apple Developer Program membership, $99/yr):
