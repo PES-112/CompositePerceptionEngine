@@ -6,9 +6,10 @@ and the checklist of what is still missing. Framing follows `reports/CPE v2 next
 open-loop benchmark of alert policies, aimed at a CVPR/ICCV accessibility workshop or a WACV
 applications paper; the ASSETS version needs the listening study.
 
-**Depth-decoding bug (found 2026-10-17, segmentation side fixed 2026-10-19).** Every SANPO depth
-map was read as a scrambled 960×960 array. Any number below that depends on depth is superseded
-until it is re-run; the status table says which.
+**Depth-decoding bug and head-camera rerun.** Until 2026-10-17 every SANPO depth map was read as a
+scrambled 960×960 array, and the 2026-10-18 rebuild used the chest camera's fx. Stage 1 was re-run
+with the head camera's fx on correct depth (2026-10-20, `methodology.md` §4.18), and the numbers
+below come from that rerun unless the status table says otherwise.
 
 **Claim policy.** The replay is open-loop: the recorded walker never heard an alert. We claim
 predictive accuracy against named baselines, precision and recall at frozen alert budgets,
@@ -22,14 +23,15 @@ that any alert rate is acceptable.
 
 | § | Result | State | Source / owner |
 |---|---|---|---|
-| 6.1 | Baseline ladder on the corridor label | **[PENDING: head-camera Stage-1 rebuild]**; methodology §4.16–4.17 are provisional | teammate (Day 2) |
-| 6.2 | System replay at alert budgets | **[PENDING: head-camera rebuild]**; every replay before it used scrambled depth | teammate (Day 2) |
-| 6.3 | Scene context, oracle (SANPO masks) | **[PENDING: redo on correct depth]**: the 2026-10-17 numbers and the near-boundary decision are superseded | segmentation (Day 2) |
+| 6.1 | Baseline ladder on the corridor label | final (head-camera rerun; methodology §4.18) | `baseline_ladder/…_corridor_w0.75_d3_h20/` |
+| 6.2 | System replay at alert budgets | final (head-camera rerun; methodology §4.18) | `threat_engine_replay/corridor_headfx/` |
+| 6.3 | Scene context, oracle (SANPO masks) | final (head-camera rerun; near-boundary decided on train; methodology §4.19) | `scene_context/gt_headfx_*`, `threat_engine_replay/oracle_context_headfx_2026_10_20/` |
 | 6.4 | Edge-ahead alerts, oracle | final (correct depth; rule kept by a train-only sweep) | `edge_alerts/gt_depthfix_*` |
 | 6.5 | Segmentation model (YOLO26n-sem @640) | final (scored once on test) | `segmentation/cpe_yolo26n_sem_walkable_test/` |
-| 6.6 | Scene context and edge alerts with the model's masks | **[PENDING: redo on correct depth]**: the 2026-10-18 runs are superseded | Mac (Days 1–3) |
+| 6.6 | Edge alerts with the model's masks | final (correct depth) | `edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*` |
+| 6.6 | Scene context with the model's masks | **[PENDING: re-run on the head-camera rerun]**; the 2026-10-18 runs are superseded | Mac (Days 2–3) |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
-| 6.8 | On-device latency, latency-aware replay | **[PENDING: TestFlight run]** | teammate |
+| 6.8 | On-device latency, latency-aware replay | **[PENDING: iPhone run]** (sideloaded build, `ios/CPETiming/RUN_ON_IPHONE.md`) | teammate |
 | 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
 | — | English audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]**; translation is future work | `v2-narration` (Days 1–4) |
 | — | BLV listening study (ASSETS version only) | **[PENDING: ethics]** | teammate (`listening_study_plan.md`) |
@@ -46,14 +48,15 @@ forecasting**: will this object enter the walker's path within the next 4 s? We 
 labels for SANPO-Real from measured depth and camera motion, on SANPO's official split. On this
 benchmark, we compare a small GRU against a ladder of physics and learned baselines, and evaluate
 complete alert engines by replaying every test session at frozen alert budgets. A deterministic
-time-to-collision envelope bounds every learned decision. At five false alerts per minute, the
-learned engine warns about [PENDING: final] of arrivals against [PENDING] for the strongest
-geometric baseline, with [PENDING] fewer announcement switches. Walkable-surface segmentation adds
-scene context; with SANPO's own masks as an oracle, one of three declared context rules points the
-wrong way, and we report it. A trained segmentation model reproduces the oracle's context flags
-but does not change the alerts measurably, and its edge-ahead alerts fall well short of the
-oracle's. All models run on an iPhone 17 Pro Max in [PENDING] ms (p95). We
-release labels, code and the replay harness.
+time-to-collision envelope bounds every learned decision. The GRU (AUROC 0.911) ties
+gradient-boosted trees and beats every geometric baseline. At five false alerts per minute, the
+learned engine warns about 0.35 of arrivals at precision 0.55, against 0.23 at 0.39 for the
+strongest geometric baseline, though it switches announcements more often. Few warnings come early:
+0.14 of arrivals are warned at least 0.2 s ahead. Walkable-surface segmentation adds scene context;
+with SANPO's own masks as an oracle, one of three declared context rules points the wrong way, and
+we report it, and context does not change the alerts measurably. A trained segmentation model's
+edge-ahead ("Curb ahead.") alerts match the oracle's. [PENDING: model context.] All models run on
+an iPhone 17 Pro Max in [PENDING] ms (p95). We release labels, code and the replay harness.
 
 ---
 
@@ -73,7 +76,7 @@ release labels, code and the replay harness.
   4 s, using SANPO's depth and camera poses. This turns alert policy into a measurable forecasting
   problem and lets whole engines be replayed.
 - **Contributions.**
-  1. An **arrival benchmark on SANPO-Real** (official split, 364 sessions with tracked objects):
+  1. An **arrival benchmark on SANPO-Real** (official split, 421 sessions with tracked objects):
      corridor arrival labels, opportunity windows and a replay harness, released.
   2. A **baseline ladder** for arrival forecasting: K0, TTC, constant-velocity, Kalman (fitted
      noise), nearest-in-corridor, logistic regression, gradient-boosted trees, and GRUs with 1, 4
@@ -103,19 +106,20 @@ Full list: `related_work.md`. Must cite and distinguish:
 - **SANPO-Real**, `camera_head/left` (ZED-M, 15 FPS, 70–78° horizontal FOV, fx 1367–1391 px),
   processed every 3rd frame (5 Hz, 0.2 s per step). Depth is SANPO's stereo depth. Camera poses
   come from `fixed_camera_poses.csv` (OpenCV axes, Z-up world, NOT_READY rows interpolated).
-- **Split.** SANPO's official split, on the 364 sessions with tracked objects: 252 train /
-  41 validation (from official train) / 71 test. Everything is fitted or chosen on train or
+- **Split.** SANPO's official split, on the 421 sessions with tracked objects: 288 train /
+  48 validation (from official train) / 85 test. Everything is fitted or chosen on train or
   validation. Test is scored once.
 - **Perception.** YOLO26n fine-tuned to 17 hazard classes (`yolo_training.md`), ByteTrack, and the
   median SANPO depth inside each box. Only tracked objects are labelled: the untracked depth
   sweep's pseudo-objects were 99.7% ground (`methodology.md` §4.9).
 - **Arrival label (corridor).** An object *arrives* if, within 20 steps (4 s), it is inside the
   walking corridor: 0 < forward ≤ 3 m along the direction of travel (the 1 s camera displacement),
-  and |lateral| ≤ 0.75/2 m + the class half-width. The test set has 71 sessions, 19 with arrivals,
-  102 arriving tracks, and a positive rate of 0.140 over (frame, object) pairs. Sensitivity
-  variants: width 0.75 / 1.5 m, horizon 13 / 20 / 25 steps (`dataset/GRU/relabel.py`).
-- **Opportunity window.** Time from first sighting to arrival. Median 2.7 s; 25% of arrivals are
-  first seen < 1 s before arriving, and 29% at least 4 s before. Lead time is bounded by this
+  and |lateral| ≤ 0.75/2 m + the class half-width. The test set has 85 sessions, 24 with arrivals,
+  6,628 objects, and a positive rate of 0.161 over (frame, object) pairs; the replay counts 79
+  arrivals (tracks first seen before entering the zone). Sensitivity variants: width 0.75 / 1.5 m,
+  horizon 13 / 20 / 25 steps (`dataset/GRU/relabel.py`).
+- **Opportunity window.** Time from first sighting to arrival. Median 2.6 s; 24% of arrivals are
+  first seen < 1 s before arriving, and 33% at least 4 s before. Lead time is bounded by this
   window, so we report lead conditional on it.
 
 ## 4. System
@@ -123,9 +127,9 @@ Full list: `related_work.md`. Must cite and distinguish:
 One frame at 5 Hz, in order (`architecture.md` §5–6):
 
 1. **Fusion.** A constant-velocity Kalman filter per track on the ground plane, with head motion
-   removed using the camera pose. The noise model is fitted by one-step predictive likelihood on
-   train sessions, with Student-t measurement noise (ν = 4) **[PENDING: final numbers after the
-   merge]**.
+   removed using the camera pose. The noise model is fitted on train sessions by 1 s-ahead
+   predictive likelihood. Validation chose the Student-t update (ν = 4, gate 60) over the
+   declared values (log-likelihood −3.09 vs −3.51).
 2. **When: arrival predictors.** GRU over 8 steps (1.6 s) of per-object features. The physics rule
    is time until the fused path enters the corridor. The Kalman predictor samples the state
    covariance to give P(arrive).
@@ -133,8 +137,12 @@ One frame at 5 Hz, in order (`architecture.md` §5–6):
 4. **What: scene context** (§4.1 below), as multipliers on the priority score.
 5. **Safety envelope.** An object in the path with TTC ≤ 1 s always triggers an override,
    whatever the learned parts say.
-6. **Announcement manager.** At most one phrase at a time. Overrides preempt. It applies a 4 s
-   cooldown, a 1.5× escalation, a 1.25× switch margin, and drops stale messages (> 0.6 s).
+6. **Announcement manager.** At most one phrase at a time. Overrides preempt. Declared defaults:
+   a 4 s cooldown, a 1.5× escalation, a 1.25× switch margin, and stale messages dropped after
+   0.6 s; the replay chooses cooldown and switch margin on validation together with the threshold
+   (§5). Segmentation edge alerts ("Curb ahead.", §4.1) have their own lane, below overrides and
+   above object threats, and wait up to 1.2 s (one clip). The replay does not include them; they
+   are scored on their own (§6.4).
 7. **Narration.** Scripted templates ("Car close, left.") played from a pre-rendered clip library.
    There is no language model and no runtime speech synthesis.
 
@@ -175,7 +183,9 @@ One frame at 5 Hz, in order (`architecture.md` §5–6):
   - *Warned*: share of arrivals announced in the 4 s before arrival.
   - *False alert*: an announcement whose object does not arrive within 4 s.
   - Each engine's knob is chosen on validation as the setting with the most warned arrivals within
-    an alert budget (2, 5 or 10 false alerts/min), then scored once on test.
+    an alert budget (2, 5 or 10 false alerts/min), then scored once on test. For the pose-based
+    GRU and Kalman engines and nearest-in-corridor, the knob includes the announcer's cooldown and
+    switch margin.
   - We also report switches/min and the Kaplan–Meier share of arrivals not yet warned by time
     since first sighting.
 - **Context ablation.** Context-on vs. context-off arms on the same sessions, as paired
@@ -201,58 +211,98 @@ One frame at 5 Hz, in order (`architecture.md` §5–6):
 
 ### 6.1 Arrival forecasting: the baseline ladder
 
-**[PENDING: the corrected-label re-run (teammate).]** Shape of the result on the stale labels
-(`v2-kalman-lidar`, `methodology.md` §4.14):
-- the GRU (AUROC ≈ 0.88) ties GBT, the fitted Kalman predictor and nearest-in-corridor;
-- it beats the constant-velocity model, the declared Kalman filter, TTC and K0 (Holm p < 0.05).
+Source: `evaluation/benchmarks/baseline_ladder/sanpo_real_462_tracked_d3_h8_current_m32_official_corridor_w0.75_d3_h20/`
+(`methodology.md` §4.18). 85 test sessions, 6,628 objects, positive rate 0.161. Learned methods
+are averaged over 3 seeds. Differences are against the GRU, with paired session-bootstrap 95% CIs
+and Holm correction (30 tests per stratum).
 
-If the tie holds, the learned model's claim moves from accuracy to **stability** and **budgeted
-recall** (§6.2, §7).
+| Method | AUROC | AUPRC | ΔAUROC vs GRU | Holm p |
+|---|---:|---:|---|---:|
+| GBT, with history | 0.917 | 0.753 | +0.006 [−0.005, +0.014] | 1.00 |
+| GRU, attention | 0.916 | 0.739 | +0.005 [−0.008, +0.012] | 1.00 |
+| GBT, current step | 0.912 | 0.745 | +0.001 [−0.009, +0.009] | 1.00 |
+| **GRU (8 steps)** | **0.911** | **0.743** | — | — |
+| logistic regression | 0.888 | 0.622 | −0.024 [−0.039, −0.010] | 0.022 |
+| nearest | 0.886 | 0.621 | −0.025 [−0.041, −0.006] | 0.085 |
+| constant velocity (2 steps) | 0.880 | 0.704 | −0.031 [−0.045, −0.017] | < 0.001 |
+| Kalman, declared noise | 0.877 | 0.662 | −0.035 [−0.052, −0.016] | 0.001 |
+| nearest in corridor | 0.873 | 0.663 | −0.039 [−0.064, −0.019] | 0.005 |
+| Kalman, fitted noise | 0.864 | 0.689 | −0.048 [−0.069, −0.022] | 0.001 |
+| TTC | 0.669 | 0.388 | −0.243 [−0.340, −0.195] | < 0.001 |
+| K0 (v1 score) | 0.537 | 0.168 | −0.375 [−0.439, −0.323] | < 0.001 |
+
+- **The learned models tie each other.** The GRU with 1, 4 or 8 history steps, the attention GRU
+  and GBT are within 0.006 AUROC; no difference survives Holm.
+- **They beat every geometric baseline.** All CIs for the Kalman, constant-velocity,
+  nearest-in-corridor, TTC and K0 baselines exclude 0. `nearest` is below the GRU on AUROC (Holm p
+  0.085) and AUPRC (−0.122, Holm p < 0.001).
+- **The fitted Kalman does not beat the declared one** (AUROC −0.013 [−0.022, +0.001], Holm p
+  0.30), although it wins on validation likelihood (§4). In the replay it still cuts false alerts
+  (§6.2).
+- **Static classes** (463 objects): simple rules rank them at least as well as the GRU
+  (nearest-in-corridor +0.082 [+0.002, +0.147]); nothing survives Holm.
+
+So the learned model's advantage is over geometry, not over other learned models. Choosing the GRU
+over GBT is a deployment decision, not an accuracy one.
 
 ### 6.2 System replay at frozen alert budgets
 
-Source: `evaluation/benchmarks/threat_engine_replay/corridor_2026_10_17/`. 71 test sessions,
-56 arrivals; declared Kalman noise. **[PENDING: replace with the fitted-tracker re-run.]**
+Source: `evaluation/benchmarks/threat_engine_replay/corridor_headfx/` (`methodology.md` §4.18).
+85 test sessions, 79 arrivals; fitted Kalman noise; operating points chosen on 48 validation
+sessions. Knob = threshold / cooldown (s) / switch margin / stale (s).
 
-| Engine (budget 5 false alerts/min) | knob | warned | false alerts/min | precision | switches/min |
-|---|---:|---|---|---|---|
-| v2, GRU | 0.8 | 0.32 [0.22, 0.55] | 4.55 [2.24, 7.23] | 0.54 [0.35, 0.68] | 6.76 [2.17, 12.20] |
-| v2, GRU, no camera poses | 0.95 | 0.25 [0.13, 0.47] | 5.93 [2.99, 9.38] | 0.37 [0.23, 0.50] | 6.07 [1.79, 11.17] |
-| nearest in corridor | 0.8 | 0.25 [0.16, 0.43] | 5.66 [3.04, 8.34] | 0.39 [0.23, 0.50] | 5.79 [1.86, 10.32] |
-| v2, physics | — | meets no budget on validation (≥ ~17 false alerts/min) | | | |
-| v1 (K0 routing) | — | meets no budget; at 50% recall: 88.7 false alerts/min | | | |
+| Engine (budget 5 false alerts/min) | knob | warned | warned ≥ 0.2 s ahead | false alerts/min | precision | switches/min |
+|---|---:|---|---|---|---|---|
+| v2, GRU | 0.6 / 8 / 1 / 0.6 | 0.35 [0.23, 0.52] | 0.14 [0.06, 0.25] | 5.62 [3.44, 8.09] | 0.55 [0.40, 0.69] | 8.31 [3.72, 13.65] |
+| nearest in corridor | 0.95 / 2 / 1 / 0.6 | 0.23 [0.11, 0.35] | 0.10 [0.02, 0.19] | 4.93 [3.09, 7.01] | 0.39 [0.25, 0.52] | 5.28 [2.23, 8.84] |
+| v2, Kalman; v2, GRU without camera poses | — | meet only the 10/min budget on validation | | | | |
+| v2, physics | — | meets no budget on validation (≥ 14.0 false alerts/min) | | | | |
+| v1 (K0 routing) | — | meets no budget (≥ 22.9); at 50% recall: 99.8 false alerts/min | | | | |
 
-- At 10 false alerts/min, the GRU warns about 0.41 [0.28, 0.76].
-- Kaplan–Meier, budget 5: 66% of arrivals are still unwarned 4 s after first sighting with the
+- **The GRU warns more, and more precisely,** than the strongest geometric baseline at the same
+  budget, with overlapping CIs. It switches announcements more often (8.3 vs 5.3 per minute).
+- **Lead is the limit.** Only 0.04 of arrivals are warned ≥ 1 s ahead, although 76% are first
+  seen ≥ 1 s ahead. Tuning on lead (`early_budget_*`) picks the same points.
+- **At 10 false alerts/min**, the GRU warns 0.46 [0.36, 0.64] (7.2 false/min, precision 0.53) and
+  the Kalman engine 0.38 [0.25, 0.57] (9.8 false/min, precision 0.43).
+- **Fitted vs. declared Kalman noise**, physics engine at fixed thresholds: false alerts fall by
+  3.1–5.7 per minute and precision rises by 0.04–0.05 (CIs exclude 0); recall falls by 0.03–0.11.
+- **Kaplan–Meier, budget 5:** 64% of arrivals are still unwarned 4 s after first sighting with the
   GRU, against 78% for nearest-in-corridor.
-- No engine meets a 2 false alerts/min budget on validation.
+- **No engine meets 2 false alerts/min** on validation. Validation predicts test false alerts well
+  at 5/min (4.9–5.6 on test).
 
 ### 6.3 Scene context: oracle bound with SANPO's own masks
 
-> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
-
-
-Data: 47 replay sessions have head-camera masks (32 train / 5 val / 10 test), giving 5,682
-(frame, object) observations. Source: `evaluation/benchmarks/scene_context/`.
+Data: 53 replay sessions have head-camera masks (35 train / 8 val / 10 test), giving 5,898
+(frame, object) observations. Sources: `evaluation/benchmarks/scene_context/gt_headfx_*_2026_10_20/`
+(`methodology.md` §4.19). RR = P(arrive | flag) / P(arrive | not flag), Mantel–Haenszel-adjusted
+over distance bins, session-bootstrap 95% CI.
 
 | Flag | declared × | share | RR | RR, distance-adjusted |
 |---|---:|---:|---|---|
-| in path | 1.5 | 0.68 | 3.91 [1.73, 12.95] | 1.56 [0.98, 4.17] |
-| near a boundary | 1.25 | 0.36 | 0.44 [0.17, 0.71] | **0.83 [0.41, 0.99]** |
-| other surface | 0.5 | 0.21 | 0.29 [0.06, 0.67] | 0.70 [0.20, 1.06] |
+| in path | 1.5 | 0.75 | 1.11 [0.59, 2.14] | 1.32 [0.93, 2.09] |
+| near a boundary | 1.25 | 0.18 | 0.41 [0.23, 0.59] | **0.69 [0.42, 0.87]** |
+| other surface | 0.5 | 0.11 | 0.61 [0.22, 1.02] | 0.89 [0.38, 1.22] |
 
 - **"Near a boundary" points the wrong way.** Objects at a surface edge arrive less often, because
   most of them stand beside the walker's path at the sidewalk edge rather than in it.
-- **Train-only revision.** On the 32 train sessions we tested a motion-qualified rule: near a
-  boundary *and* closing on the walker's centre line at ≥ 0.3 m/s. It did not raise the arrival
-  rate (distance-adjusted RR 0.80 [0.21, 1.15]), and neither did motion alone (1.00 [0.76, 1.29];
-  bearing in the camera frame includes head turns).
-- **Decision.** The multiplier was set to neutral (×1.0). On held-out validation + test the flag's
-  RR is 1.04 [0.12, 6.22], consistent with neutral.
-- **Replay** (10 test sessions, 20 arrivals; GRU at its validation-chosen threshold). Context on
-  vs. off: warned +0.05 [0.00, +0.07] and false alerts/min +0.50 [0.00, +1.35] with the neutral
-  boundary weight; with ×1.25 the false-alert change was 0.00. Twenty arrivals can't settle this;
-  §6.6 is the powered test.
+- **The other two rules are not supported either.** "In path" points the right way but its CI
+  includes 1; "other surface" is near 1, so its ×0.5 has no support here. No revision was
+  declared for them, so they stay as declared.
+- **Train-only revision of "near a boundary"**, with the decision rule fixed before looking: keep
+  a motion-qualified flag only if its distance-adjusted RR on train is above 1, otherwise make the
+  flag neutral. On the 35 train sessions (4,145 observations), the flag gives 0.60 [0.23, 0.83],
+  and near a boundary *and* closing on the walker's centre line at ≥ 0.3 m/s gives 0.51 [0.00,
+  0.84]. Motion alone gives 0.86 [0.59, 0.99] (bearing in the camera frame includes head turns).
+- **Decision.** The multiplier is neutral (×1.0). On held-out validation + test (1,753
+  observations) the flag's RR is 0.80 [0.38, 3.37], consistent with neutral.
+- **Replay** (`threat_engine_replay/oracle_context_headfx_2026_10_20/`; 10 test sessions, 27
+  arrivals; GRU, each arm at its validation-chosen knob). At budget 5 both arms choose threshold
+  0.4. Context on vs. off: warned ±0.00, false alerts/min +1.49 [0.00, +3.86], precision −0.04
+  [−0.20, +0.02]. At a fixed threshold of 0.6, context gives 0.26 warned and 3.0 false/min, against
+  0.15 and 2.5 without it. With 75% of objects in path, context mostly scales scores up, like a
+  lower threshold. Twenty-seven arrivals can't separate the two; §6.6 is the powered test.
 
 ### 6.4 Edge-ahead alerts (oracle)
 
@@ -307,56 +357,38 @@ session-bootstrap 95% CIs. Source: `evaluation/benchmarks/segmentation/cpe_yolo2
 
 ### 6.6 Scene context and edge alerts with the model's masks
 
-> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The segmentation model's pixel scores don't use depth and stand.
+The model's masks (YOLO26n-sem @640, §6.5) replace SANPO's.
 
+**Scene context, model.** **[PENDING: re-run on the head-camera rerun (Mac, Day 2–3): flags on
+the oracle's 18 val/test sessions and on all 133 val/test sessions; context on vs. off replay on all
+85 test sessions.]** The 2026-10-18 run (scrambled depth, chest-camera fx) found that the model
+reproduced the oracle's flags and that context did not change the alerts measurably; those
+numbers are superseded and not reported.
 
-The model's masks (YOLO26n-sem @640, §6.5) replace SANPO's. The 112 replay validation and test
-sessions were never used in segmentation training. Sources: `scene_context/model_val_test_*_2026_10_18/`,
-`threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_sem_walkable_*_2026_10_18/`.
-
-**Flags, model vs. oracle on the same 15 sessions** (5 val + 10 test, 1,561 observations; RR
-distance-adjusted, session-bootstrap 95% CI):
-
-| Flag | × | oracle (SANPO masks) | model |
-|---|---:|---|---|
-| in path | 1.5 | 2.64 [0.00, 7.64] | 2.68 [2.20, 10.34] |
-| near a boundary | 1.0 | 1.04 [0.12, 6.22] | 1.15 [0.14, 5.97] |
-| other surface | 0.5 | 0.38 [0.00, 1.67] | 0.37 [0.00, 0.44] |
-
-The model reproduces the oracle's flags: same shares (in path 0.68 vs 0.72) and the same
-directions. Over all 112 sessions (6,748 observations, which only the model can cover), the
-effects shrink: in path 1.12 [0.78, 1.55], near a boundary 1.04 [0.61, 1.58], other surface 0.89
-[0.40, 1.69]. None is significant there.
-
-**Replay, context on vs. off** (all 71 test sessions, 56 arrivals, paired; GRU at each arm's
-validation-chosen knob; declared tracker, **[PENDING: re-run with the fitted one]**). At `budget_10`: warned +0.04 [−0.06, +0.08], false alerts/min +0.41
-[−0.30, +1.44], precision −0.01 [−0.07, +0.04]. At `budget_2` and `budget_5` the context arm has no
-setting that meets the rule on validation. **Context does not change the alerts measurably.**
-
-**Edge-ahead alerts, model vs. oracle.** Step-offs are taken from SANPO's masks for both
-(`--reference gt`), so both are graded against the same events. 43 of the 53 head-masked sessions
-are in the segmentation training split, so only the 10 official-test sessions are a fair score
-for the model:
+**Edge-ahead alerts, model vs. oracle** (correct depth; `edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*`
+and `gt_depthfix_*`). Step-offs are taken from SANPO's masks for both (`--reference gt`), so both
+are graded against the same events. 43 of the 53 head-masked sessions are in the segmentation
+training split, so only the 10 official-test sessions are a fair score for the model:
 
 | | sessions | alerts / min | step-offs | warned | followed |
 |---|---:|---:|---:|---|---:|
-| oracle, test | 10 | 0.80 | 7 | 0.43 (3/7) | 0.50 |
-| **model, test** | 10 | 1.00 | 7 | **0.14 (1/7)** | 0.40 |
-| oracle, test, sustained | 10 | 0.80 | 4 | 0.50 (2/4) | 0.25 |
-| **model, test, sustained** | 10 | 1.00 | 4 | **0.00 (0/4)** | 0.00 |
-| oracle, all 53 | 53 | 0.79 [0.49, 1.12] | 45 | 0.29 [0.13, 0.47] | 0.48 |
-| model, all 53 (43 trained on) | 53 | 0.83 [0.49, 1.22] | 45 | 0.22 [0.10, 0.37] | 0.45 |
+| oracle, test | 10 | 0.60 | 7 | 0.14 (1/7) | 0.33 |
+| **model, test** | 10 | 0.80 | 7 | **0.14 (1/7)** | 0.50 |
+| oracle, test, sustained | 10 | 0.60 | 4 | 0.00 (0/4) | 0.00 |
+| **model, test, sustained** | 10 | 0.80 | 4 | **0.00 (0/4)** | 0.00 |
+| oracle, all 53 | 53 | 0.68 [0.40, 1.01] | 45 | 0.18 [0.06, 0.33] | 0.33 |
+| model, all 53 (43 trained on) | 53 | 0.56 [0.31, 0.87] | 45 | 0.20 [0.08, 0.36] | 0.60 |
 
-- **The model's edge alerts fall far below the oracle's on held-out sessions.** It warns about 1
-  of 7 step-offs, against 3 of 7 for the oracle, and 0 of 4 sustained ones. It alerts slightly more
-  often, but fewer alerts lead to a step-off. Seven step-offs are too few for a CI. The result is
-  consistent with the weak thin-edge scores (curb boundary F 0.30, stairs 0.06, road as walkable
-  0.17).
-- **Self-referenced** (step-offs from the model's own masks), the model scores 0.22 warned on 50
-  step-offs; on test, 0.12 of 8. Grading the model against its own masks hides the gap, so the
-  GT-referenced rows are the result.
-- **Follow-up (not run).** n at a larger imgsz on a GPU machine, since thin edges depend on input
-  resolution. s at 640 would not help (§6.5).
+- **The model's edge alerts match the oracle's.** On held-out sessions both warn 1 of 7 step-offs
+  and none of the 4 sustained ones. Over all 53 sessions the model warns 0.20 against the oracle's
+  0.18, and more of its alerts are followed by a step-off (0.60 vs 0.33). Seven step-offs are too
+  few for a CI.
+- **The limit is the rule's geometry, not the masks.** On correct depth the oracle itself warns
+  only 18% (§6.4): edges are seen beyond 5 m and pass out of view before they are confirmed. The
+  2026-10-18 finding that the model fell far below the oracle came from scrambled depth.
+- **Thin edges are still weak in pixels** (curb boundary F 0.30, stairs 0.06, road as walkable
+  0.17; §6.5). Follow-up (not run): n at a larger imgsz on a GPU machine. s at 640 would not help
+  (§6.5).
 
 ### 6.7 Optional: phone-LiDAR range · 6.8 On-device latency · 6.9 Announcement order
 
@@ -370,18 +402,23 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 
 ## 7. Discussion (points to make)
 
-- **What learning buys.** The GRU may tie geometry on AUROC (§6.1), but at a fixed alert budget it
-  warns about more arrivals with fewer false alerts than nearest-in-corridor (§6.2), and it ranks
-  more stably. If the corrected-label ladder confirms a tie, say so plainly and make stability and
-  budgeted recall the claim.
+- **What learning buys.** Learned models beat geometry on ranking (+0.024 to +0.375 AUROC over
+  the geometric baselines, §6.1) and tie each other. At a 5/min budget the GRU warns more arrivals
+  at higher precision than nearest-in-corridor (§6.2), but it switches more often, so stability is
+  not a claim we can make.
+- **Few warnings are early.** At 5 false alerts/min, 0.14 of arrivals are warned ≥ 0.2 s ahead
+  and 0.04 ≥ 1 s ahead, though three-quarters are visible ≥ 1 s ahead. The predictors rarely put
+  an object above threshold early. Training for early probability mass is the next step.
 - **The opportunity window caps lead time.** A quarter of arrivals are first seen < 1 s before
   arriving, so no engine can warn about them in time. Report lead time conditional on the window,
   never unconditionally.
-- **Alert budgets matter more than one F1 point.** The physics engine is competitive on ranking but
-  can't get under ~17 false alerts/min at the system level.
-- **Context rules must be tested, not assumed.** Two of three plausible rules hold; one is reversed.
-  The oracle check costs nothing once masks exist, and it should come before any learned context
-  feature.
+- **Alert budgets matter more than one AUROC point.** The constant-velocity and Kalman predictors
+  trail the GRU by only 0.03–0.05 AUROC (§6.1), but the physics engine can't get under ~14 false
+  alerts/min at the system level (§6.2); the fitted
+  Kalman ties the declared one on ranking yet cuts 3–6 false alerts/min in the replay.
+- **Context rules must be tested, not assumed.** Of three plausible rules, one is reversed and the
+  other two are not supported at this sample size. The oracle check costs nothing once masks
+  exist, and it should come before any learned context feature.
 - **Edges are a separate channel.** Most step-off events have no tracked object, so an object-only
   engine never announces them.
 
@@ -396,9 +433,10 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
   sessions but would need Stage 1 re-run on that stream.
 - **Ego-motion.** Camera poses pass trajectory-level checks, but the object-level reconciliation is
   inconclusive, so the no-pose arm is reported alongside.
-- **Declared constants.** Severity γ, behaviour multipliers, context multipliers and announcer
-  timing are declared, not fitted. The near-boundary revision is the one exception, fitted on
-  train and declared.
+- **Declared constants.** Severity γ, behaviour multipliers, context multipliers, escalation and
+  staleness are declared, not fitted. The announcer's cooldown and switch margin are chosen on
+  validation with each threshold. The near-boundary multiplier was set by a rule declared before
+  looking and applied to train sessions only.
 - **Edge alerts** are scored against a mask-implied step-off, not an annotated event. Only 10
   held-out sessions (7 step-offs) score the model's edge alerts.
 - **Segmentation.** Thin edges are weak: curb boundary F 0.30 and stairs 0.06 (±3 px). Road as
@@ -423,7 +461,7 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 | F4 | Kaplan–Meier "not yet warned", budget 5 | replay `metrics.json` | same (add) |
 | F5 | Context-flag risk ratios, raw vs. distance-adjusted, train vs. held-out | `scene_context/*/metrics.json` | same (add) |
 | F6 | Segmentation qualitative examples: curb, stairs, road vs. sidewalk; oracle vs. model | `v2-seg-training` | **[PENDING]** |
-| T1 | Baseline ladder | `baseline_ladder/` | **[PENDING]** |
-| T2 | Replay at budgets | §6.2 | — |
+| T1 | Baseline ladder | `baseline_ladder/…_corridor_w0.75_d3_h20/` | §6.1 table |
+| T2 | Replay at budgets | `threat_engine_replay/corridor_headfx/` | §6.2 table |
 | T3 | Segmentation scores | `segmentation/cpe_yolo26n_sem_walkable_test/` | §6.5 table |
 | T4 | On-device latency | teammate | **[PENDING]** |
