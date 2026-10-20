@@ -38,6 +38,7 @@ import argparse
 import gzip
 import json
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -81,11 +82,13 @@ def class_map_source(source: str, imgsz: int = 1024, device: str | None = None):
     from ultralytics import YOLO
 
     model = YOLO(source)
+    lock = threading.Lock()     # one model, shared by the fetch threads: predict one frame at a time
 
     def predicted(sid: str, frame: int) -> np.ndarray | None:
         img = cv2.imdecode(np.frombuffer(fetch(object_url(
             f"{BASE_PREFIX}/{sid}/camera_head/left/video_frames/{frame:06d}.png")), np.uint8), cv2.IMREAD_COLOR)
-        r = model.predict(img, imgsz=imgsz, device=device, verbose=False)[0]
+        with lock:
+            r = model.predict(img, imgsz=imgsz, device=device, verbose=False)[0]
         m = r.semantic_mask.data.cpu().numpy().astype(np.uint8)
         return cv2.resize(m, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
     return predicted
@@ -162,7 +165,7 @@ def main() -> None:
             path.write_text(json.dumps(ctx), encoding="utf-8")
         return sid
 
-    with ThreadPoolExecutor(max_workers=args.workers if args.source == "gt" else 1) as pool:
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:   # downloads dominate; predict is locked
         for i, sid in enumerate(pool.map(one, ids), 1):
             print(f"  {i}/{len(ids)} {sid}  {time.time() - started:.0f} s", flush=True)
 

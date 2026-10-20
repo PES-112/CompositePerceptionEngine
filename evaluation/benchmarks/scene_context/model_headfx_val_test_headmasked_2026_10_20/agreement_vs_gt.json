@@ -1,0 +1,14 @@
+{
+  "what": "Per-(frame, track) agreement of the model's context with SANPO's masks (oracle) on the same 18 head-masked val/test sessions",
+  "model_dir": "data/sanpo_scene_context_v2/cpe_yolo26n_sem_walkable_headmasked",
+  "oracle_dir": "data/sanpo_scene_context_v2/gt",
+  "frames_compared": 970,
+  "walker_surface": {"agreement": 0.967, "n_frames": 952},
+  "object_surface": {"agreement": 0.908, "n_objects": 1549},
+  "flags": {
+    "in_path": {"agreement": 0.894, "cohen_kappa": 0.72, "share_model": 0.73, "share_oracle": 0.77, "n": 1753},
+    "near_boundary": {"agreement": 0.845, "cohen_kappa": 0.51, "share_model": 0.20, "share_oracle": 0.20, "n": 1753},
+    "other_surface": {"agreement": 0.901, "cohen_kappa": 0.58, "share_model": 0.14, "share_oracle": 0.13, "n": 1753}
+  },
+  "generated": "2026-10-20, ad hoc comparison of the two context directories (surfaces compared where both are non-null)"
+}
