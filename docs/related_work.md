@@ -109,6 +109,28 @@ Methodology to show the design isn't arbitrary, even though the specific λ comp
   paper; cite via the Rosén & Sander papers above rather than Vision Zero policy documents directly,
   since those are policy framework citations rather than primary research.
 
+- **Geisslinger, M., Poszler, F., Betz, J., Lütge, C. & Lienkamp, M. (2021). "Autonomous Driving
+  Ethics: from Trolley Problem to Ethics of Risk."** *Philosophy & Technology*, 34(4), 1033–1055.
+  DOI: 10.1007/s13347-021-00449-4. Defines risk as collision probability × estimated harm. **Use:**
+  the v2 priority `P(arrive) · severity^γ · context` is this expected-harm form (methodology §4.20).
+- **Geisslinger, M., Poszler, F. & Lienkamp, M. (2023). "An ethical trajectory planning algorithm for
+  autonomous vehicles."** *Nature Machine Intelligence*, 5(2), 137–144. DOI:
+  10.1038/s42256-022-00607-z. Code: `github.com/TUMFTM/EthicalTrajectoryPlanning`. Harm is a logistic
+  injury curve of Δv, with Δv from conservation of momentum (`m_other / (m_self + m_other) · v_rel`).
+  **Use:** the principled replacement for our `mass^λ` severity, which grows without bound where Δv
+  saturates (§4.20).
+- **Tefft, B. C. (2013). "Impact speed and a pedestrian's risk of severe injury or death."**
+  *Accident Analysis & Prevention*, 50, 871–878. US crashes reweighted for sampling bias; risk is a
+  function of impact speed. **Use:** with Rosén & Sander, the speed-not-mass basis for harm.
+- **Westhofen, L. et al. (2023). "Criticality Metrics for Automated Driving: A Review and Suitability
+  Analysis of the State of the Art."** *Archives of Computational Methods in Engineering*, 30(1),
+  1–35. DOI: 10.1007/s11831-022-09788-7. TTC, Δv and energy-based severity are separate measures,
+  each valid for its own scenario class. **Use:** why v2 keeps TTC (envelope) and harm (ranking)
+  apart instead of fusing them into one K0-style formula.
+- **Status (2026-10-20).** K0 is retired as a ranking (AUROC 0.537 on the corridor label). Its
+  severity term survives with γ = 0.25, but a γ = 0 replay shows it doesn't change the alerts
+  measurably on SANPO, so it is a declared value reported as a limitation (methodology §4.20).
+
 ## 5. Evaluation methodology: ranking and agreement without ground truth
 
 Directly grounds the ablation and referee design (`methodology.md` §4).

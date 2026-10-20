@@ -1249,6 +1249,69 @@ converted to Python scalars`; torch 2.14 is untested with it). An identical retr
   - Self-referenced, the model scores 0.22 (50 step-offs from its own masks). Self-referencing
     hides the gap.
 
+### 4.20 The kinetic score and the severity term: literature check and a γ = 0 ablation (2026-10-20)
+
+Asked whether K0 (`severity · v² / d`) is the right formula. v2 uses only one part of it: class
+severity, compressed to `severity^γ` with γ = 0.25, as the "how bad" factor in
+`priority = P(arrive) · severity^γ · context` (§4.18; `src/threat_engine/priority.py`).
+
+**K0 as a ranking stays retired.** On the head-camera corridor ladder
+(`baseline_ladder/…_corridor_w0.75_d3_h20/`) K0's AUROC is 0.537, against 0.911 for the GRU and
+0.720 for TTC in the cone. On static objects it is 0.353, below chance: `v²` is zero for anything
+that isn't closing, so K0 ranks a bollard dead ahead last. The geometric signal worth keeping is TTC,
+which the safety envelope already uses.
+
+**The priority's structure matches the literature.** Risk is defined as collision probability times
+the harm of that collision in the ethics-of-risk planners for automated driving (Geisslinger et al.,
+*Philosophy & Technology* 2021; *Nature Machine Intelligence* 2023, open-source code
+`TUMFTM/EthicalTrajectoryPlanning`); `P(arrive) · harm` is that form. Criticality reviews
+(Westhofen et al., *Arch. Comput. Methods Eng.* 2023) list TTC, Δv and energy-based severity as
+separate measures, each valid in a different scenario class, which supports keeping TTC (envelope)
+and harm (ranking) apart rather than fusing them into one formula, as K0 did.
+
+**The severity term itself is not literature-backed.**
+- *Harm is a function of Δv, not of mass.* Geisslinger's harm model computes the speed change from
+  conservation of momentum, `Δv_walker = m_obj / (m_obj + m_walker) · v_rel`, and maps it through
+  a logistic injury curve (GIDAS-fitted, P(MAIS 2+)). Mass enters only through that ratio, which
+  saturates: for a pedestrian, a car, bus and truck all give Δv ≈ v_rel. Pedestrian injury curves
+  are functions of impact speed (Rosén & Sander 2009; Tefft, *AAP* 2013). Our
+  `(mass/70)^0.5`, then `^0.25`, is `mass^0.125`: it grows without bound and makes a bus 1.9× a
+  person at any speed, which no injury model supports.
+- *The mass table leaves out riders.* Bicycle (15 kg) and motorcycle (200 kg) carry the vehicle
+  alone, so a cyclist's severity (0.56) is below a pedestrian's (1.0).
+- *Vehicle injury curves don't cover the walker's main hazard.* They are fitted to crashes at car
+  speeds. Most of what a blind walker meets (people, poles, benches, bollards, curbs) is hit at
+  walking speed with the walker supplying the energy, where the harm is a trip or fall, not
+  kinetic-energy injury. The static-hazard table (stairs, pothole) is the right idea for those, but
+  its values are also declared.
+
+**Ablation: does severity change the alerts?** Replay with `--severity-gamma 0` (rank by arrival
+alone; flag added to `tools/replay_threat_engine.py`, default unchanged), all 85 test sessions,
+79 arrivals, GRU `corridor_h8_seed0`, default announcer, thresholds chosen on validation
+(`threat_engine_replay/severity_gamma0_headfx_2026_10_20/`). The γ = 0.25 arm is the context-off
+GRU arm of `model_context_headfx_2026_10_20` (same sessions, same announcer). Not paired, so read
+the CIs side by side:
+
+| Rule | γ | threshold | warned | false alerts/min | precision |
+|---|---:|---:|---|---|---|
+| `budget_5` | 0.25 | 0.6 | 0.35 [0.23, 0.52] | 5.71 [3.47, 8.26] | 0.56 [0.41, 0.69] |
+| `budget_5` | 0 | 0.5 | 0.34 [0.23, 0.46] | 6.14 [3.72, 8.92] | 0.54 [0.40, 0.67] |
+| `budget_10` | 0.25 | 0.4 | 0.46 [0.36, 0.64] | 7.44 [4.67, 10.43] | 0.52 [0.39, 0.64] |
+| `budget_10` | 0 | 0.3 | 0.44 [0.36, 0.60] | 8.48 [5.55, 11.58] | 0.49 [0.36, 0.62] |
+
+The two operating curves overlap at every threshold. **Severity doesn't change the alerts
+measurably on SANPO.** That is expected from the data: 73% of test objects are people (severity
+1.0 by definition), only 11% of frames hold objects of more than one class, and vehicles rarely
+arrive (2.3% of car observations vs. 10% of person observations). The severity weights can be
+neither confirmed nor refuted here. They stay declared values and are reported as a limitation.
+
+**Decision for the freeze.** No formula change: γ, λ and the tables were declared before the test
+runs, and changing them now would be test-informed. Post-freeze, a principled replacement, declared
+on train sessions before any replay:
+`harm(c) = h(m_c / (m_c + 70 kg) · v_ref)` with rider-inclusive masses and one fixed reference
+closing speed per class (so the GRU stays the only source of motion), plus a separate trip-hazard
+weight for static classes.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate

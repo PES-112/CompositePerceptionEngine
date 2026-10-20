@@ -104,8 +104,8 @@ from src.threat_engine.announcer import AnnouncementManager
 from src.threat_engine.engine import ThreatEngine
 from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, sanpo_session_poses
 from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
-from src.threat_engine.priority import (Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor, RankedThreat,
-                                        SceneContext)
+from src.threat_engine.priority import (SEVERITY_GAMMA, Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor,
+                                        RankedThreat, SceneContext)
 from src.threat_prioritizer import build_threat_frame
 from tools.audit_sanpo_sessions import fetch, object_url
 from tools.download_sanpo_valid_streams import BASE_PREFIX
@@ -221,11 +221,12 @@ class CachedPredictor:
 
 def run_v2(frames: dict[int, list[dict]], poses: list[EgoPose] | None, predictor, threshold: float,
            announcer: tuple[float, float, float] | None = None,
-           contexts: dict[int, dict[str, SceneContext]] | None = None):
+           contexts: dict[int, dict[str, SceneContext]] | None = None, gamma: float = SEVERITY_GAMMA):
     """announcer: (cooldown_s, switch_margin, stale_s), or None for announcer.py's defaults."""
     mgr = AnnouncementManager() if announcer is None else AnnouncementManager(
         cooldown_s=announcer[0], switch_margin=announcer[1], stale_s=announcer[2])
-    engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(), announcer=mgr)
+    engine = ThreatEngine(predictor=predictor, ignore_threshold=threshold, tracker=GroundTracker(), announcer=mgr,
+                          gamma=gamma)
     log = []
     for k in sorted(frames):
         pose = poses[min(STRIDE * k, len(poses) - 1)] if poses else None
@@ -439,6 +440,8 @@ def main() -> None:
                         "from them (warm-up excluded), seeded per session.")
     p.add_argument("--announcer-sweep", nargs="*", default=[], metavar="ARM",
                    help="v2 arms whose announcer (cooldown, switch margin, stale) is swept with the threshold.")
+    p.add_argument("--severity-gamma", type=float, default=SEVERITY_GAMMA,
+                   help="Severity exponent γ in the v2 priority (0 = rank by arrival alone; ablation only).")
     args = p.parse_args()
 
     manifest, splits = load_dataset(args.dataset, splits=("val", "test"))
@@ -502,7 +505,7 @@ def main() -> None:
                 predictor = CachedPredictor(make(), caches[(base, sid)])
                 thr, ann = (knob[0], knob[1:]) if isinstance(knob, tuple) else (knob, None)
                 log = run_v2(frames, poses[sid] if use_pose else None, predictor, thr, ann,
-                             contexts[sid] if arm in context_arms else None)
+                             contexts[sid] if arm in context_arms else None, args.severity_gamma)
             per.append(session_metrics(frames, log, horizon, delays_for(sid, len(log))))
         return per
 

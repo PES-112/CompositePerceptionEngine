@@ -2,6 +2,18 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-20, severity check] - K0 / severity literature check and a γ = 0 ablation
+
+### Results (methodology §4.20)
+- K0 on the corridor ladder: AUROC 0.537 (static 0.353); stays retired as a ranking.
+- Replay with severity off (`severity_gamma0_headfx_2026_10_20`): `budget_5` warned 0.34 at 6.14
+  false/min vs 0.35 at 5.71 with γ = 0.25; curves overlap. Severity stays declared, reported as a
+  limitation; post-freeze replacement: Δv-based harm (Geisslinger et al. 2023).
+
+### Added
+- `tools/replay_threat_engine.py --severity-gamma` (default `SEVERITY_GAMMA`, unchanged results).
+- `tools/session_viewer.html`: alerts spoken during playback (browser TTS), for the demo video.
+
 ## [2026-10-20, model scene context] - Model flags, agreement and replay on the head-camera rerun
 
 ### Results (methodology §4.19; paper §6.6)

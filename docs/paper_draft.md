@@ -458,6 +458,10 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
   staleness are declared, not fitted. The announcer's cooldown and switch margin are chosen on
   validation with each threshold. The near-boundary multiplier was set by a rule declared before
   looking and applied to train sessions only.
+- **Severity is not validated.** Class severity grows with mass (`mass^0.125` after γ), while
+  injury models depend on the collision's Δv, which saturates with mass. The mass table also leaves
+  out riders. A γ = 0 replay leaves the alerts unchanged within CI (73% of test objects are
+  people), so SANPO can neither confirm nor refute the weights (methodology §4.20).
 - **Edge alerts** are scored against a mask-implied step-off, not an annotated event. Only 10
   held-out sessions (7 step-offs) score the model's edge alerts.
 - **Segmentation.** Thin edges are weak: curb boundary F 0.30 and stairs 0.06 (±3 px). Road as
