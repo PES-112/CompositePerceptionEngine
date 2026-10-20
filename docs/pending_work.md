@@ -188,7 +188,10 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
    Xcode**; confirm one is available.
 3. **Latency-aware replay.** Delay each alert in `tools/replay_threat_engine.py` by the measured
    on-device latency.
-4. **Demo (needed, 2026-10-20).** A video showing the engine working. Desktop: the session viewer
+4. **Demo (needed, 2026-10-20).** Done for desktop: `tools/render_demo_video.py` runs the whole
+   pipeline (Stage 1, segmentation context and edge alerts, threat engine, narration, spoken audio)
+   on a test walk and writes an mp4 with sound to `data/demo/` (local, git-ignored); three rendered
+   2026-10-20 (crowded sidewalk, curb and road edges, street with vehicles). Also: the session viewer
    (`tools/build_session_viewer.py`) replays a test walk with every box, the engine's scores and the
    alerts spoken aloud (browser TTS); screen-record it. On the phone: an on-device replay of one
    SANPO session (bundled frames + depth, models run live, clips played), EssKae1234.
