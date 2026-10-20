@@ -931,7 +931,7 @@ window median 2.6 s, 24% seen < 1 s ahead, 33% ≥ 4 s ahead):
 
 ### 4.19 Scene context from walkable-surface segmentation (2026-10-17)
 
-> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The scene-context flags and context replays also take object bearings from the Stage-1 datasets, so they are re-run on the head-camera rerun (§4.18): the oracle part is done ("Scene context, oracle, on correct depth and the head-camera rerun", below), the model part is pending. The edge alerts use only masks and depth. The segmentation model's pixel scores don't use depth and stand.
+> **Superseded (depth-decoding bug).** Numbers in this section that use depth were computed on scrambled depth maps and are being re-run (`pending_work.md`, Integration). The scene-context flags and context replays also take object bearings from the Stage-1 datasets, so they are re-run on the head-camera rerun (§4.18): both are done ("Scene context, oracle, …" and "Scene context, model, on correct depth and the head-camera rerun", below). The edge alerts use only masks and depth. The segmentation model's pixel scores don't use depth and stand.
 
 
 **Taxonomy and training data** (`src/segmentation/labels.py`, `tools/build_sanpo_segmentation.py`).
@@ -1048,6 +1048,53 @@ chest-camera Stage 1. Same masks, flags, thresholds and decision rule. Head-came
   it. In path (×1.5) covers 75% of objects, so context mostly scales scores up, much like a lower
   threshold. Twenty-seven arrivals cannot separate the two. The powered test is the model's context
   on all 85 test sessions.
+
+**Scene context, model, on correct depth and the head-camera rerun (2026-10-20).** This supersedes
+the 2026-10-18 model run. The class maps come from YOLO26n-sem @640 (§6.5 of the paper,
+`cpe_yolo26n_sem_walkable/weights/best.pt`) instead of SANPO's masks. Everything else is the same as
+the oracle paragraph above: frames, depth, flags and multipliers. The model ran on all 133 val/test
+sessions (5,829 frames; `data/sanpo_scene_context_v2/cpe_yolo26n_sem_walkable/`). It ran on CPU
+(PyTorch, Ultralytics 8.4.178), not on the M4's GPU (MPS) it was trained on or the Core ML export.
+Core ML matches PyTorch on 0.99–1.00 of pixels (§6.5), so the masks should differ only at the
+margin. Distance-adjusted RR, session-bootstrap 95% CI
+(`scene_context/model_headfx_val_test_2026_10_20/`, `model_headfx_val_test_headmasked_2026_10_20/`):
+
+| Flag | declared × | model, all 133 (10,794 obs.) | model, 18 head-masked (1,753) | oracle, same 18 |
+|---|---:|---|---|---|
+| in path | 1.5 | 1.11 [0.82, 1.30] | 1.19 [0.46, 1.76] | 1.55 [0.42, 2.03] |
+| near a boundary | 1.0 | 0.59 [0.39, 0.82] | 0.75 [0.38, 2.06] | 0.80 [0.38, 3.37] |
+| near a boundary and approaching | — | 0.59 [0.36, 0.92] | 0.60 [0.00, 2.16] | 0.69 [0.13, 2.65] |
+| other surface | 0.5 | 0.86 [0.61, 1.25] | 0.85 [0.00, 2.94] | 0.67 [0.00, 2.73] |
+| approaching (motion only) | — | 0.78 [0.68, 0.91] | 0.96 [0.48, 2.35] | 0.96 [0.48, 2.35] |
+
+- **The model reproduces the oracle's context.** On the 18 sessions that have both (970 frames;
+  `agreement_vs_gt.json`), the walker's surface agrees in 0.967 of frames and each object's surface
+  in 0.908. Per (frame, track), in path agrees 0.894 (κ 0.72), near a boundary 0.845 (κ 0.51) and
+  other surface 0.901 (κ 0.58), with the same flag shares (0.73 / 0.20 / 0.14 for the model,
+  0.77 / 0.20 / 0.13 for the oracle). The motion-only row is identical to the oracle's, as it should
+  be, since it uses no masks.
+- **Near a boundary points the wrong way, now with a CI that excludes 1** (all 133 sessions). This
+  is held-out data, so it confirms the train-only decision to keep it neutral (×1.0); nothing is
+  re-tuned on it. In path and other surface have CIs that include 1, so neither of their
+  multipliers is supported or contradicted.
+- **Replay, context on vs. off** (`threat_engine_replay/model_context_headfx_2026_10_20/`; all 85
+  test sessions, 79 arrivals; GRU `corridor_h8_seed0`). Every test session has model context, so
+  the context-off GRU arm is the §4.18 replay and reproduces it (`budget_5`: threshold 0.6, warned
+  0.35, 5.71 false/min). Paired session-bootstrap differences, each arm at its own
+  validation-chosen knob:
+
+  | Rule | threshold off / on | Δ warned | Δ false alerts/min | Δ precision |
+  |---|---|---|---|---|
+  | `budget_5` (= `early_budget_5`) | 0.6 / 0.7 | +0.01 [−0.13, +0.08] | +0.52 [0.00, +1.02] | −0.03 [−0.06, −0.01] |
+  | `budget_10` | 0.4 / 0.6 | −0.06 [−0.19, −0.01] | −0.35 [−0.83, 0.00] | −0.01 [−0.04, +0.01] |
+  | `early_budget_10` | 0.3 / 0.4 | +0.03 [0.00, +0.05] | +0.09 [−0.61, +0.74] | 0.00 [−0.02, +0.02] |
+
+  At every budget the context arm picks a higher threshold: in path (×1.5) covers about two-thirds
+  of objects, so context mostly scales scores up. Along the operating curves the two arms overlap
+  (for example, off 0.6: 0.35 warned at 5.7 false/min; on 0.8: 0.32 at 5.9; on 0.7: 0.37 at 6.2).
+  The deltas are small and change sign between budgets: **with the declared multipliers, context
+  does not change the alerts measurably**, as in the oracle replay and the 2026-10-18 run. Physics
+  arms meet no budget on validation, with or without context.
 
 **Edge-ahead alerts, oracle, on correct depth (2026-10-19).** This supersedes the 2026-10-17
 paragraph below, which used scrambled depth. Same rule, sessions and step-off reference.

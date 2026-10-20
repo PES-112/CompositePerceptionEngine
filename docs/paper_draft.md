@@ -29,7 +29,7 @@ that any alert rate is acceptable.
 | 6.4 | Edge-ahead alerts, oracle | final (correct depth; rule kept by a train-only sweep) | `edge_alerts/gt_depthfix_*` |
 | 6.5 | Segmentation model (YOLO26n-sem @640) | final (scored once on test) | `segmentation/cpe_yolo26n_sem_walkable_test/` |
 | 6.6 | Edge alerts with the model's masks | final (correct depth) | `edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*` |
-| 6.6 | Scene context with the model's masks | **[PENDING: re-run on the head-camera rerun]**; the 2026-10-18 runs are superseded | Mac (Days 2–3) |
+| 6.6 | Scene context with the model's masks | final (head-camera rerun; methodology §4.19) | `scene_context/model_headfx_*`, `threat_engine_replay/model_context_headfx_2026_10_20/` |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
 | 6.8 | On-device latency, latency-aware replay | **[PENDING: iPhone run]** (sideloaded build, `ios/CPETiming/RUN_ON_IPHONE.md`) | teammate |
 | 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
@@ -55,7 +55,8 @@ strongest geometric baseline, though it switches announcements more often. Few w
 0.14 of arrivals are warned at least 0.2 s ahead. Walkable-surface segmentation adds scene context;
 with SANPO's own masks as an oracle, one of three declared context rules points the wrong way, and
 we report it, and context does not change the alerts measurably. A trained segmentation model's
-edge-ahead ("Curb ahead.") alerts match the oracle's. [PENDING: model context.] All models run on
+edge-ahead ("Curb ahead.") alerts match the oracle's, and its context flags agree with the
+oracle's (κ 0.51–0.72); over all 85 test sessions, its context does not change the alerts either. All models run on
 an iPhone 17 Pro Max in [PENDING] ms (p95). We release labels, code and the replay harness.
 
 ---
@@ -359,11 +360,30 @@ session-bootstrap 95% CIs. Source: `evaluation/benchmarks/segmentation/cpe_yolo2
 
 The model's masks (YOLO26n-sem @640, §6.5) replace SANPO's.
 
-**Scene context, model.** **[PENDING: re-run on the head-camera rerun (Mac, Day 2–3): flags on
-the oracle's 18 val/test sessions and on all 133 val/test sessions; context on vs. off replay on all
-85 test sessions.]** The 2026-10-18 run (scrambled depth, chest-camera fx) found that the model
-reproduced the oracle's flags and that context did not change the alerts measurably; those
-numbers are superseded and not reported.
+**Scene context, model** (`scene_context/model_headfx_*`, methodology §4.19). The model ran on
+all 133 val/test sessions. On the 18 that also have SANPO masks, it reproduces the oracle's
+context: the walker's surface agrees in 0.97 of frames and each object's surface in 0.91; the flags
+agree with κ 0.72 (in path), 0.51 (near a boundary) and 0.58 (other surface), at the same flag
+shares. Distance-adjusted RR, session-bootstrap 95% CI:
+
+| Flag | declared × | model, all 133 val/test | model, 18 head-masked | oracle, same 18 |
+|---|---:|---|---|---|
+| in path | 1.5 | 1.11 [0.82, 1.30] | 1.19 [0.46, 1.76] | 1.55 [0.42, 2.03] |
+| near a boundary | 1.0 | 0.59 [0.39, 0.82] | 0.75 [0.38, 2.06] | 0.80 [0.38, 3.37] |
+| other surface | 0.5 | 0.86 [0.61, 1.25] | 0.85 [0.00, 2.94] | 0.67 [0.00, 2.73] |
+
+On held-out data near a boundary points the wrong way with a CI that excludes 1, which confirms
+the train-only decision to keep it neutral (§6.3). The CIs for in path and other surface include 1.
+
+Context on vs. off, all 85 test sessions (79 arrivals), GRU, each arm at its own
+validation-chosen threshold (`threat_engine_replay/model_context_headfx_2026_10_20/`, paired
+session bootstrap): at `budget_5`, Δ warned +0.01 [−0.13, +0.08], Δ false alerts/min +0.52
+[0.00, +1.02], Δ precision −0.03 [−0.06, −0.01]; at `budget_10`, Δ warned −0.06 [−0.19, −0.01],
+Δ false alerts/min −0.35 [−0.83, 0.00]. Context raises most scores (in path covers two-thirds of
+objects), so the context arm picks a higher threshold at every budget, and the two operating
+curves overlap. With the declared multipliers, **context does not change the alerts measurably**,
+with the model's masks as with the oracle's. The masks were computed on CPU, not on the phone's
+Core ML export (pixel agreement 0.99–1.00, §6.5).
 
 **Edge-ahead alerts, model vs. oracle** (correct depth; `edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*`
 and `gt_depthfix_*`). Step-offs are taken from SANPO's masks for both (`--reference gt`), so both
@@ -417,7 +437,8 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
   alerts/min at the system level (§6.2); the fitted
   Kalman ties the declared one on ranking yet cuts 3–6 false alerts/min in the replay.
 - **Context rules must be tested, not assumed.** Of three plausible rules, one is reversed and the
-  other two are not supported at this sample size. The oracle check costs nothing once masks
+  other two are not supported at this sample size. The trained model's masks, over 133 held-out
+  sessions, give the same answer with tighter CIs. The oracle check costs nothing once masks
   exist, and it should come before any learned context feature.
 - **Edges are a separate channel.** Most step-off events have no tracked object, so an object-only
   engine never announces them.

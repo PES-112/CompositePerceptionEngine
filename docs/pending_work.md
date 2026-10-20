@@ -58,8 +58,8 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
 | Day | Teammate | Segmentation (DeviousDrops) | Mac (M4) | Narration |
 |---|---|---|---|---|
 | 1 (10-19) | Fast-forward `v2-threat-engine`; start the head-camera rebuild | Merge + depth fix; oracle edge alerts on correct depth | Model edge alerts on correct depth | Push branch; phrase review; renderer |
-| 2 | ~~Rebuild in: ladder, Kalman, replay~~ (done) | ~~Oracle scene context; near-boundary decision on train; oracle replay~~ (done; `oracle_context_headfx_2026_10_20`) | Model scene context, val + test (overnight), from `v2-segmentation` ≥ `1db4730` with a fresh `data/sanpo_scene_context_v2/` | Render; clip durations vs `CLIP_S` |
-| 3 | iPhone timing if the account is ready; latency-aware replay; ~~review the announcer PR~~ (merged 2026-10-20 without review) | ~~"Curb ahead." through the announcer~~ (PR #8, `f122dde`); merge narration; ~~paper numbers~~ (`9633a0f`; model context pending) | Context on/off replay; model vs oracle; docs | Edge phrases, loader, tests; PR |
+| 2 | ~~Rebuild in: ladder, Kalman, replay~~ (done) | ~~Oracle scene context; near-boundary decision on train; oracle replay~~ (done; `oracle_context_headfx_2026_10_20`) | ~~Model scene context, val + test~~ (done here on CPU, `6cd7c3f`) | Render; clip durations vs `CLIP_S` |
+| 3 | iPhone timing if the account is ready; latency-aware replay; ~~review the announcer PR~~ (merged 2026-10-20 without review) | ~~"Curb ahead." through the announcer~~ (PR #8, `f122dde`); merge narration; ~~paper numbers~~ (`9633a0f`; model context added) | ~~Context on/off replay; model vs oracle; docs~~ (done here; `model_context_headfx_2026_10_20`) | Edge phrases, loader, tests; PR |
 | 4 | Final methodology numbers | Paper freeze; merge to `main` | Paper figures (F2–F6) | Latency and size numbers |
 
 ---
@@ -130,8 +130,9 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
    - ~~Train and score the model.~~ Done 2026-10-18 (`v2-seg-training`): YOLO26n-sem @640, test
      mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062], curb / stairs boundary F 0.30 /
      0.06 (methodology §4.19).
-   - ~~Model context over all 112 val/test sessions and the powered replay.~~ Done 2026-10-18:
-     context on vs off, warned +0.04 [−0.06, +0.08] at `budget_10`, no measurable effect.
+   - ~~Model context over all val/test sessions and the powered replay.~~ Re-done on the
+     head-camera rerun 2026-10-20 (133 sessions; 85 test): context on vs off, warned +0.01
+     [−0.13, +0.08] at `budget_5`, no measurable effect (methodology §4.19).
    - **Next:** n at a larger imgsz (≥ 1024) on a GPU machine, for curb and stair edges. Then re-run
      the edge alerts and score the 10 official-test sessions.
    - ~~Decide the multipliers from train sessions only if the declared ones are contradicted.~~

@@ -2,6 +2,23 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-20, model scene context] - Model flags, agreement and replay on the head-camera rerun
+
+### Results (methodology §4.19; paper §6.6)
+- YOLO26n-sem @640 context for all 133 val/test sessions (5,829 frames, CPU, `.venv-seg` with
+  Ultralytics 8.4.178), `data/sanpo_scene_context_v2/cpe_yolo26n_sem_walkable/`.
+- Agreement with the oracle on the 18 head-masked val/test sessions: walker surface 0.967, object
+  surface 0.908; κ 0.72 / 0.51 / 0.58 (in path / near a boundary / other surface).
+- Distance-adjusted RR, all 133: in path 1.11 [0.82, 1.30], near a boundary 0.59 [0.39, 0.82],
+  other surface 0.86 [0.61, 1.25]. Multipliers unchanged (near a boundary already ×1.0).
+- Replay, context on − off (85 test sessions, 79 arrivals; `model_context_headfx_2026_10_20`): at
+  `budget_5`, warned +0.01 [−0.13, +0.08], false alerts/min +0.52 [0.00, +1.02]; at `budget_10`,
+  warned −0.06 [−0.19, −0.01]. No measurable effect; the context arm picks a higher threshold.
+
+### Changed
+- `tools/build_scene_context.py`: model sources use the worker pool too (prediction serialised by
+  a lock); about 4× faster on CPU, where downloads dominate.
+
 ## [2026-10-20, TestFlight trigger] - Ship the timing app to TestFlight by tag
 
 ### Changed
