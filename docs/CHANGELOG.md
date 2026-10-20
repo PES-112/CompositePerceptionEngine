@@ -10,6 +10,8 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
   `data/processed/sanpo_real_462/` are reused, finished Part-B steps leave markers in
   `data/rebuild_local/.done/`, and the results are zipped as `cpe_rebuild_<run-tag>_results.zip`.
   Written because Colab's free GPU quota ran out after 360 of 462 walks.
+- `notebooks/colab_rebuild.ipynb`: the GPU check applies only while Stage 1 or GRU training is left,
+  so a CPU runtime can finish the replay, Kalman comparison and zip when the GPU quota runs out.
 
 ## [2026-10-19, head camera] - Merge the intrinsics fix; fix the size check's depth lookup; Stage 1 to be re-run
 
