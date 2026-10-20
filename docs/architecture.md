@@ -33,8 +33,8 @@ end-to-end by replaying the SANPO dataset.
 4. **Target device: iPhone 17 Pro Max.** It's evaluated by **replaying SANPO**, not by a live
    deployment (§4).
 5. **No human ground truth required.** Labels come from the walker's measured future (did the object
-   actually come close?). The one judgement call, "which object should be announced first", is
-   judged by a blinded referee calibrated against a small human set (§8).
+   actually come close?). Which object should be announced first is a judgement call; it is not
+   evaluated in the paper (a blinded VLM / human referee is future work, §8).
 
 ## 3. What changed from v1
 
@@ -306,7 +306,7 @@ The phone run hasn't happened yet: it needs an Apple Developer account and the p
 |---|---|---|
 | Arrival ranking | AUROC, arrival_order, soonest_top1, flicker rate (session-bootstrap 95% CIs) | K0, TTC, cone-restricted TTC, nearest object, nearest-in-cone |
 | System (replay) | warning lead time before arrival, missed arrivals, alerts per minute, announcement switches per minute, all with on-device latency added | K0-routed v1 pipeline |
-| Announcement order | blinded referee win rate on frames where v2 and a baseline disagree; 3 local VLM referees calibrated against a human-labelled subset (Cohen's κ) | K0, nearest-in-cone |
+| Announcement order (future work, not in the paper) | blinded referee win rate on frames where v2 and a baseline disagree; VLM referees calibrated against a human-labelled subset | K0, nearest-in-cone |
 | Ablations | segmentation context on/off; ego-motion removal on/off; history length 8/16/20 | the full v2 engine |
 
 Statistical procedure, metric definitions and referee protocol: `methodology.md`.

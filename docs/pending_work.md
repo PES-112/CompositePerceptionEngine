@@ -164,7 +164,8 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
    report warned-vs-precision and warned-vs-alerts/min curves for v1 and v2 (see "Next three").
 3. **Lead time that means something.** Most objects first appear near the 3 m zone, so lead time
    is ~0 s for every engine. Report lead time for a tighter zone (1.5 m) and per class.
-4. **Referee on announcement order.**
+4. **Dropped from the paper (2026-10-20): referee on announcement order.** An evaluation tool, not
+   part of the pipeline, and it needs GPU-served VLMs; future work.
    - Blinded 3-VLM referee (`evaluation/vlm_referee.py`) on frames where v2's top pick differs from
      K0's and from nearest-in-cone's.
    - Plus a 100–150-frame human calibration set with Cohen's κ.

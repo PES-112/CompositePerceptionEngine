@@ -32,7 +32,6 @@ that any alert rate is acceptable.
 | 6.6 | Scene context with the model's masks | final (head-camera rerun; methodology §4.19) | `scene_context/model_headfx_*`, `threat_engine_replay/model_context_headfx_2026_10_20/` |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
 | 6.8 | On-device latency, latency-aware replay | **[PENDING: iPhone run]** (sideloaded build, `ios/CPETiming/RUN_ON_IPHONE.md`) | EssKae1234 |
-| 6.9 | Announcement order (VLM referee, protocol v2) | **[PENDING: GPU-served VLMs]** | teammate |
 | — | English audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]**; translation is future work | `v2-narration` (Days 1–4) |
 | — | BLV listening study (ASSETS version only) | **[PENDING: ethics]** | teammate (`listening_study_plan.md`) |
 
@@ -416,15 +415,18 @@ training split, so only the 10 official-test sessions are a fair score for the m
   0.17; §6.5). Follow-up (not run): n at a larger imgsz on a GPU machine. s at 640 would not help
   (§6.5).
 
-### 6.7 Optional: phone-LiDAR range · 6.8 On-device latency · 6.9 Announcement order
+### 6.7 Optional: phone-LiDAR range · 6.8 On-device latency
 
 All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each comes with its own
 `methodology.md` section on `v2-kalman-lidar`:
 - optional, supplementary: SANPO depth cut to the phone LiDAR's ~5 m range, showing how much of
   each headline metric survives. It's a what-if for a phone build, not part of the main results;
 - iPhone 17 Pro Max median / p95 / p99 by stage, a sustained run with the thermal timeline, and the
-  latency-aware replay;
-- VLM referee protocol v2: order swap, text-only control, human ceiling, Gwet's AC1 gate.
+  latency-aware replay.
+
+Not in this paper: judging *which* object should be announced first. Every result here scores
+announcements against the measured arrival labels; a human (or calibrated VLM) judgement of
+announcement order is future work, and is not part of the system.
 
 ## 7. Discussion (points to make)
 
