@@ -2,9 +2,72 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-20, oracle scene context] - Flags, near-boundary decision and replay on the head-camera rerun
+
+### Results (methodology §4.19)
+- Oracle context for the 53 head-masked sessions (35 / 8 / 10), `data/sanpo_scene_context_v2/gt/`.
+- Near a boundary, train only, distance-adjusted RR 0.60 [0.23, 0.83] (approaching variant 0.51
+  [0.00, 0.84]): under the declared rule it stays ×1.0. Held-out check 0.80 [0.38, 3.37].
+- In path 1.32 [0.93, 2.09] and other surface 0.89 [0.38, 1.22] on all 53; multipliers unchanged.
+- Oracle replay, context on − off (10 test sessions, 27 arrivals; `oracle_context_headfx_2026_10_20`):
+  at `budget_5`, warned ±0, false alerts/min +1.49 [0.00, +3.86]. The `early_budget_5` gain
+  (+0.19 warned) comes from a different validation-chosen threshold, not from context.
+
+## [2026-10-20, integration] - Head-camera rerun merged into segmentation
+
+Branch `v2-segmentation` (PR #7).
+
+### Merged
+- `v2-kalman-lidar` up to `767dd88` (head-camera Stage-1 rerun). Conflicts in methodology and this
+  changelog only; both sides kept.
+
+### Changed
+- Both branches had added a methodology §4.18. The head-camera numbers keep §4.18; segmentation is
+  renumbered **§4.19** (references in architecture, pending_work and `priority.py` updated).
+- Scene-context flags and context replays read bearings from the Stage-1 datasets, so they are
+  re-run on the head-camera datasets; edge alerts use only masks and depth and stand.
+
+### Results
+- Model edge alerts on correct depth (`edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*`, EssKae1234;
+  step-offs from SANPO's masks): 0.56 alerts/min, 0.20 [0.08, 0.36] of 45 step-offs warned, 0.60
+  of alerts followed by a step-off (oracle: 0.68, 0.18, 0.33). Official test: 1 of 7 warned, 0 of 4
+  sustained.
+
+## [2026-10-20, head-camera results] - Stage-1 rerun ingested; current numbers in methodology §4.18
+
+### Changed
+- Datasets, GRU runs (4 variants × 3 seeds), Kalman fit, ladder and before/after comparison
+  replaced by the head-camera Colab rerun (`RUN_TAG = "headfx"`; 421 walks with samples, 288/48/85
+  official split). The replay (`threat_engine_replay/corridor_headfx/`) and before/after comparison
+  were run locally after the Colab GPU quota ran out.
+- `src/threat_engine/fusion.py`: `NoiseModel` defaults from the 1 s-ahead fit, which chose the
+  Student-t update (ν = 4, gate 60) on validation (−3.09 vs −3.51 declared).
+- `tools/build_session_viewer.py`: threshold 0.6 with announcer cooldown 8 s, switch margin 1,
+  stale 0.6 s (v2_gru `early_budget_5` on the rerun).
+- Docs: methodology §4.18 (current numbers; §4.13–4.17 superseded), architecture §6.2 and §10,
+  pending_work P0.0 closed.
+
+### Found
+- GRU AUROC 0.911 ties GBT and attention and beats every rule and Kalman baseline (all CIs exclude 0).
+- The fitted Kalman no longer beats the declared one on the ladder (AUROC −0.013 [−0.022, +0.001],
+  Holm p 0.30), contradicting §4.17; in the replay it still cuts 3.1–5.7 false alerts/min.
+- At ≤ 5 false/min, v2_gru warns 0.35 of arrivals, 0.14 ≥ 0.2 s ahead and 0.04 ≥ 1 s ahead,
+  precision 0.55; only v2_gru and nearest-in-corridor meet that budget on validation.
+
+## [2026-10-19, local rebuild] - Run the Stage-1 rerun off Colab
+
+### Added
+- `tools/rebuild_local.py`: `notebooks/colab_rebuild.ipynb` as one resumable script (Windows or Linux,
+  CUDA GPU; `--allow-cpu` otherwise). Same commands and outputs; Stage-1 CSVs already in
+  `data/processed/sanpo_real_462/` are reused, finished Part-B steps leave markers in
+  `data/rebuild_local/.done/`, and the results are zipped as `cpe_rebuild_<run-tag>_results.zip`.
+  Written because Colab's free GPU quota ran out after 360 of 462 walks.
+- `notebooks/colab_rebuild.ipynb`: the GPU check applies only while Stage 1 or GRU training is left,
+  so a CPU runtime can finish the replay, Kalman comparison and zip when the GPU quota runs out.
+
 ## [2026-10-19, edge alerts on correct depth] - Oracle re-run and a train-only rule sweep
 
-### Results (`edge_alerts/gt_depthfix_*`; methodology §4.18)
+### Results (`edge_alerts/gt_depthfix_*`; methodology §4.19)
 - 0.68 alerts/min; 18% [6, 33] of step-offs warned (was 29% on scrambled depth); median lead
   0.8 s. All 3 stairs step-offs warned; 12% of road step-offs warned.
 - The main miss: an edge first seen 6–10 m ahead and never confirmed inside 5 m.
@@ -48,7 +111,7 @@ Branch `v2-segmentation` (PR #7).
 - The segmentation methodology section is renumbered §4.14 → **§4.18**: both branches had added a
   §4.14.
 - Superseded (scrambled depth): every scene-context, context-replay and edge-alert result before
-  `*_depthfix_*`, and the near-boundary ×1.0 decision. They are marked in methodology §4.18 and
+  `*_depthfix_*`, and the near-boundary ×1.0 decision. They are marked in methodology §4.19 and
   `paper_draft.md`. The segmentation model's pixel scores and the Core ML export stand.
 - Translation is future work. P4 covers the English clip library only.
 - `pending_work.md`: merge order and the 4-day plan (2026-10-19 → 22).
@@ -154,7 +217,7 @@ Branch `v2-seg-training` (from `v2-segmentation`, which it merged at `879dbe7`).
 - Test, scored once (48 sessions): mIoU 0.615 [0.540, 0.641], false-safe 0.044 [0.029, 0.062],
   road as walkable 0.173 (over ground-truth road pixels), boundary F curb 0.30 / stairs 0.06.
 - `weights/best.mlpackage`: Core ML FP16, argmax in the graph, 3.1 MB.
-- Model scene context for the 112 replay val/test sessions; `scene_context/model_val_test_*`,
+- **Superseded (scrambled depth).** Model scene context for the 112 replay val/test sessions; `scene_context/model_val_test_*`,
   `threat_engine_replay/model_context_2026_10_18/`, `edge_alerts/cpe_yolo26n_sem_walkable_*`.
   - Context flags match the oracle on its 15 sessions.
   - Context on vs. off in the replay: warned +0.04 [−0.06, +0.08], not measurable.

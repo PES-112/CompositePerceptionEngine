@@ -108,6 +108,7 @@ CompositePerceptionEngine/
 │   ├── build_scene_context.py       # Per-frame SceneContext for replay sessions (SANPO masks or a trained model)
 │   ├── evaluate_edge_alerts.py      # "Curb ahead." alerts over the 53 head-masked sessions at 2.5 Hz
 │   ├── fit_kalman_noise.py          # Fit the Kalman noise model by predictive likelihood on train sessions
+│   ├── rebuild_local.py             # The Colab rebuild as one resumable script for a local/college GPU machine
 │   ├── build_session_viewer.py      # Visual check of one SANPO walk: boxes, engine scores, alerts vs. truth
 │   │                                #     (HTML viewer from session_viewer.html, written to data/viewer/)
 │   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler
