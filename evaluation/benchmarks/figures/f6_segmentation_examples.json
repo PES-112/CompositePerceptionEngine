@@ -1,0 +1,44 @@
+{
+  "rule": "see tools/segmentation_examples.py docstring",
+  "weights": "training\\runs\\cpe_yolo26n_sem_walkable\\weights\\best.pt",
+  "imgsz": 640,
+  "device": "cpu",
+  "frames": [
+    {
+      "target": "curb",
+      "session": "ZR3hpsQxnbI8C4aSV2UMIKf15QvS6qvQ",
+      "camera": "chest",
+      "frame": 24,
+      "share_target": 0.031,
+      "share_walkable": 0.149,
+      "pixel_agreement": 0.841
+    },
+    {
+      "target": "stairs",
+      "session": "ddEl0JtxAC3nnXI00uzGQH9cqwAK_uOu",
+      "camera": "chest",
+      "frame": 0,
+      "share_target": 0.061,
+      "share_walkable": 0.222,
+      "pixel_agreement": 0.884
+    },
+    {
+      "target": "road",
+      "session": "3fNdc-1R7QcLCPHG7Zn9oQXrPqKQbuys",
+      "camera": "head",
+      "frame": 72,
+      "share_target": 0.032,
+      "share_walkable": 0.145,
+      "pixel_agreement": 0.811
+    },
+    {
+      "target": "crosswalk",
+      "session": "ic_BpoiSOIW-7_mffGenT6yissRNiPzT",
+      "camera": "chest",
+      "frame": 24,
+      "share_target": 0.375,
+      "share_walkable": 0.031,
+      "pixel_agreement": 0.9
+    }
+  ]
+}

@@ -306,6 +306,172 @@ def _df_to_markdown(df: pd.DataFrame, floatfmt: str = ".3f") -> str:
     return "\n".join([header, sep, *rows])
 
 
+# ── Paper figures F2–F5 (head-camera rerun, methodology §4.18–4.20) ──────────
+
+REPLAY_DIR = BENCH_DIR / "threat_engine_replay" / "corridor_headfx"
+SCENE_DIR = BENCH_DIR / "scene_context"
+ARM_STYLE = {   # arm -> (label, colour)
+    "v2_gru": ("GRU (v2)", "#2f6fed"),
+    "v2_kalman": ("Kalman (v2)", "#3a9e5c"),
+    "nearest_in_corridor": ("nearest in corridor", "#8c8c8c"),
+    "v2_physics": ("physics (v2)", "#e07b39"),
+    "v1_k0_announcer": ("v1 K0 + announcer", "#b07cc6"),
+    "v1_k0": ("v1 K0", "#d64545"),
+}
+
+
+def plot_opportunity_window() -> Path | None:
+    """F2: first sighting -> arrival, test. Recomputed from the dataset with the replay's own
+    arrivals() (the window is a property of the tracks, not of any engine), then checked
+    against the replay's window_profile."""
+    metrics = REPLAY_DIR / "metrics.json"
+    if not metrics.exists():
+        print(f"skip: {metrics} not found")
+        return None
+    import sys
+    from collections import defaultdict
+
+    sys.path.insert(0, str(REPO_ROOT))
+    from dataset.GRU.samples import legacy_units, load_dataset
+    from tools.replay_threat_engine import AUDIT, DEFAULT_DATASET, STEP_S, arrivals, session_rows
+
+    manifest, splits = load_dataset(DEFAULT_DATASET, splits=("test",))
+    legacy = legacy_units(manifest)
+    audit = {r["session_id"]: r for r in json.loads(AUDIT.read_text(encoding="utf-8"))["sessions"]}
+    by = defaultdict(list)
+    for s in splits["test"]:
+        by[s["session"]].append(s)
+    windows = [(ka - seen) * STEP_S for sid, samples in by.items()
+               for seen, ka in arrivals(session_rows(samples, audit[sid]["fx"], audit[sid]["image_width"],
+                                                     legacy)).values()]
+    profile = json.loads(metrics.read_text())["window_profile"]
+    assert len(windows) == profile["arrivals"], (len(windows), profile)
+    assert abs(float(pd.Series(windows).median()) - profile["median_window_s"]) < 1e-6
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    edges = [i * 0.4 for i in range(int(max(windows) / 0.4) + 2)]
+    ax.hist(windows, bins=edges, color=PALETTE["v3"], edgecolor="white")
+    ax.axvline(1.0, color=BUDGET_COLOR, linestyle="--", linewidth=1.2)
+    ax.axvline(4.0, color="#444444", linestyle=":", linewidth=1.2)
+    ax.text(1.05, ax.get_ylim()[1] * 0.92, f"{profile['share_lt_1s']:.0%} < 1 s", color=BUDGET_COLOR, fontsize=9)
+    ax.text(4.05, ax.get_ylim()[1] * 0.92, f"{profile['share_ge_4s']:.0%} ≥ 4 s (horizon)", fontsize=9)
+    ax.set_xlabel("Opportunity window: first sighting → arrival in the corridor (s)")
+    ax.set_ylabel("Arrivals")
+    ax.set_title(f"Opportunity window, test ({len(windows)} arrivals, median {profile['median_window_s']:.1f} s)")
+    return _save(fig, "f2_opportunity_window.png")
+
+
+def _knob_threshold(knob: str) -> str:
+    return str(knob).split(" / ")[0]
+
+
+def plot_operating_curves() -> Path | None:
+    """F3: warned vs. false alerts/min on test. Arms with a swept announcer show their test
+    frontier (most warned at or under each false-alert rate); markers are the points chosen
+    on validation at the 5 and 10 false/min budgets."""
+    curves, metrics = REPLAY_DIR / "curves.csv", REPLAY_DIR / "metrics.json"
+    if not curves.exists() or not metrics.exists():
+        print(f"skip: {REPLAY_DIR} incomplete")
+        return None
+    df = pd.read_csv(curves)
+    df = df[df["split"] == "test"]
+    chosen = json.loads(metrics.read_text())["chosen"]
+
+    fig, ax = plt.subplots(figsize=(7.5, 5))
+    for arm, (label, colour) in ARM_STYLE.items():
+        d = df[df["arm"] == arm].sort_values("false_per_min")
+        if d.empty:
+            continue
+        frontier = d.assign(warned=d["warned"].cummax()).drop_duplicates("warned")
+        ax.step(frontier["false_per_min"], frontier["warned"], where="post", color=colour, label=label, linewidth=1.6)
+        for rule, marker in (("budget_5", "o"), ("budget_10", "s")):
+            knob = chosen.get(arm, {}).get(rule)
+            if knob is None:
+                continue
+            row = d[d["knob"].astype(str) == str(knob)]
+            if not row.empty:
+                ax.plot(row["false_per_min"].iloc[0], row["warned"].iloc[0], marker, color=colour,
+                        markeredgecolor="black", markersize=7, zorder=5)
+    for budget in (2, 5, 10):
+        ax.axvline(budget, color=BUDGET_COLOR, linestyle="--", linewidth=0.9, alpha=0.6)
+        ax.text(budget * 1.03, 0.02, f"{budget}/min", color=BUDGET_COLOR, fontsize=8)
+    ax.set_xscale("log")
+    ax.set_xlim(1, 200)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("False alerts per minute (log)")
+    ax.set_ylabel("Arrivals warned (≤ 4 s before arrival)")
+    ax.set_title("Operating curves, test (85 sessions)")
+    ax.plot([], [], "o", color="white", markeredgecolor="black", label="chosen on validation: budget 5")
+    ax.plot([], [], "s", color="white", markeredgecolor="black", label="chosen on validation: budget 10")
+    ax.legend(loc="upper left", fontsize=8)
+    return _save(fig, "f3_operating_curves.png")
+
+
+def plot_kaplan_meier() -> Path | None:
+    """F4: share of arrivals not yet warned vs. time since first sighting, at budget_5."""
+    metrics = REPLAY_DIR / "metrics.json"
+    if not metrics.exists():
+        print(f"skip: {metrics} not found")
+        return None
+    km = json.loads(metrics.read_text())["kaplan_meier"]
+    fig, ax = plt.subplots(figsize=(7, 4.2))
+    for arm, (label, colour) in ARM_STYLE.items():
+        curve = (km.get(arm) or {}).get("budget_5")
+        if not curve:
+            continue
+        t = [0.0] + [float(k) for k in curve]
+        s = [1.0] + list(curve.values())
+        ax.step(t, s, where="post", color=colour, label=label, linewidth=1.6)
+        ax.plot(t[1:], s[1:], "o", color=colour, markersize=4)
+    ax.set_xlim(0, 4.2)
+    ax.set_ylim(0, 1.02)
+    ax.set_xlabel("Time since first sighting (s)")
+    ax.set_ylabel("Share of arrivals not yet warned")
+    ax.set_title("Kaplan–Meier, test, at the 5 false alerts/min budget (arrival censors)")
+    ax.legend(fontsize=8)
+    return _save(fig, "f4_kaplan_meier_budget5.png")
+
+
+def plot_context_forest() -> Path | None:
+    """F5: distance-adjusted RR of each context flag, oracle (train, held-out) and model (held-out)."""
+    groups = [
+        ("oracle, train (35 sessions)", "gt_headfx_train_2026_10_20", "#8c8c8c"),
+        ("oracle, val + test (18)", "gt_headfx_val_test_2026_10_20", "#2f6fed"),
+        ("model, val + test (133)", "model_headfx_val_test_2026_10_20", "#e07b39"),
+    ]
+    flags = [("in_path", "in path"), ("near_boundary", "near a boundary"), ("other_surface", "other surface")]
+    data = {}
+    for _, folder, _ in groups:
+        path = SCENE_DIR / folder / "metrics.json"
+        if not path.exists():
+            print(f"skip: {path} not found")
+            return None
+        data[folder] = json.loads(path.read_text())["flags"]
+
+    fig, ax = plt.subplots(figsize=(9, 4.2))
+    y = 0
+    ticks, labels = [], []
+    for key, name in flags:
+        declared = data[groups[0][1]][key]["declared_multiplier"]
+        for i, (label, folder, colour) in enumerate(groups):
+            rr, lo, hi = data[folder][key]["rr_distance_adjusted"]
+            pos = y + (1 - i) * 0.25
+            ax.errorbar(rr, pos, xerr=[[rr - lo], [hi - rr]], fmt="o", color=colour, capsize=3,
+                        label=label if key == flags[0][0] else None)
+        ax.plot(declared, y, marker="D", color="black", markersize=6, markerfacecolor="none",
+                label="declared multiplier" if key == flags[0][0] else None)
+        ticks.append(y)
+        labels.append(name)
+        y -= 1
+    ax.axvline(1.0, color=BUDGET_COLOR, linestyle="--", linewidth=1)
+    ax.set_yticks(ticks, labels)
+    ax.set_xlim(0, 3.5)
+    ax.set_xlabel("Arrival risk ratio, distance-adjusted (95% session-bootstrap CI)")
+    ax.set_title("Scene-context flags: does the flag raise the arrival rate?")
+    ax.legend(fontsize=8, loc="upper left", bbox_to_anchor=(1.01, 1.0))
+    return _save(fig, "f5_context_risk_ratios.png")
+
+
 def write_results_summary_md(written: list[Path]) -> None:
     lines = [
         "# Results Summary",
@@ -319,7 +485,7 @@ def write_results_summary_md(written: list[Path]) -> None:
     for path in written:
         if path is None:
             continue
-        lines.append(f"- `{path.relative_to(REPO_ROOT)}`")
+        lines.append(f"- `{path.relative_to(REPO_ROOT).as_posix()}`")
     lines += [
         "",
         "## Detector version comparison",
@@ -390,7 +556,7 @@ def write_results_summary_md(written: list[Path]) -> None:
                 continue
             lines.append(f"| {short} | {counts.get(arm, 0)} |")
     out_path = OUT_DIR / "results_summary.md"
-    out_path.write_text("\n".join(lines) + "\n")
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {out_path.relative_to(REPO_ROOT)}")
 
 
@@ -402,6 +568,10 @@ def main() -> None:
         plot_edge_latency_sessions(),
         plot_edge_latency_native_vs_sim(),
         plot_kinetic_ablation_metrics(),
+        plot_opportunity_window(),
+        plot_operating_curves(),
+        plot_kaplan_meier(),
+        plot_context_forest(),
     ]
     write_results_summary_md([p for p in written if p is not None])
 

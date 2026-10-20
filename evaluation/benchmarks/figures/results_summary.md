@@ -11,6 +11,10 @@ script after any benchmark artifact changes instead.
 - `evaluation/benchmarks/figures/edge_latency_sessions.png`
 - `evaluation/benchmarks/figures/edge_latency_native_vs_sim.png`
 - `evaluation/benchmarks/figures/kinetic_ablation_metrics.png`
+- `evaluation/benchmarks/figures/f2_opportunity_window.png`
+- `evaluation/benchmarks/figures/f3_operating_curves.png`
+- `evaluation/benchmarks/figures/f4_kaplan_meier_budget5.png`
+- `evaluation/benchmarks/figures/f5_context_risk_ratios.png`
 
 ## Detector version comparison
 

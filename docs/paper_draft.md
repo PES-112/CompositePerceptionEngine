@@ -481,11 +481,11 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 | # | Content | Source | Generator |
 |---|---|---|---|
 | F1 | System diagram (one frame, 5 Hz) | `architecture.md` §5 | by hand |
-| F2 | Opportunity-window histogram (test) | replay `metrics.json` | `evaluation/generate_report_figures.py` (add) |
-| F3 | Operating curves: warned vs. false alerts/min, all engines, budgets marked | replay CSV | same (add) |
-| F4 | Kaplan–Meier "not yet warned", budget 5 | replay `metrics.json` | same (add) |
-| F5 | Context-flag risk ratios, raw vs. distance-adjusted, train vs. held-out | `scene_context/*/metrics.json` | same (add) |
-| F6 | Segmentation qualitative examples: curb, stairs, road vs. sidewalk; oracle vs. model | `v2-seg-training` | **[PENDING]** |
+| F2 | Opportunity-window histogram (test) | dataset tracks via the replay's `arrivals()`; checked against `corridor_headfx/metrics.json` | `evaluation/generate_report_figures.py` → `figures/f2_opportunity_window.png` |
+| F3 | Operating curves: warned vs. false alerts/min, all engines, budgets and validation-chosen points marked | `corridor_headfx/curves.csv` | same → `f3_operating_curves.png` |
+| F4 | Kaplan–Meier "not yet warned", budget 5 | `corridor_headfx/metrics.json` | same → `f4_kaplan_meier_budget5.png` |
+| F5 | Context-flag risk ratios (distance-adjusted): oracle train, oracle held-out, model held-out | `scene_context/{gt,model}_headfx_*/metrics.json` | same → `f5_context_risk_ratios.png` |
+| F6 | Segmentation examples: curb, stairs, road, crosswalk; image / SANPO mask / model (frames by a declared rule) | SANPO official test | `tools/segmentation_examples.py` → `f6_segmentation_examples.png` |
 | T1 | Baseline ladder | `baseline_ladder/…_corridor_w0.75_d3_h20/` | §6.1 table |
 | T2 | Replay at budgets | `threat_engine_replay/corridor_headfx/` | §6.2 table |
 | T3 | Segmentation scores | `segmentation/cpe_yolo26n_sem_walkable_test/` | §6.5 table |
