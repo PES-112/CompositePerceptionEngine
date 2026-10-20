@@ -2,6 +2,18 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-20, TestFlight trigger] - Ship the timing app to TestFlight by tag
+
+### Changed
+- `.github/workflows/ios-timing.yml`: pushing a tag `ios-testflight*` archives, signs and uploads to
+  TestFlight. The manual **Run workflow** button only appears for workflows on the default branch
+  (`main`), which this one isn't on. Branch pushes still build unsigned when `ios/**` or the export
+  scripts change (they pass on `v2-threat-engine` with the head-camera GRU).
+- `ios/CPETiming/README.md`: setup step 5 uses the tag.
+- `.github/workflows/ios-timing.yml`: every run also uploads an unsigned `.ipa` artifact, so the app can
+  be installed with a free Apple ID through Sideloadly (no paid account, no Mac; 7-day installs).
+  README section added.
+
 ## [2026-10-20, oracle scene context] - Flags, near-boundary decision and replay on the head-camera rerun
 
 ### Results (methodology §4.19)

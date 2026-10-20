@@ -46,6 +46,20 @@ does the following on a macOS runner:
 
 Tick **testflight** to also archive, sign and upload.
 
+## Run it on the iPhone with a free Apple ID (no Mac, no paid account)
+
+Every workflow run also uploads `CPETiming-unsigned-ipa` (Actions → the latest green **ios-timing**
+run → Artifacts). To install it from a Windows PC:
+
+1. Install iTunes (the Apple website version, not the Microsoft Store one) and
+   [Sideloadly](https://sideloadly.io). Plug in the iPhone and tap **Trust**.
+2. Unzip the artifact, drag `CPETiming-unsigned.ipa` into Sideloadly, enter the Apple ID, Start.
+3. On the phone: Settings → Privacy & Security → **Developer Mode** on (restarts), then Settings →
+   General → VPN & Device Management → trust the Apple ID's developer profile.
+
+Free-account installs expire after 7 days (re-install the same way). The timing is the same as a
+TestFlight build: both are Release builds of the same app.
+
 ## Run it on an iPhone 17 Pro Max via TestFlight
 
 One-time setup by the account holder (needs a paid Apple Developer Program membership, $99/yr):
@@ -60,7 +74,10 @@ One-time setup by the account holder (needs a paid Apple Developer Program membe
    - `CPE_TEAM_ID`: your 10-character team ID.
 4. If the default runner's Xcode is too old for App Store uploads (Xcode 26 is required since April
    2026), set the repository variable `MACOS_RUNNER` to a runner image that has it.
-5. Run the workflow with **testflight** ticked. Processing in App Store Connect takes 5–30 min.
+5. Start a TestFlight build by pushing a tag: `git tag ios-testflight-1 && git push origin ios-testflight-1`
+   (next time `-2`, and so on). The **Run workflow** button with **testflight** ticked works too, but
+   GitHub only shows it once the workflow is on the default branch (`main`). Processing in App Store
+   Connect takes 5–30 min.
 6. In App Store Connect → TestFlight, add the phone owner as an internal tester. They install
    **TestFlight** from the App Store and accept the invite.
 
