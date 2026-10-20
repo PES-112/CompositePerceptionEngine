@@ -55,12 +55,12 @@ array until 2026-10-17; `architecture.md` §9). Kept for the record:
 
 Unaffected: segmentation training, its test scores, and the Core ML export (no depth involved).
 
-| Day | Teammate | Segmentation (DeviousDrops) | Mac (M4) | Narration |
+| Day | Teammate | Segmentation (DeviousDrops) | Mac (M4, EssKae1234) | Narration (DeviousDrops since 2026-10-20) |
 |---|---|---|---|---|
 | 1 (10-19) | Fast-forward `v2-threat-engine`; start the head-camera rebuild | Merge + depth fix; oracle edge alerts on correct depth | Model edge alerts on correct depth | Push branch; phrase review; renderer |
 | 2 | ~~Rebuild in: ladder, Kalman, replay~~ (done) | ~~Oracle scene context; near-boundary decision on train; oracle replay~~ (done; `oracle_context_headfx_2026_10_20`) | ~~Model scene context, val + test~~ (done here on CPU, `6cd7c3f`) | Render; clip durations vs `CLIP_S` |
 | 3 | Latency-aware replay (iPhone timing moved to EssKae1234); ~~review the announcer PR~~ (merged 2026-10-20 without review) | ~~"Curb ahead." through the announcer~~ (PR #8, `f122dde`); merge narration; ~~paper numbers~~ (`9633a0f`; model context added) | ~~Context on/off replay; model vs oracle; docs~~ (done here; `model_context_headfx_2026_10_20`) | Edge phrases, loader, tests; PR |
-| 4 | Final methodology numbers | Paper freeze; merge to `main` | iPhone timing (§6.8, sideloaded `CPETiming`); paper figures (F2–F6) | Latency and size numbers |
+| 4 | Final methodology numbers | Paper freeze; merge to `main` | iPhone timing (§6.8, sideloaded `CPETiming`; in progress); ~~paper figures (F2–F6)~~ (done here, `2ddc25e`) | Latency and size numbers |
 
 ---
 

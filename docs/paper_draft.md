@@ -342,7 +342,13 @@ session-bootstrap 95% CIs. Source: `evaluation/benchmarks/segmentation/cpe_yolo2
   non-walkable 0.69, obstacle 0.74, sky 0.87. Head test frames contain no stairs, so head mIoU
   includes a 0 for stairs.
 - **Weak spots.** Thin edges: curb boundary F 0.30, stairs 0.06. About one road pixel in six is
-  called walkable. **[PENDING: SENSATION-DS's published rate, with its definition, for comparison.]**
+  called walkable (0.173; chest 0.163, head 0.222). For reference, SENSATION-DS (Calim et al.,
+  arXiv:2607.21137, 2026; chest-height, 281 test images) reports a road-as-sidewalk error of
+  0.079–0.099 for its four selected mobile models (mIoU 0.690–0.715). The two are not directly
+  comparable: different images, taxonomy (9 classes with a separate bike lane; ours counts
+  crosswalk and every walkable surface as walkable) and model, and the paper gives no formula;
+  its figure marks road pixels predicted as sidewalk, which we read as the same ratio as ours.
+  Both papers treat the rate as a proxy for false-safe guidance, not a validated safety measure.
 - **Model choice (deviation, declared).** The plan declared before training was to try YOLO26s-sem at
   640 if test scores showed the model to be the bottleneck. We kept n instead:
   1. validation mIoU peaked at epoch 3 and validation loss then rose, so the model was

@@ -42,6 +42,12 @@ The direct comparison class for CPE's Introduction/Related Work section (`method
   against it (CPE's hard reflex-latency guarantee and physics-verification arbitration vs. their
   approach) rather than only comparing against older ETA surveys and cloud-VLM systems.
 
+- **Calim, H. et al. (2026). "Safety-oriented sidewalk and road segmentation for smartphone-based
+  assistive navigation."** arXiv:2607.21137 (submitted to *Assistive Technology*). SENSATION-DS:
+  2,752 chest-height pedestrian-view images, 9 classes; mobile models on Android; road-as-sidewalk
+  error 0.079–0.099 at mIoU 0.690–0.715 (281 test images). **Use:** the closest published false-safe
+  measure to ours; paper §6.5 compares, with the caveats (different data, taxonomy, no formula given).
+
 ## 2. Perception: detection, tracking, and depth
 
 - **Zhang, Y., Sun, P., Jiang, Y., et al. (2022). "ByteTrack: Multi-Object Tracking by Associating
