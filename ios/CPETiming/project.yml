@@ -22,7 +22,7 @@ targets:
       - path: Sources
       - path: Models           # *.mlpackage: Xcode compiles each to <name>.mlmodelc in the app bundle
         optional: true
-      - path: BenchData
+      - path: BenchData        # not "Resources": iOS reads a top-level Resources/ as an old-style bundle ("Missing bundle ID")
         type: folder           # copied as a folder reference: BenchData/Frames/*.jpg, gru_*.bin, bundle.json
         optional: true
     info:
