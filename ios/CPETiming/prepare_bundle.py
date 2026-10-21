@@ -3,12 +3,12 @@ prepare_bundle.py
 =================
 Fill ios/CPETiming/ with what the timing app bundles (all git-ignored):
 
-  Resources/Frames/frame_0000.jpg ...   N SANPO frames (official TEST sessions, camera_head/left,
+  BenchData/Frames/frame_0000.jpg ...   N SANPO frames (official TEST sessions, camera_head/left,
                                          every 3rd source frame = the 5 Hz processing rate), 1280x720 JPEG q90
-  Resources/gru_x.bin, gru_cls.bin       recorded GRU inputs: the arrival dataset's test-split
+  BenchData/gru_x.bin, gru_cls.bin       recorded GRU inputs: the arrival dataset's test-split
                                          frames, padded to [N_obj=32, T, F] float32 / [32] int32,
                                          little-endian, M frames back to back
-  Resources/bundle.json                  provenance (sessions, frame objects, dataset, models)
+  BenchData/bundle.json                  provenance (sessions, frame objects, dataset, models)
   Models/CPEDetector.mlpackage           --export: YOLO26n v3 (FP16 Core ML), via the Ultralytics API
   Models/CPEArrivalGRU.mlpackage         --export: the arrival GRU, via export_gru_coreml.py
 
@@ -136,7 +136,7 @@ def main() -> None:
     p.add_argument("--export-only", action="store_true", help="Only export the models (bundle already prepared).")
     args = p.parse_args()
     if args.export_only:
-        info_path = HERE / "Resources" / "bundle.json"
+        info_path = HERE / "BenchData" / "bundle.json"
         info = json.loads(info_path.read_text(encoding="utf-8")) if info_path.exists() else {}
         info["models"] = export_models(HERE / "Models")
         info_path.parent.mkdir(exist_ok=True)
@@ -149,7 +149,7 @@ def main() -> None:
     in_dataset = sorted({s["session"] for s in test["test"]})
     sessions = [sid for sid in in_dataset if sid in set(split["test"])][:5]
 
-    res = HERE / "Resources"
+    res = HERE / "BenchData"
     res.mkdir(exist_ok=True)
     names = write_frames(sessions, args.frames, res / "Frames")
     info = {"frames": len(names), "frame_objects": names, "sessions": sorted({n.split("/")[3] for n in names}),

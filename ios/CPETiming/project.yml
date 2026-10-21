@@ -1,5 +1,5 @@
 # XcodeGen spec (https://github.com/yonaskolb/XcodeGen): `xcodegen generate` writes CPETiming.xcodeproj.
-# The .xcodeproj is generated, never committed. Models/ and Resources/ are filled by prepare_bundle.py.
+# The .xcodeproj is generated, never committed. Models/ and BenchData/ are filled by prepare_bundle.py.
 name: CPETiming
 options:
   bundleIdPrefix: edu.pes.cpe
@@ -22,8 +22,8 @@ targets:
       - path: Sources
       - path: Models           # *.mlpackage: Xcode compiles each to <name>.mlmodelc in the app bundle
         optional: true
-      - path: Resources
-        type: folder           # copied as a folder reference: Resources/Frames/*.jpg, gru_*.bin, bundle.json
+      - path: BenchData
+        type: folder           # copied as a folder reference: BenchData/Frames/*.jpg, gru_*.bin, bundle.json
         optional: true
     info:
       path: Sources/Info.plist
