@@ -1370,6 +1370,23 @@ The setting was chosen on 172 human-annotated head-camera frames of 43 official-
 Details and train grid: `evaluation/benchmarks/detector_recall_sanpo/report.md`. Videos:
 `tools/render_pole_comparison.py`.
 
+**Open-vocabulary detector, out of the box** (`evaluation/open_vocab_recall.py`). YOLOE-11s
+prompt-free (4,585 built-in classes, no training, no text encoder) at 640 px, with 16 pole-like
+classes counted as "pole" (pole, lamp post, street light, telegraph pole, flag pole, post, pillar, and
+sign and meter classes). The threshold was chosen on the same train frames: recall falls steadily with
+the threshold (20/50 at 0.05 → 5/50 at 0.30), so 0.05 was chosen.
+
+| test (80 frames) | poles | pole boxes/frame | pole-box support |
+|---|---|---|---|
+| v3, 640, conf 0.30 | 1/22 = 0.05 [0.01, 0.22] | 0.09 | 0.86 |
+| YOLOE-11s-pf, conf 0.05 | 6/22 = 0.27 [0.13, 0.48] | 2.61 | 0.52 |
+
+YOLOE sees more SANPO poles than v3, but only at a very low threshold, where about half of its pole
+boxes don't cover a pole-like SANPO object. That is not usable as the product's detector. As a
+teacher for fine-tuning v3, its labels would need filtering; on the 43 train sessions with head
+masks, SANPO's own instance masks give cleaner pole boxes directly. The text-prompted YOLOE / YOLO-World
+(needs the CLIP text encoder) is not yet tested.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate

@@ -85,6 +85,7 @@ CompositePerceptionEngine/
 │   ├── segmentation_metrics.py      # mIoU, false-safe rate, curb/stairs boundary F (walkable-surface model)
 │   ├── context_association.py       # Do the scene-context flags predict arrival? (risk ratios, distance-adjusted)
 │   ├── detector_recall_sweep.py     # Pole recall on SANPO vs input size and pole confidence (no retraining)
+│   ├── open_vocab_recall.py         # Same recall test for YOLOE-11s prompt-free (open vocabulary, no training)
 │   └── benchmarks/
 │       ├── detector_recall_sanpo/   # Sweep results: train selection grid, test scored once
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split

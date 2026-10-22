@@ -2,6 +2,14 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-22, open-vocabulary poles] - YOLOE out of the box finds 6/22 SANPO test poles
+
+### Added
+- `evaluation/open_vocab_recall.py`: YOLOE-11s prompt-free (no training, no text encoder) on the
+  cached recall frames; threshold chosen on train (0.05), test scored once: poles 6/22 (v3: 1/22),
+  but 2.6 pole boxes/frame with support 0.52. Methodology §4.22; `open_vocab_yoloe.json`.
+  Weights go to `data/weights/` (git-ignored).
+
 ## [2026-10-22, pole recall] - Inference size and pole confidence don't recover SANPO poles
 
 ### Added
