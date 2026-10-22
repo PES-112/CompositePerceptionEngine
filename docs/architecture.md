@@ -390,7 +390,9 @@ Open:
   about 13 times a minute at that point (methodology §4.18).
 - **Detector recall on SANPO.** The v3 detector finds 1/22 SANPO poles within 10 m. A larger input
   size and a lower pole threshold don't change that (2/22), because v3 puts no box on most of them
-  (methodology §4.21–4.22). Static-obstacle results cover only what the detector tracks.
+  (methodology §4.21–4.22). Static-obstacle results cover only what the detector tracks. A class-free
+  "Obstacle ahead." from segmentation + depth (`path_obstacle.py`, §4.23) is quiet on SANPO's masks
+  but has too few test encounters to judge, and isn't wired in.
 - **Declared choices.** λ and the behaviour multipliers are declared design choices.
 - **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
   the chest; SANPO's `camera_chest/` stream exists but is unused.

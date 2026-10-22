@@ -56,7 +56,8 @@ CompositePerceptionEngine/
 │   ├── yolo_training.md             # Detector datasets, checkpoints, commands, metrics
 │   └── CHANGELOG.md                 # Dated record of changes
 ├── src/
-│   ├── perception_stack/            # YOLO26n v3 + ByteTrack + depth sampling, physics (severity, pinhole bearing, K0)
+│   ├── perception_stack/            # YOLO26n v3 + ByteTrack + depth sampling, physics (severity, pinhole bearing, K0);
+│   │                                #     path_obstacle.py = class-free "Obstacle ahead." (not wired in yet)
 │   ├── threat_engine/               # v2: fusion.py (Kalman, train-fitted noise), envelope.py, priority.py (GRU/physics),
 │   │                                #     kalman_arrival.py (P(enter corridor) over the track's uncertainty), announcer.py, engine.py
 │   ├── segmentation/                # v2 §6.3: labels.py (SANPO 31 -> 8 walkable classes), context.py (SceneContext per track, edge ahead), edge_alert.py ("Curb ahead." rule)
@@ -86,6 +87,7 @@ CompositePerceptionEngine/
 │   ├── context_association.py       # Do the scene-context flags predict arrival? (risk ratios, distance-adjusted)
 │   ├── detector_recall_sweep.py     # Pole recall on SANPO vs input size and pole confidence (no retraining)
 │   ├── open_vocab_recall.py         # Same recall test for YOLOE-11s prompt-free (open vocabulary, no training)
+│   ├── missed_objects_sanpo.py      # Which SANPO object classes v3 misses (all classes, descriptive)
 │   └── benchmarks/
 │       ├── detector_recall_sanpo/   # Sweep results: train selection grid, test scored once
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
@@ -110,6 +112,7 @@ CompositePerceptionEngine/
 │   ├── build_sanpo_segmentation.py  # SANPO masks (237 sessions, head + chest) -> Ultralytics semantic dataset
 │   ├── build_scene_context.py       # Per-frame SceneContext for replay sessions (SANPO masks or a trained model)
 │   ├── evaluate_edge_alerts.py      # "Curb ahead." alerts over the 53 head-masked sessions at 2.5 Hz
+│   ├── evaluate_path_obstacle.py    # "Obstacle ahead." (class-free, segmentation + depth): oracle check on SANPO masks
 │   ├── fit_kalman_noise.py          # Fit the Kalman noise model by predictive likelihood on train sessions
 │   ├── rebuild_local.py             # The Colab rebuild as one resumable script for a local/college GPU machine
 │   ├── render_pole_comparison.py    # Before | after detector videos on SANPO clips with poles (data/demo/poles/)
@@ -134,7 +137,7 @@ CompositePerceptionEngine/
 │                                    #     colab_rebuild.ipynb: Stage 1 + datasets + GRUs + Kalman + results on Colab
 ├── simulation/datasets/sanpo/       # valid_streams.json (462 sessions), session_audit.json, official_split.json
 ├── tests/                           # Threat engine (fusion, envelope, priority, announcer), Kalman arrival, latency-aware
-│                                    #     replay options, v1 routing, GRU, ensemble
+│                                    #     replay options, v1 routing, GRU, ensemble, path obstacle
 ├── data/                            # Local datasets (gitignored)
 └── requirements.txt
 ```

@@ -2,6 +2,21 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-22, obstacle ahead] - Class-free "Obstacle ahead." from segmentation + depth (oracle check)
+
+### Added
+- `src/perception_stack/path_obstacle.py`: corridor histogram (pixels in the 0.75 m walking
+  corridor, below head clearance, by class and depth) and `PathObstacleAlerter` (confirm, one alert
+  per episode). Not wired into the engine or announcer.
+- `tools/evaluate_path_obstacle.py`: oracle check on SANPO masks, 53 head-masked sessions at 2.5 Hz;
+  rule chosen on train (D 2.5 m, N 1000 px, K 2), test scored once. Results in
+  `evaluation/benchmarks/path_obstacle/oracle_gt.json`, methodology §4.23.
+- `tests/test_path_obstacle.py`.
+
+### Found
+- Quiet (0.2–0.7 alerts/min); warns 7/11 train encounters (median 2.8 s ahead), but SANPO's masked
+  footage is only 27 min with 1 test encounter, so it can't be judged yet.
+
 ## [2026-10-22, open-vocabulary poles] - YOLOE out of the box finds 6/22 SANPO test poles
 
 ### Added
