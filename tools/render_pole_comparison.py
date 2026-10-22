@@ -1,4 +1,4 @@
-"""Before/after videos for the pole fix: the v3 detector at Stage 1's setting vs the setting chosen in
+"""Before/after videos for the pole fix (--yoloe: v3 vs the open-vocabulary YOLOE-11s instead): the v3 detector at Stage 1's setting vs the setting chosen in
 evaluation/detector_recall_sweep.py, side by side on a SANPO head-camera clip.
 
 Raw detector boxes per frame (no tracker, no size check), as in the recall measurement. Orange = pole or
@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 
 from evaluation.detector_recall_sweep import (  # noqa: E402
     BASE_CONF, CACHE, MODEL, OUT, POLE_TYPE, load_truth)
+from evaluation.open_vocab_recall import POLE_LIKE, WEIGHTS  # noqa: E402
 from tools.audit_sanpo_sessions import ANNOTATION_TYPES, fetch, object_url  # noqa: E402
 from tools.download_sanpo_valid_streams import BASE_PREFIX  # noqa: E402
 
@@ -75,7 +76,7 @@ def clip_frames(sid: str, center: int, seconds: float) -> tuple[list[Path], dict
     return paths, kinds
 
 
-def draw(img, boxes, pole_conf, mask_path, title):
+def draw(img, boxes, pole_conf, mask_path, title, pole_names=POLE_TYPE, base_conf=BASE_CONF):
     h, w = img.shape[:2]
     s = PANEL_W / w
     im = cv2.resize(img, (PANEL_W, int(h * s)), interpolation=cv2.INTER_AREA)
@@ -87,10 +88,10 @@ def draw(img, boxes, pole_conf, mask_path, title):
         cv2.drawContours(im, cs, -1, CYAN, 1)
     n_pole = 0
     for name, conf, x1, y1, x2, y2 in boxes:
-        if conf < (pole_conf if name in POLE_TYPE else BASE_CONF):
+        if conf < (pole_conf if name in pole_names else base_conf):
             continue
-        col, t = (ORANGE, 3) if name in POLE_TYPE else (GREEN, 2) if name == "person" else (GREY, 1)
-        n_pole += name in POLE_TYPE
+        col, t = (ORANGE, 3) if name in pole_names else (GREEN, 2) if name == "person" else (GREY, 1)
+        n_pole += name in pole_names
         p1, p2 = (int(x1 * s), int(y1 * s)), (int(x2 * s), int(y2 * s))
         cv2.rectangle(im, p1, p2, col, t)
         cv2.putText(im, f"{name} {conf:.2f}", (p1[0], max(12, p1[1] - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, col, 1, cv2.LINE_AA)
@@ -100,9 +101,9 @@ def draw(img, boxes, pole_conf, mask_path, title):
     return np.vstack([bar, im])
 
 
-def render(sid, center, seconds, after, model, out_dir) -> Path:
+def render(sid, center, seconds, after, model, out_dir, yoloe=None) -> Path:
     paths, kinds = clip_frames(sid, center, seconds)
-    out = out_dir / f"poles_{sid[:8]}_{center:06d}.mp4"
+    out = out_dir / f"poles_{sid[:8]}_{center:06d}{'_yoloe' if yoloe else ''}.mp4"
     ff = None
     from imageio_ffmpeg import get_ffmpeg_exe
     for i, p in enumerate(paths):
@@ -110,11 +111,21 @@ def render(sid, center, seconds, after, model, out_dir) -> Path:
         f = int(p.stem)
         mask = p.with_name(f"{f:06d}_mask.png") if f in kinds else None
         panels = []
-        for (sz, pc), title in (((640, BASE_CONF), "BEFORE  640 px, conf 0.30"),
-                                (after, f"AFTER  {after[0]} px, pole conf {after[1]:.2f}")):
+        runs = [((640, BASE_CONF), "BEFORE  v3, 640 px, conf 0.30")]
+        if not yoloe:
+            runs.append((after, f"AFTER  {after[0]} px, pole conf {after[1]:.2f}"))
+        for (sz, pc), title in runs:
             r = model.predict(img, conf=min(pc, BASE_CONF), imgsz=sz, verbose=False)[0]
             boxes = [(r.names[int(c)], float(q), *map(float, b)) for c, q, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy)]
             panels.append(draw(img, boxes, pc, mask, title))
+        if yoloe:
+            # Only pole-like (orange) and person (green) boxes: the other ~4,500 classes would bury the frame.
+            m, conf = yoloe
+            r = m.predict(img, conf=conf, imgsz=640, verbose=False)[0]
+            boxes = [(r.names[int(c)], float(q), *map(float, b)) for c, q, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy)
+                     if r.names[int(c)] in POLE_LIKE or r.names[int(c)] == "person"]
+            panels.append(draw(img, boxes, conf, mask, f"YOLOE-11s open-vocab, conf {conf:.2f}",
+                               pole_names=POLE_LIKE, base_conf=conf))
         frame = np.hstack(panels)
         if ff is None:
             H, W = frame.shape[:2]
@@ -135,6 +146,7 @@ def main():
     ap.add_argument("--center", type=int)
     ap.add_argument("--seconds", type=float, default=8.0)
     ap.add_argument("--out", type=Path, default=ROOT / "data/demo/poles")
+    ap.add_argument("--yoloe", action="store_true", help="right panel: YOLOE-11s prompt-free at its train-chosen conf")
     args = ap.parse_args()
     c = json.loads((OUT / "selection_train.json").read_text())["choice"]
     after = (c["imgsz"], c["pole_conf"])
@@ -142,8 +154,12 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     from ultralytics import YOLO
     model = YOLO(str(MODEL))
+    yoloe = None
+    if args.yoloe:
+        from ultralytics import YOLOE
+        yoloe = (YOLOE(str(WEIGHTS)), json.loads((OUT / "open_vocab_yoloe.json").read_text())["chosen_conf"])
     for sid, center in clips:
-        render(sid, center, args.seconds, after, model, args.out)
+        render(sid, center, args.seconds, after, model, args.out, yoloe)
 
 
 if __name__ == "__main__":
