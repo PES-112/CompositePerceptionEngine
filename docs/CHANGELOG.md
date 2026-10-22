@@ -2,6 +2,19 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-22, pole recall] - Inference size and pole confidence don't recover SANPO poles
+
+### Added
+- `evaluation/detector_recall_sweep.py`: detector recall on SANPO (the §4.21 rule) over input size
+  {640, 960, 1280} × pole/bollard confidence {0.30, 0.20, 0.15, 0.10}; chosen on 172 official-train
+  frames, test scored once. Results in `evaluation/benchmarks/detector_recall_sanpo/` (methodology §4.22).
+- `tools/render_pole_comparison.py`: before | after videos of SANPO clips with poles (SANPO pole mask
+  outlined), written to `data/demo/poles/`.
+
+### Found
+- Poles 1/22 → 2/22 on test with the chosen 960 px / 0.10; no box covers 20/22 test poles at any
+  size, even at conf 0.05. The fix is fine-tuning on SANPO (future work). No pipeline default changed.
+
 ## [2026-10-20, severity check] - K0 / severity literature check and a γ = 0 ablation
 
 ### Results (methodology §4.20)

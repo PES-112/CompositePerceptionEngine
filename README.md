@@ -84,7 +84,9 @@ CompositePerceptionEngine/
 │   ├── generate_report_figures.py   # Regenerates evaluation/benchmarks/figures/
 │   ├── segmentation_metrics.py      # mIoU, false-safe rate, curb/stairs boundary F (walkable-surface model)
 │   ├── context_association.py       # Do the scene-context flags predict arrival? (risk ratios, distance-adjusted)
+│   ├── detector_recall_sweep.py     # Pole recall on SANPO vs input size and pole confidence (no retraining)
 │   └── benchmarks/
+│       ├── detector_recall_sanpo/   # Sweep results: train selection grid, test scored once
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
 │       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics (SANPO depth as is); oracle_context_* / model_context_* = segmentation on/off
 │       ├── scene_context/           # Scene-context flag vs arrival-label association (all / train / val+test; gt_* oracle, model_* trained model)
@@ -109,6 +111,7 @@ CompositePerceptionEngine/
 │   ├── evaluate_edge_alerts.py      # "Curb ahead." alerts over the 53 head-masked sessions at 2.5 Hz
 │   ├── fit_kalman_noise.py          # Fit the Kalman noise model by predictive likelihood on train sessions
 │   ├── rebuild_local.py             # The Colab rebuild as one resumable script for a local/college GPU machine
+│   ├── render_pole_comparison.py    # Before | after detector videos on SANPO clips with poles (data/demo/poles/)
 │   ├── build_session_viewer.py      # Visual check of one SANPO walk: boxes, engine scores, alerts vs. truth
 │   │                                #     (HTML viewer from session_viewer.html, written to data/viewer/)
 │   ├── download_sanpo_valid_streams.py # Bounded downloader + the shared seeded session sampler

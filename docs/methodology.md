@@ -1339,6 +1339,37 @@ replay number (the replay scores tracked objects only), but it bounds what the s
   ahead, so all 5 columns fire on every frame. Its pseudo-objects get a new id each frame, so the
   engine skips them by design (`engine.py`, `obs_*`). Unlabeled obstacles never reach the user.
 
+### 4.22 Pole recall: inference size and pole confidence (2026-10-22)
+
+§4.21 found the v3 detector finds 1/22 SANPO poles
+within 10 m. Two inference-time fixes were tried, without retraining
+(`evaluation/detector_recall_sweep.py`; §4.21's objects and matching rule):
+- **A:** input size 640 (Stage 1 today) / 960 / 1280;
+- **B:** a lower confidence for pole and bollard boxes only (0.30–0.10).
+
+The setting was chosen on 172 human-annotated head-camera frames of 43 official-train sessions
+(rule declared first: best pole recall, pedestrian recall within 0.05 of baseline, pole-box support
+≥ 0.5). The choice was 960 px, 0.10, and test was scored once.
+
+| test (80 frames, 10 sessions) | poles | pedestrians |
+|---|---|---|
+| before: 640, conf 0.30 | 1/22 = 0.05 [0.01, 0.22] | 28/44 = 0.64 [0.49, 0.76] |
+| A+B: 960, pole conf 0.10 | 2/22 = 0.09 [0.03, 0.28] | 29/44 = 0.66 [0.51, 0.78] |
+
+- **Neither knob fixes poles.** A or B alone stays at 1/22.
+- **v3 puts no box on most SANPO poles at all**: none at any size or at confidence ≥ 0.05 for 40/50
+  train and 20/22 test poles. They aren't small: median width 123–175 px of 2208. The cause is what
+  v3 learned a pole looks like, not resolution or threshold. Fine-tuning on SANPO boxes from the
+  panoptic masks is the fix; future work. No pipeline default changed.
+- **1280 px raises pedestrian recall on train, 0.59 → 0.71.** Not scored on test, and about 4× the
+  detector time.
+- **Contradiction, unresolved:** pedestrians are 28/44 here against 34/44 in §4.21, on what should be
+  the same frames and rule. Ultralytics 8.4.38 here; §4.21's version is not recorded. Poles match
+  (1/22).
+
+Details and train grid: `evaluation/benchmarks/detector_recall_sanpo/report.md`. Videos:
+`tools/render_pole_comparison.py`.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate

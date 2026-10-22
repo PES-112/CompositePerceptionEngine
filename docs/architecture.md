@@ -388,6 +388,9 @@ Open:
 - **Alert budgets.** Only the GRU engine and nearest-in-corridor meet ≤ 5 false alerts/min on
   validation (4.9–5.6 on test); the Kalman and physics engines need ≤ 10. The GRU engine speaks
   about 13 times a minute at that point (methodology §4.18).
+- **Detector recall on SANPO.** The v3 detector finds 1/22 SANPO poles within 10 m. A larger input
+  size and a lower pole threshold don't change that (2/22), because v3 puts no box on most of them
+  (methodology §4.21–4.22). Static-obstacle results cover only what the detector tracks.
 - **Declared choices.** λ and the behaviour multipliers are declared design choices.
 - **Camera position.** The camera is head-mounted (SANPO). A phone would more likely be worn on
   the chest; SANPO's `camera_chest/` stream exists but is unused.
