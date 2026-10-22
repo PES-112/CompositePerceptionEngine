@@ -68,7 +68,7 @@ jobs:
           path: |
             ios/CPETiming/Models/
             models/GRU/exports/*.json
-            ios/CPETiming/Resources/bundle.json
+            ios/CPETiming/BenchData/bundle.json
 
       - name: Generate the Xcode project
         run: |

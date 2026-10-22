@@ -29,7 +29,7 @@ inside the graph, fixed shapes [1, 32, 8, 9].
 
 ## Build
 
-Everything in `Resources/` and `Models/` is generated (git-ignored):
+Everything in `BenchData/` and `Models/` is generated (git-ignored):
 
 ```bash
 python ios/CPETiming/prepare_bundle.py --frames 300 --export    # macOS: the export needs coremltools' native writer

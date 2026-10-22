@@ -15,6 +15,16 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 - Poles 1/22 → 2/22 on test with the chosen 960 px / 0.10; no box covers 20/22 test poles at any
   size, even at conf 0.05. The fix is fine-tuning on SANPO (future work). No pipeline default changed.
 
+## [2026-10-21] - iOS timing app installs on a phone
+
+Branch `ios-fix-resources`.
+
+### Fixed
+- `ios/CPETiming`: the bundled frames and GRU inputs moved from `Resources/` to `BenchData/`. A
+  top-level `Resources` folder makes iOS read the app as an old-style bundle, so installing the
+  unsigned .ipa failed with `IXErrorDomain Code=13 "Missing bundle ID"`. Updated `TimingRunner.swift`,
+  `prepare_bundle.py`, `project.yml`, the workflow, `.gitignore` and the README.
+
 ## [2026-10-20, severity check] - K0 / severity literature check and a γ = 0 ablation
 
 ### Results (methodology §4.20)

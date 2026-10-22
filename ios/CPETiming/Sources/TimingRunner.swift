@@ -176,11 +176,11 @@ final class Workload: @unchecked Sendable {
     static func load() throws -> Workload { try Workload() }
 
     private init() throws {
-        let res = Bundle.main.resourceURL!.appendingPathComponent("Resources")
+        let res = Bundle.main.resourceURL!.appendingPathComponent("BenchData")
         let frameDir = res.appendingPathComponent("Frames")
         frames = ((try? FileManager.default.contentsOfDirectory(at: frameDir, includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension.lowercased() == "jpg" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
-        guard !frames.isEmpty else { throw BundleError.missing("Resources/Frames/*.jpg") }
+        guard !frames.isEmpty else { throw BundleError.missing("BenchData/Frames/*.jpg") }
 
         let config = MLModelConfiguration()
         config.computeUnits = .all
@@ -210,7 +210,7 @@ final class Workload: @unchecked Sendable {
 
         let xURL = res.appendingPathComponent("gru_x.bin"), cURL = res.appendingPathComponent("gru_cls.bin")
         guard let xData = try? Data(contentsOf: xURL), let cData = try? Data(contentsOf: cURL) else {
-            throw BundleError.missing("Resources/gru_x.bin, gru_cls.bin") }
+            throw BundleError.missing("BenchData/gru_x.bin, gru_cls.bin") }
         guard let xShape = gru.modelDescription.inputDescriptionsByName["x"]?.multiArrayConstraint?.shape,
               let cShape = gru.modelDescription.inputDescriptionsByName["cls"]?.multiArrayConstraint?.shape else {
             throw BundleError.missing("GRU inputs x and cls") }
