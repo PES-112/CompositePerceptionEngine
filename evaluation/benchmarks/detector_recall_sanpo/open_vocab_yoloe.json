@@ -1,0 +1,448 @@
+{
+ "pole_like": [
+  "flag pole",
+  "lamp post",
+  "parking meter",
+  "parking sign",
+  "pillar",
+  "pole",
+  "post",
+  "road sign",
+  "signal",
+  "speed limit sign",
+  "stop sign",
+  "street light",
+  "street sign",
+  "telegraph pole",
+  "traffic sign",
+  "warning sign"
+ ],
+ "train_grid": [
+  {
+   "setting": "YOLOE conf 0.05",
+   "imgsz": "yoloe11s_pf",
+   "pole_conf": 0.05,
+   "frames": 172,
+   "pole_boxes_per_frame": 3.1744186046511627,
+   "pole_box_support": 0.5476190476190477,
+   "pedestrian": {
+    "found": 101,
+    "total": 122,
+    "recall": 0.8278688524590164,
+    "ci95": [
+     0.751148775686524,
+     0.8845710498719559
+    ]
+   },
+   "vehicle": {
+    "found": 21,
+    "total": 34,
+    "recall": 0.6176470588235294,
+    "ci95": [
+     0.4504071999938267,
+     0.7610003514839122
+    ]
+   },
+   "pole": {
+    "found": 20,
+    "total": 50,
+    "recall": 0.4,
+    "ci95": [
+     0.2760818978624575,
+     0.5381881089724063
+    ]
+   },
+   "traffic light": {
+    "found": 2,
+    "total": 5,
+    "recall": 0.4,
+    "ci95": [
+     0.1176182311592533,
+     0.769280067791163
+    ]
+   },
+   "bike rack": {
+    "found": 1,
+    "total": 4,
+    "recall": 0.25,
+    "ci95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ]
+   },
+   "obstacle": {
+    "found": 0,
+    "total": 106,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.034973998922084165
+    ]
+   }
+  },
+  {
+   "setting": "YOLOE conf 0.10",
+   "imgsz": "yoloe11s_pf",
+   "pole_conf": 0.1,
+   "frames": 172,
+   "pole_boxes_per_frame": 1.5930232558139534,
+   "pole_box_support": 0.583941605839416,
+   "pedestrian": {
+    "found": 101,
+    "total": 122,
+    "recall": 0.8278688524590164,
+    "ci95": [
+     0.751148775686524,
+     0.8845710498719559
+    ]
+   },
+   "vehicle": {
+    "found": 19,
+    "total": 34,
+    "recall": 0.5588235294117647,
+    "ci95": [
+     0.3945361778918369,
+     0.7111675978470325
+    ]
+   },
+   "pole": {
+    "found": 11,
+    "total": 50,
+    "recall": 0.22,
+    "ci95": [
+     0.12753786224302288,
+     0.35241815689459555
+    ]
+   },
+   "traffic light": {
+    "found": 1,
+    "total": 5,
+    "recall": 0.2,
+    "ci95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ]
+   },
+   "bike rack": {
+    "found": 1,
+    "total": 4,
+    "recall": 0.25,
+    "ci95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ]
+   },
+   "obstacle": {
+    "found": 0,
+    "total": 106,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.034973998922084165
+    ]
+   }
+  },
+  {
+   "setting": "YOLOE conf 0.15",
+   "imgsz": "yoloe11s_pf",
+   "pole_conf": 0.15,
+   "frames": 172,
+   "pole_boxes_per_frame": 1.0988372093023255,
+   "pole_box_support": 0.5873015873015873,
+   "pedestrian": {
+    "found": 101,
+    "total": 122,
+    "recall": 0.8278688524590164,
+    "ci95": [
+     0.751148775686524,
+     0.8845710498719559
+    ]
+   },
+   "vehicle": {
+    "found": 19,
+    "total": 34,
+    "recall": 0.5588235294117647,
+    "ci95": [
+     0.3945361778918369,
+     0.7111675978470325
+    ]
+   },
+   "pole": {
+    "found": 10,
+    "total": 50,
+    "recall": 0.2,
+    "ci95": [
+     0.11243629945973886,
+     0.3303737210448524
+    ]
+   },
+   "traffic light": {
+    "found": 1,
+    "total": 5,
+    "recall": 0.2,
+    "ci95": [
+     0.03622316096978745,
+     0.6244717358814613
+    ]
+   },
+   "bike rack": {
+    "found": 1,
+    "total": 4,
+    "recall": 0.25,
+    "ci95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ]
+   },
+   "obstacle": {
+    "found": 0,
+    "total": 106,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.034973998922084165
+    ]
+   }
+  },
+  {
+   "setting": "YOLOE conf 0.20",
+   "imgsz": "yoloe11s_pf",
+   "pole_conf": 0.2,
+   "frames": 172,
+   "pole_boxes_per_frame": 0.8255813953488372,
+   "pole_box_support": 0.5915492957746479,
+   "pedestrian": {
+    "found": 101,
+    "total": 122,
+    "recall": 0.8278688524590164,
+    "ci95": [
+     0.751148775686524,
+     0.8845710498719559
+    ]
+   },
+   "vehicle": {
+    "found": 18,
+    "total": 34,
+    "recall": 0.5294117647058824,
+    "ci95": [
+     0.3673644042005483,
+     0.6854874836688863
+    ]
+   },
+   "pole": {
+    "found": 7,
+    "total": 50,
+    "recall": 0.14,
+    "ci95": [
+     0.06950745262022862,
+     0.2618645719852809
+    ]
+   },
+   "traffic light": {
+    "found": 0,
+    "total": 5,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.43449149475208104
+    ]
+   },
+   "bike rack": {
+    "found": 1,
+    "total": 4,
+    "recall": 0.25,
+    "ci95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ]
+   },
+   "obstacle": {
+    "found": 0,
+    "total": 106,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.034973998922084165
+    ]
+   }
+  },
+  {
+   "setting": "YOLOE conf 0.30",
+   "imgsz": "yoloe11s_pf",
+   "pole_conf": 0.3,
+   "frames": 172,
+   "pole_boxes_per_frame": 0.436046511627907,
+   "pole_box_support": 0.5866666666666667,
+   "pedestrian": {
+    "found": 100,
+    "total": 122,
+    "recall": 0.819672131147541,
+    "ci95": [
+     0.7420351456355421,
+     0.8777916842839759
+    ]
+   },
+   "vehicle": {
+    "found": 18,
+    "total": 34,
+    "recall": 0.5294117647058824,
+    "ci95": [
+     0.3673644042005483,
+     0.6854874836688863
+    ]
+   },
+   "pole": {
+    "found": 5,
+    "total": 50,
+    "recall": 0.1,
+    "ci95": [
+     0.04347512399157111,
+     0.2136049033478839
+    ]
+   },
+   "traffic light": {
+    "found": 0,
+    "total": 5,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.43449149475208104
+    ]
+   },
+   "bike rack": {
+    "found": 1,
+    "total": 4,
+    "recall": 0.25,
+    "ci95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ]
+   },
+   "obstacle": {
+    "found": 0,
+    "total": 106,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.034973998922084165
+    ]
+   }
+  },
+  {
+   "setting": "YOLOE conf 0.40",
+   "imgsz": "yoloe11s_pf",
+   "pole_conf": 0.4,
+   "frames": 172,
+   "pole_boxes_per_frame": 0.23837209302325582,
+   "pole_box_support": 0.5121951219512195,
+   "pedestrian": {
+    "found": 97,
+    "total": 122,
+    "recall": 0.7950819672131147,
+    "ci95": [
+     0.7149764563988796,
+     0.8571713866037523
+    ]
+   },
+   "vehicle": {
+    "found": 18,
+    "total": 34,
+    "recall": 0.5294117647058824,
+    "ci95": [
+     0.3673644042005483,
+     0.6854874836688863
+    ]
+   },
+   "pole": {
+    "found": 2,
+    "total": 50,
+    "recall": 0.04,
+    "ci95": [
+     0.011038652660826577,
+     0.13460337877954667
+    ]
+   },
+   "traffic light": {
+    "found": 0,
+    "total": 5,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.43449149475208104
+    ]
+   },
+   "bike rack": {
+    "found": 1,
+    "total": 4,
+    "recall": 0.25,
+    "ci95": [
+     0.045586062644636216,
+     0.6993639475573634
+    ]
+   },
+   "obstacle": {
+    "found": 0,
+    "total": 106,
+    "recall": 0.0,
+    "ci95": [
+     0.0,
+     0.034973998922084165
+    ]
+   }
+  }
+ ],
+ "chosen_conf": 0.05,
+ "test": {
+  "setting": "YOLOE-11s prompt-free, conf 0.05 (chosen on train)",
+  "imgsz": "yoloe11s_pf",
+  "pole_conf": 0.05,
+  "frames": 80,
+  "pole_boxes_per_frame": 2.6125,
+  "pole_box_support": 0.5215311004784688,
+  "pedestrian": {
+   "found": 35,
+   "total": 44,
+   "recall": 0.7954545454545454,
+   "ci95": [
+    0.6549913631816677,
+    0.888468721765324
+   ]
+  },
+  "vehicle": {
+   "found": 6,
+   "total": 8,
+   "recall": 0.75,
+   "ci95": [
+    0.40926987910258916,
+    0.9285223111419724
+   ]
+  },
+  "pole": {
+   "found": 6,
+   "total": 22,
+   "recall": 0.2727272727272727,
+   "ci95": [
+    0.1315058201581444,
+    0.4815212369900198
+   ]
+  },
+  "bike rack": {
+   "found": 0,
+   "total": 2,
+   "recall": 0.0,
+   "ci95": [
+    0.0,
+    0.6576280471103807
+   ]
+  },
+  "obstacle": {
+   "found": 0,
+   "total": 20,
+   "recall": 0.0,
+   "ci95": [
+    0.0,
+    0.16113012549493322
+   ]
+  }
+ }
+}

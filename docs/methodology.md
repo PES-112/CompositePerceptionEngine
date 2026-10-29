@@ -1370,6 +1370,27 @@ The setting was chosen on 172 human-annotated head-camera frames of 43 official-
 Details and train grid: `evaluation/benchmarks/detector_recall_sanpo/report.md`. Videos:
 `tools/render_pole_comparison.py`.
 
+**Open-vocabulary detector, out of the box** (`evaluation/open_vocab_recall.py`). YOLOE-11s
+prompt-free (4,585 built-in classes, no training, no text encoder) at 640 px, with 16 pole-like
+classes counted as "pole" (pole, lamp post, street light, telegraph pole, flag pole, post, pillar, and
+sign and meter classes). The threshold was chosen on the same train frames: recall falls steadily with
+the threshold (20/50 at 0.05 → 5/50 at 0.30), so 0.05 was chosen.
+
+| test (80 frames) | poles | pole boxes/frame | pole-box support |
+|---|---|---|---|
+| v3, 640, conf 0.30 | 1/22 = 0.05 [0.01, 0.22] | 0.09 | 0.86 |
+| YOLOE-11s-pf, conf 0.05 | 6/22 = 0.27 [0.13, 0.48] | 2.61 | 0.52 |
+
+YOLOE sees more SANPO poles than v3, but only at a very low threshold, where about half of its pole
+boxes don't cover a pole-like SANPO object. That is not usable as the product's detector. As a
+teacher for fine-tuning v3, its labels would need filtering; on the 43 train sessions with head
+masks, SANPO's own instance masks give cleaner pole boxes directly. The text-prompted YOLOE / YOLO-World
+(needs the CLIP text encoder) is not yet tested.
+
+**Other classes** (252 cached frames, train + test; descriptive). Pedestrians are found 0.60 of the
+time; everything else rarely or never: SANPO "obstacle" 0/126, poles 1/72, trees 0/64, vehicles
+7/42, open doors 0/29, animals 4/23, rails 0/26, stairs 0/11. Many have no v3 class at all.
+
 ### 4.23 Earlier warnings: training objective, fused inputs, a rising trigger and conformal budgets (2026-10-25)
 
 **Why.** At 5 false alerts/min the GRU warns 0.35 of test arrivals but only 0.14 at least 0.2 s
@@ -1657,6 +1678,39 @@ The rule was declared before the run:
 - IDD test scores for the pseudo-labelled classes are circular (the old model made those labels),
   so they were not used.
 - The two-wheeler width check (§4.25) stays as a fallback.
+
+### 4.27 "Obstacle ahead." from segmentation and depth: oracle check (2026-10-22)
+
+*Written on the v2-threat-engine branch as §4.23 and renumbered when merged with §4.23–4.26 (2026-10-29).*
+
+A class-free alert for what the detector misses (`src/perception_stack/path_obstacle.py`): count
+the pixels in the walking corridor (|lateral| ≤ 0.375 m, the arrival label's 0.75 m; no more than
+0.5 m above the camera) that belong to a vertical class the detector doesn't track. Those classes
+are SANPO obstacle, pole, sign, light, bike rack, bus stop, tree, building, wall/fence, rails, doors
+and gates; pedestrians, riders, animals and vehicles stay with the object engine. Alert when there
+are ≥ *N* such pixels within *D* m for *K* frames, once per episode (re-arm after 2 s), like the curb
+alert. It is meant to replace the depth sweep, which fires on the ground in every frame (§4.21).
+It is not wired into the engine or announcer.
+
+**Oracle** (`tools/evaluate_path_obstacle.py`): SANPO's own masks stand in for a perfect model, on
+every 6th frame (2.5 Hz) of the 53 head-masked sessions. Reference: an *encounter* starts when ≥ 300
+obstacle pixels (1/4 resolution) are in the corridor within 1.0 m, after ≥ 2 frames without; SANPO
+has no "bumped into" event. *D* × *N* × *K* was chosen on the 43 official-train sessions (most
+encounters warned ≥ 1 s ahead at ≤ 1 alert/min, as the curb alert's sweep): **D 2.5 m, N 1000,
+K 2**.
+
+| | minutes | alerts/min | encounters | warned | warned ≥ 1 s | alerts followed | median lead |
+|---|---|---|---|---|---|---|---|
+| train (43, selection) | 21.6 | 0.70 [0.32, 1.10] | 11 | 7/11 | 4/11 | 7/15 | 2.8 s |
+| test (10, once) | 5.0 | 0.20 [0.00, 0.61] | 1 | 0/1 | 0/1 | 0/1 | – |
+
+- **Too little data to judge.** All of SANPO's head-masked footage is 27 minutes (sessions ~30 s),
+  and walkers seldom come within 1 m of something in their path: 12 encounters in all, 1 in test.
+- **It is quiet:** 0.2–0.7 alerts/min, against the engine's ~13/min. On train it warned 7 of 11
+  encounters (obstacle 3/5, guard rail 2/2, pole 1/1, wall 1/1; buildings 0/2), median 2.8 s ahead.
+- **Next:** run the walkable-surface model on the 85 test replay sessions (no masks needed). That
+  measures how often it would speak on real model output over ~40 min, though with no reference
+  for hits. It needs the model's Ultralytics version (`.venv-seg`, 8.4.178).
 
 ## 5. Latency methodology
 
