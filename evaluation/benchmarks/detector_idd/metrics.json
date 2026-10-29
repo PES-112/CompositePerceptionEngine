@@ -1,0 +1,189 @@
+{
+ "old": "/Users/ksrikrishnareddy/Documents/Capstone/CompositePerceptionEngine/training/runs/cpe_yolo26n_hazards_v3_from_base/weights/best.pt",
+ "new": "training/runs/cpe_yolo26n_hazards_v4_idd/weights/best.pt",
+ "sanpo_frames": 1000,
+ "conf": 0.3,
+ "legacy_classes": [
+  "stop sign",
+  "fire hydrant",
+  "pole",
+  "bollard",
+  "stairs",
+  "crosswalk",
+  "pothole",
+  "puddle",
+  "bench"
+ ],
+ "classes": [
+  {
+   "class": "person",
+   "idd_ap50_old": 0.287246310977305,
+   "idd_ap50_new": 0.40528848402722234,
+   "sanpo_old_boxes": 820,
+   "sanpo_new_boxes": 1491,
+   "retention": 0.9085365853658537,
+   "model": "new",
+   "why": "IDD mAP50 0.287 -> 0.405"
+  },
+  {
+   "class": "bicycle",
+   "idd_ap50_old": 0.0714981859417798,
+   "idd_ap50_new": 0.12687085200857678,
+   "sanpo_old_boxes": 12,
+   "sanpo_new_boxes": 21,
+   "retention": 0.4166666666666667,
+   "model": "new",
+   "why": "IDD mAP50 0.071 -> 0.127"
+  },
+  {
+   "class": "car",
+   "idd_ap50_old": 0.3910807319979408,
+   "idd_ap50_new": 0.5263986062727416,
+   "sanpo_old_boxes": 145,
+   "sanpo_new_boxes": 838,
+   "retention": 0.6689655172413793,
+   "model": "new",
+   "why": "IDD mAP50 0.391 -> 0.526"
+  },
+  {
+   "class": "motorcycle",
+   "idd_ap50_old": 0.023618597303480857,
+   "idd_ap50_new": 0.46441850392905365,
+   "sanpo_old_boxes": 0,
+   "sanpo_new_boxes": 72,
+   "retention": null,
+   "model": "new",
+   "why": "IDD mAP50 0.024 -> 0.464"
+  },
+  {
+   "class": "bus",
+   "idd_ap50_old": 0.3251525892116476,
+   "idd_ap50_new": 0.5072846238473477,
+   "sanpo_old_boxes": 15,
+   "sanpo_new_boxes": 80,
+   "retention": 0.4,
+   "model": "new",
+   "why": "IDD mAP50 0.325 -> 0.507"
+  },
+  {
+   "class": "truck",
+   "idd_ap50_old": 0.09251247206628926,
+   "idd_ap50_new": 0.2204626146151204,
+   "sanpo_old_boxes": 16,
+   "sanpo_new_boxes": 144,
+   "retention": 0.5625,
+   "model": "new",
+   "why": "IDD mAP50 0.093 -> 0.220"
+  },
+  {
+   "class": "traffic light",
+   "idd_ap50_old": 0.007250109176875664,
+   "idd_ap50_new": 0.052132800533725245,
+   "sanpo_old_boxes": 35,
+   "sanpo_new_boxes": 2,
+   "retention": 0.05714285714285714,
+   "model": "new",
+   "why": "IDD mAP50 0.007 -> 0.052"
+  },
+  {
+   "class": "stop sign",
+   "idd_ap50_old": 0.995,
+   "idd_ap50_new": 0.995,
+   "sanpo_old_boxes": 1,
+   "sanpo_new_boxes": 3,
+   "retention": 0.0,
+   "model": "legacy",
+   "why": "retention 0.00 of 1"
+  },
+  {
+   "class": "fire hydrant",
+   "idd_ap50_old": null,
+   "idd_ap50_new": null,
+   "sanpo_old_boxes": 6,
+   "sanpo_new_boxes": 0,
+   "retention": 0.0,
+   "model": "legacy",
+   "why": "retention 0.00 of 6"
+  },
+  {
+   "class": "pole",
+   "idd_ap50_old": 0.774490871848987,
+   "idd_ap50_new": 0.6667514824407544,
+   "sanpo_old_boxes": 24,
+   "sanpo_new_boxes": 27,
+   "retention": 0.5833333333333334,
+   "model": "legacy",
+   "why": "retention 0.58 of 24"
+  },
+  {
+   "class": "bollard",
+   "idd_ap50_old": 0.5223454102737779,
+   "idd_ap50_new": 0.15260183231133942,
+   "sanpo_old_boxes": 83,
+   "sanpo_new_boxes": 1,
+   "retention": 0.012048192771084338,
+   "model": "legacy",
+   "why": "retention 0.01 of 83"
+  },
+  {
+   "class": "stairs",
+   "idd_ap50_old": 0.6521570972886764,
+   "idd_ap50_new": 0.017353479853479854,
+   "sanpo_old_boxes": 32,
+   "sanpo_new_boxes": 0,
+   "retention": 0.0,
+   "model": "legacy",
+   "why": "retention 0.00 of 32"
+  },
+  {
+   "class": "crosswalk",
+   "idd_ap50_old": 0.995,
+   "idd_ap50_new": 0.05852941176470587,
+   "sanpo_old_boxes": 5,
+   "sanpo_new_boxes": 3,
+   "retention": 0.0,
+   "model": "legacy",
+   "why": "retention 0.00 of 5"
+  },
+  {
+   "class": "pothole",
+   "idd_ap50_old": null,
+   "idd_ap50_new": null,
+   "sanpo_old_boxes": 0,
+   "sanpo_new_boxes": 0,
+   "retention": null,
+   "model": "legacy",
+   "why": "no old boxes on SANPO"
+  },
+  {
+   "class": "puddle",
+   "idd_ap50_old": 0.03979999999999998,
+   "idd_ap50_new": 0.0,
+   "sanpo_old_boxes": 0,
+   "sanpo_new_boxes": 0,
+   "retention": null,
+   "model": "legacy",
+   "why": "no old boxes on SANPO"
+  },
+  {
+   "class": "dog",
+   "idd_ap50_old": 0.0036100131752305666,
+   "idd_ap50_new": 0.1042984614849354,
+   "sanpo_old_boxes": 3,
+   "sanpo_new_boxes": 10,
+   "retention": 0.3333333333333333,
+   "model": "new",
+   "why": "IDD mAP50 0.004 -> 0.104"
+  },
+  {
+   "class": "bench",
+   "idd_ap50_old": 0.995,
+   "idd_ap50_new": 0.0,
+   "sanpo_old_boxes": 42,
+   "sanpo_new_boxes": 4,
+   "retention": 0.09523809523809523,
+   "model": "legacy",
+   "why": "retention 0.10 of 42"
+  }
+ ]
+}

@@ -56,6 +56,16 @@ once on test with session-bootstrap 95% CIs:
                                     frame itself, which the budget_* rules reward
   recall_50                         fewest false alerts with >= 50% of arrivals warned
 
+  crc_budget_2 / _5 / _10           conformal risk control (Angelopoulos et al., ICLR 2024) on the per-walk
+                                    false-alert rate: the most-warned knob whose corrected validation risk
+                                    (n/(n+1))·mean_i min(false_i/min_i, CRC_CAP)/CRC_CAP + 1/(n+1) is within
+                                    budget/CRC_CAP, so a new walk's expected false-alert rate is <= budget
+                                    (exchangeable walks; the loss is near-monotone in the knob, not exactly)
+
+Extra arms (methodology §4.23): --gru-variant NAME=RUN adds v2_gru_NAME from another checkpoint
+trained on the same dataset; --rise ARM:BETA adds ARM_riseBETA, ARM's predictor wrapped in
+priority.RisingArrivalPredictor (reusing ARM's arrival cache); --arms keeps only the named arms.
+
 --announcer-sweep ARM ...: for those v2 arms the knob is (ignore threshold,
 announcer cooldown_s, switch_margin, stale_s) over ANNOUNCER_GRID instead of
 the threshold alone, so the announcer is tuned on validation too.
@@ -105,6 +115,7 @@ from src.threat_engine.engine import ThreatEngine
 from src.threat_engine.fusion import EgoPose, FusedTrack, GroundTracker, sanpo_session_poses
 from src.threat_engine.kalman_arrival import KalmanArrivalPredictor
 from src.threat_engine.priority import (SEVERITY_GAMMA, Arrival, GRUArrivalPredictor, PhysicsArrivalPredictor,
+                                        RisingArrivalPredictor,
                                         RankedThreat, SceneContext)
 from src.threat_prioritizer import build_threat_frame
 from tools.audit_sanpo_sessions import fetch, object_url
@@ -124,6 +135,7 @@ SWEEP_THRESHOLDS = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95)
 ANNOUNCER_GRID = tuple((c, m, st) for c in (2.0, 4.0, 8.0) for m in (1.0, 1.25, 2.0) for st in (0.6, 1.2))
 V1_LOW_K = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0, 8.0, 12.0)
 BUDGETS = (2.0, 5.0, 10.0)
+CRC_CAP = 30.0               # false alerts/min at which one walk's CRC loss saturates at 1
 KM_TIMES = (0.5, 1.0, 2.0, 3.0, 4.0)
 N_BOOT = 1000
 
@@ -307,9 +319,10 @@ def session_metrics(frames, log, horizon_frames: int, delays: np.ndarray | None 
 
 KEYS = ("warned", "precision", "late_share", "false_per_min", "alerts_per_min", "switches_per_min",
         "overrides_per_min", "median_lead_s", "warned_window_ge1", "warned_window_ge2", "lead_ge1_s",
-        "lead_over_window", "warned_before", "warned_lead_ge1")
+        "lead_over_window", "warned_before", "warned_lead_ge1", "false_per_min_walk")
 # warned counts an announcement on the arrival frame itself (lead 0). warned_before needs at least
-# one processed step (0.2 s) of lead and warned_lead_ge1 at least 1 s.
+# one processed step (0.2 s) of lead and warned_lead_ge1 at least 1 s. false_per_min pools all walks;
+# false_per_min_walk is the mean over walks of each walk's own rate (what crc_budget_* bounds).
 
 
 def point(sessions: list[dict]) -> np.ndarray:
@@ -338,6 +351,7 @@ def point(sessions: list[dict]) -> np.ndarray:
         float(np.median([a["lead_s"] / a["window_s"] for a in warned])) if warned else np.nan,
         sum(a["event"] and a["lead_s"] >= STEP_S - 1e-9 for a in arr) / len(arr) if arr else np.nan,
         sum(a["event"] and a["lead_s"] >= 1.0 - 1e-9 for a in arr) / len(arr) if arr else np.nan,
+        float(np.mean([s["false"] / s["minutes"] for s in sessions])) if sessions else np.nan,
     ])
 
 
@@ -395,6 +409,21 @@ def window_profile(per_session: list[dict]) -> dict:
             "share_ge_4s": float(np.mean(w >= 4.0))}
 
 
+def crc_risk(per_session: list[dict]) -> float:
+    """Conformal-risk-control bound on a new walk's false-alert loss: (n/(n+1))·mean loss + 1/(n+1), loss in [0, 1]."""
+    n = len(per_session)
+    loss = [min(s["false"] / s["minutes"], CRC_CAP) / CRC_CAP for s in per_session]
+    return n / (n + 1) * float(np.mean(loss)) + 1 / (n + 1)
+
+
+def pick_crc(runs: dict, curve: dict, budget: float):
+    """crc_budget_*: the most-warned knob whose CRC bound on validation is within budget / CRC_CAP."""
+    ok = [k for k, per in runs.items() if crc_risk(per) <= budget / CRC_CAP]
+    if not ok:
+        return None
+    return max(ok, key=lambda k: (np.nan_to_num(curve[k]["warned"][0]), -curve[k]["false_per_min"][0]))
+
+
 def pick(curve: dict, rule: str):
     """Knob value for an operating rule from a {knob: aggregate} validation curve."""
     items = list(curve.items())
@@ -440,6 +469,14 @@ def main() -> None:
                         "from them (warm-up excluded), seeded per session.")
     p.add_argument("--announcer-sweep", nargs="*", default=[], metavar="ARM",
                    help="v2 arms whose announcer (cooldown, switch margin, stale) is swept with the threshold.")
+    p.add_argument("--gru-variant", nargs="*", default=[], metavar="NAME=RUN",
+                   help="Extra GRU arms v2_gru_NAME (camera poses on) from other runs on the same dataset.")
+    p.add_argument("--rise", nargs="*", default=[], metavar="ARM:BETA",
+                   help="Extra arms ARM_riseBETA: ARM's predictor wrapped in RisingArrivalPredictor(beta).")
+    p.add_argument("--arms", nargs="*", default=None, help="Run only these arms (default: all).")
+    p.add_argument("--paired", nargs="*", default=[], metavar="A:B",
+                   help="Report A minus B on the test sessions (paired session bootstrap), each at its own "
+                        "validation-chosen knob, for every rule.")
     p.add_argument("--severity-gamma", type=float, default=SEVERITY_GAMMA,
                    help="Severity exponent γ in the v2 priority (0 = rank by arrival alone; ablation only).")
     args = p.parse_args()
@@ -484,6 +521,19 @@ def main() -> None:
         "v2_gru": (True, lambda: LegacyGRU(gru_path)),
         "v2_gru_nopose": (False, lambda: LegacyGRU(gru_path)),
     }
+    for spec in args.gru_variant:
+        vname, run_dir = spec.split("=", 1)
+        vcfg = json.loads((Path(run_dir) / "config.json").read_text(encoding="utf-8"))
+        if vcfg["dataset_name"] != manifest["name"]:
+            raise SystemExit(f"{run_dir} was not trained on {manifest['name']}")
+        v2_arms[f"v2_gru_{vname}"] = (True, lambda p=Path(run_dir) / "model.pt": LegacyGRU(p))
+    rising = {}                                    # arm -> (base arm, beta)
+    for spec in args.rise:
+        base, beta = spec.rsplit(":", 1)
+        if base not in v2_arms:
+            raise SystemExit(f"--rise: {base} is not a v2 arm")
+        rising[f"{base}_rise{float(beta):g}"] = (base, float(beta))
+        v2_arms[f"{base}_rise{float(beta):g}"] = v2_arms[base]
     context_arms = {"v2_physics_ctx": "v2_physics", "v2_gru_ctx": "v2_gru"} if args.context_dir else {}
     for arm, base in context_arms.items():
         v2_arms[arm] = v2_arms[base]
@@ -493,6 +543,11 @@ def main() -> None:
     sweep = tuple((t, *a) for t in SWEEP_THRESHOLDS for a in ANNOUNCER_GRID)
     arms = {"v1_k0": V1_LOW_K, "v1_k0_announcer": V1_LOW_K,
             **{a: sweep if a in args.announcer_sweep else V2_THRESHOLDS for a in v2_arms}}
+    if args.arms is not None:
+        missing = set(args.arms) - set(arms)
+        if missing:
+            raise SystemExit(f"--arms: unknown {sorted(missing)}")
+        arms = {a: k for a, k in arms.items() if a in args.arms}
 
     def run(part: str, arm: str, knob: float) -> list[dict]:
         per = []
@@ -501,8 +556,10 @@ def main() -> None:
                 log = run_v1(frames, announcer=arm.endswith("announcer"), low_k=knob)
             else:
                 use_pose, make = v2_arms[arm]
-                base = context_arms.get(arm, arm)    # context arms reuse their base arm's arrival cache
+                base = context_arms.get(arm, rising.get(arm, (arm,))[0])   # reuse the base arm's arrival cache
                 predictor = CachedPredictor(make(), caches[(base, sid)])
+                if arm in rising:
+                    predictor = RisingArrivalPredictor(predictor, rising[arm][1])
                 thr, ann = (knob[0], knob[1:]) if isinstance(knob, tuple) else (knob, None)
                 log = run_v2(frames, poses[sid] if use_pose else None, predictor, thr, ann,
                              contexts[sid] if arm in context_arms else None, args.severity_gamma)
@@ -510,15 +567,18 @@ def main() -> None:
         return per
 
     started = time.time()
-    rules = [f"budget_{b:g}" for b in BUDGETS] + [f"early_budget_{b:g}" for b in BUDGETS] + ["recall_50"]
+    rules = ([f"budget_{b:g}" for b in BUDGETS] + [f"early_budget_{b:g}" for b in BUDGETS] + ["recall_50"]
+             + [f"crc_budget_{b:g}" for b in BUDGETS])
     curves = {"val": {}, "test": {}}
     test_runs: dict[str, dict[float, list[dict]]] = {}
     chosen: dict[str, dict[str, float | None]] = {}
     for arm, knobs in arms.items():
-        curves["val"][arm] = {k: aggregate(run("val", arm, k), boot=False) for k in knobs}
+        val_runs = {k: run("val", arm, k) for k in knobs}
+        curves["val"][arm] = {k: aggregate(v, boot=False) for k, v in val_runs.items()}
         test_runs[arm] = {k: run("test", arm, k) for k in knobs}
         curves["test"][arm] = {k: aggregate(v, boot=False) for k, v in test_runs[arm].items()}
-        chosen[arm] = {r: pick(curves["val"][arm], r) for r in rules}
+        chosen[arm] = {r: (pick_crc(val_runs, curves["val"][arm], float(r.rsplit("_", 1)[1])) if r.startswith("crc_")
+                           else pick(curves["val"][arm], r)) for r in rules}
         print(f"{arm:20s} {time.time() - started:5.0f} s  chosen on val: "
               f"{ {r: (knob_str(k) if k is not None else None) for r, k in chosen[arm].items()} }", flush=True)
 
@@ -590,12 +650,30 @@ def main() -> None:
             ka, kb = chosen[arm][rule], chosen[base][rule]
             if ka is not None and kb is not None:
                 paired[(arm, rule)] = paired_difference(test_runs[arm][ka], test_runs[base][kb])
+    for spec in args.paired:
+        a, b = spec.split(":", 1)
+        for rule in rules:
+            ka, kb = chosen.get(a, {}).get(rule), chosen.get(b, {}).get(rule)
+            if ka is not None and kb is not None:
+                paired[(f"{a} - {b}", rule)] = paired_difference(test_runs[a][ka], test_runs[b][kb])
+    if args.paired:
+        lines += ["## Paired differences (test, same sessions, paired session-bootstrap 95% CI)", "",
+                  "Each arm at its own validation-chosen knob.", "",
+                  "| A - B | rule | Δ warned | Δ warned ≥ 0.2 s | Δ warned ≥ 1 s | Δ false alerts/min | Δ precision |",
+                  "|---|---|---|---|---|---|---|"]
+        for (arm, rule), d in paired.items():
+            if " - " in arm:
+                lines.append(f"| {arm} | {rule} | {cell(d['warned'])} | {cell(d['warned_before'])} | "
+                             f"{cell(d['warned_lead_ge1'])} | {cell(d['false_per_min'])} | {cell(d['precision'])} |")
+        lines.append("")
     if context_arms:
         lines += ["## Context on minus context off (test, same sessions, paired session-bootstrap 95% CI)", "",
                   f"Context from `{args.context_dir.as_posix()}`. Each arm at its own validation-chosen knob.", "",
                   "| Arm | rule | Δ warned | Δ false alerts/min | Δ precision | Δ median lead, window ≥ 1 s (s) |",
                   "|---|---|---|---|---|---|"]
         for (arm, rule), d in paired.items():
+            if " - " in arm:
+                continue
             lines.append(f"| {arm} | {rule} | {cell(d['warned'])} | {cell(d['false_per_min'])} | "
                          f"{cell(d['precision'])} | {cell(d['lead_ge1_s'])} |")
         lines.append("")
@@ -621,7 +699,10 @@ def main() -> None:
                                                                   for r, k in by.items()} for a, by in chosen.items()},
                                                   "points": points, "kaplan_meier": km,
                                                   "window_profile": windows,
-                                                  "paired_context": {f"{a}|{r}": d for (a, r), d in paired.items()}},
+                                                  "paired_context": {f"{a}|{r}": d for (a, r), d in paired.items()
+                                                                     if " - " not in a},
+                                                  "paired": {f"{a}|{r}": d for (a, r), d in paired.items()
+                                                             if " - " in a}},
                                                  indent=2, default=str), encoding="utf-8")
     print("\n".join(lines[:40]))
     print(f"-> {out}")

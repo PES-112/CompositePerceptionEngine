@@ -178,7 +178,7 @@ class GRUArrivalPredictor:
                  device: str = "cpu"):
         import torch
 
-        from dataset.GRU.samples import CLASS_VOCAB, UNKNOWN_CLASS
+        from dataset.GRU.samples import CLASS_VOCAB, FUSED_FEATURES, UNKNOWN_CLASS
         from models.GRU.registry import build_model
 
         ckpt = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -196,6 +196,8 @@ class GRUArrivalPredictor:
         self._unknown = UNKNOWN_CLASS
         self._obs: dict[str, dict[int, tuple]] = {}
         self._first_seen: dict[str, int] = {}
+        # A checkpoint trained on dataset/GRU/fused.py also reads the fused ground-plane state.
+        self.fused = FusedHistory() if cfg.get("features", [])[-len(FUSED_FEATURES):] == FUSED_FEATURES else None
 
     def observe(self, frame_idx: int, tracks: list[FusedTrack]) -> None:
         """Record this frame's measured rows (call once per frame, before predict)."""
@@ -212,6 +214,8 @@ class GRUArrivalPredictor:
                 float(r.get("confidence", 0.0)), float(r.get("bearing_deg", 0.0)), float(r["distance_m"]),
                 float(area), float(r.get("velocity_ms", 0.0)) * self.velocity_scale)
             self._first_seen.setdefault(t.track_id, frame_idx)
+        if self.fused is not None:
+            self.fused.observe(frame_idx, tracks)
         oldest = frame_idx - (self.history - 1)   # processed frames are numbered consecutively
         for tid in list(self._obs):
             self._obs[tid] = {f: v for f, v in self._obs[tid].items() if f >= oldest}
@@ -229,6 +233,9 @@ class GRUArrivalPredictor:
             return [], np.zeros((0, self.history, 0), dtype=np.float32), np.zeros(0, dtype=np.int64)
         x = np.stack([history_features(self._obs[t.track_id], self._first_seen[t.track_id], frame_idx,
                                        self.history, 1) for t in live])
+        if self.fused is not None:
+            x = np.concatenate([x, np.stack([self.fused.features(t.track_id, frame_idx, self.history)
+                                             for t in live])], axis=-1)
         cls = np.array([self._class_index.get(t.class_name, self._unknown) for t in live], dtype=np.int64)
         return live, x, cls
 
@@ -252,3 +259,78 @@ class GRUArrivalPredictor:
         expected_steps = p[:, :-1] @ mids + p[:, -1] * never
         return {t.track_id: Arrival(float(1.0 - p[i, -1]), float(expected_steps[i] * self.step_s))
                 for i, t in enumerate(live)}
+
+
+RISE_STEPS = 2               # 0.4 s at 5 Hz: the slope is taken over this many processed frames
+P_CLIP = 1e-4
+
+
+class RisingArrivalPredictor:
+    """
+    Earlier warnings from the trend of P(arrive) (methodology §4.23). An object
+    whose arrival log-odds are climbing is announced before its level alone
+    crosses the threshold, as a sequential detector (CUSUM-style) would:
+
+        logit p' = logit p + beta * max(0, logit p_t - logit p_{t - RISE_STEPS})
+
+    Only a rise counts, so a falling or steady object keeps its own P(arrive);
+    beta = 0 is the wrapped predictor unchanged. A track needs RISE_STEPS frames
+    of history before it can be boosted. beta is a declared knob chosen on
+    validation sessions.
+    """
+
+    def __init__(self, inner: ArrivalPredictor, beta: float, steps: int = RISE_STEPS):
+        self.inner, self.beta, self.steps = inner, beta, steps
+        self._logits: dict[str, dict[int, float]] = {}
+
+    def predict(self, frame_idx: int, tracks: list[FusedTrack]) -> dict[str, Arrival]:
+        out = {}
+        for tid, a in self.inner.predict(frame_idx, tracks).items():
+            p = min(max(a.p_arrive, P_CLIP), 1 - P_CLIP)
+            z = math.log(p / (1 - p))
+            hist = self._logits.setdefault(tid, {})
+            hist[frame_idx] = z
+            past = hist.get(frame_idx - self.steps)
+            for f in [f for f in hist if f < frame_idx - self.steps]:
+                del hist[f]
+            if past is not None and self.beta:
+                z += self.beta * max(0.0, z - past)
+            out[tid] = Arrival(1.0 / (1.0 + math.exp(-z)), a.expected_s)
+        for tid in [t for t, h in self._logits.items() if max(h) < frame_idx - self.steps]:
+            del self._logits[tid]                             # track gone for longer than the slope window
+        return out
+
+
+class FusedHistory:
+    """
+    Recent fused ground-plane state per track, as GRU inputs (dataset.GRU.samples.FUSED_FEATURES).
+    Recorded for the same tracks the Stage-1 history is (measured this frame, with a depth), so
+    padding lines up. The dataset builder (dataset/GRU/fused.py) and GRUArrivalPredictor both use
+    this class, so training and inference see the same numbers.
+    """
+
+    def __init__(self):
+        self._obs: dict[str, dict[int, tuple]] = {}
+
+    @staticmethod
+    def values(t: FusedTrack) -> tuple:
+        from src.threat_engine import envelope
+        return (t.lateral_m / 2, t.forward_m / 10, t.lateral_speed_ms / 2, t.closing_speed_ms / 5,
+                min(t.position_std_m / 2, 1.0), float(envelope.in_corridor(t.lateral_m, t.forward_m, t.class_name)))
+
+    def observe(self, frame_idx: int, tracks: list[FusedTrack]) -> None:
+        for t in tracks:
+            if t.measured and t.row is not None and t.row.get("distance_m") not in (None, ""):
+                self._obs.setdefault(t.track_id, {})[frame_idx] = self.values(t)
+        for tid in [tid for tid, h in self._obs.items() if max(h) < frame_idx - 32]:
+            del self._obs[tid]
+
+    def features(self, track_id: str, frame_idx: int, history: int) -> np.ndarray:
+        from dataset.GRU.samples import FUSED_FEATURES
+        x = np.zeros((history, len(FUSED_FEATURES)), dtype=np.float32)
+        h = self._obs.get(track_id, {})
+        for k in range(history):
+            v = h.get(frame_idx - (history - 1 - k))
+            if v is not None:
+                x[k] = v
+        return np.clip(x, -5.0, 5.0)

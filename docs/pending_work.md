@@ -1,27 +1,68 @@
 # Pending Work
 
 Everything not yet done for the v2 design (`architecture.md`), in priority order. When an item is
-finished, move it to `progress.md` and log it in `CHANGELOG.md`. Last updated 2026-10-14 (evening).
+finished, move it to `progress.md` and log it in `CHANGELOG.md`. Last updated 2026-10-25.
 
 Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **P2** evaluation ·
 **P3** iPhone · **P4** narration · **P5** paper.
 
 ---
 
-## Next three
+## Priorities after the 2026-10-25 review
 
-1. **Measure on the iPhone (P3.1–P3.2).** It's the one headline claim with no number yet. The
-   timing app, the GRU export and the CI workflow exist (`ios/CPETiming/README.md`). What's left: an
-   Apple Developer account, the App Store Connect secrets, a green CI run, and the phone.
-2. **Make warnings earlier (P2.2).** Operating points are now chosen on `warned_before` and the
-   announcer was swept (done 2026-10-19, methodology §4.17). Neither creates lead: ≤ 0.22 of
-   arrivals are warned ≥ 0.2 s ahead. The predictors are the limit. Next: a GRU objective that
-   rewards early probability (time-to-arrival-weighted loss or a "≥ 1 s ahead" target) and a
-   rising-P(arrive) announcement trigger.
-3. **Walkable-surface segmentation (P1.1).** Trained (YOLO26n-sem @640 on the M4, 2026-10-18) and
-   re-run with its masks. Context: no measurable effect. Edge alerts: well below the oracle on
-   held-out sessions (1 of 7 step-offs warned vs 3 of 7). Next: n at a larger imgsz on a GPU
-   machine (not started).
+A critical read of every result so far. What limits the product is, in order: what the detector
+sees, how early it sees it, and whether the phone build behaves like the replay. Tuning the
+arrival model further is not on the list. §4.23 tried three ways to warn earlier (objective,
+fused inputs, rising trigger) and none moved the operating curve outward.
+
+**Utmost priority**
+1. **Detector recall on SANPO (P1, new).** v3 finds 1 of 22 poles and 1 of 8 vehicles within 10 m
+   on SANPO head-camera frames, and no inference setting fixes it (§4.21–4.22). Every replay
+   number is mostly about people (73% of test objects).
+   - Fix: fine-tune on SANPO boxes built from the *instance* channels of the original panoptic masks
+     (G/B; `data/sanpo_walkable_seg` kept only the semantic channel). Mix them with the Roboflow
+     set and restart from the base checkpoint (the v2 forgetting lesson, `progress.md` §4).
+   - Then re-run Stage 1 (GPU box) and the ladder and replay.
+   - Expected effect: more hazards, seen from further away. That is also the one remaining lever on
+     lead time (a quarter of arrivals are first seen < 1 s before arriving).
+2. **Field-check `ios/CPEWalk` on the phone.**
+   - Golden-parity test: done (2026-10-26).
+   - First walk: done (2026-10-27). Road was called crosswalk or sidewalk, scooters were called
+     cars, and stairs underfoot went unannounced. Partial fixes are in §4.25.
+   - Still to do:
+     - Measure the full per-frame latency the app shows.
+     - Do more walks with a sighted tester. Check the stair calls and the road bias on Indian
+       streets.
+     - Add session recording (frames, depth, pose, alerts) so phone-domain data can be replayed
+       with the same harness.
+2a. **Indian street data (the real fix for 1 and the first walk).** SANPO is US/Japan footage. The
+   India Driving Dataset (IDD, IIIT Hyderabad; free registration) labels road, sidewalk,
+   "drivable fallback", motorcycle, autorickshaw and more on Indian roads.
+   - **Done (§4.26):** segmenter and detector fine-tuned on IDD. The phone runs the IDD segmenter and
+     two detectors (IDD model for road users, v3 for static and ground classes).
+   - Still open:
+     - Validate on recorded phone walks.
+     - Re-measure on-device latency with two detectors.
+     - Retrain with the Roboflow set on the lab server so one detector keeps every class.
+     - Fix traffic lights, which neither model detects reliably.
+3. **Adopt `crc_budget_*` as the paper's operating rule.** It is the only rule with a stated bound
+   on a new walk's false-alert rate, and it held on test at 5/min (§4.23). Re-report §6.2 with it
+   next to `budget_*`.
+
+**Large expected improvement**
+4. **Chest camera** (P2.6): the phone is chest-worn and SANPO has 130 chest-masked sessions. Stage 1
+   on that stream gives a matched domain and 28 test sessions for the oracle instead of 10.
+5. **Crossing intent for edge alerts** (§4.24): 42 of 45 step-offs are onto road along its edge.
+   Alerts need the walker's predicted path to cross the edge (path curvature from the pose,
+   crosswalk context), not just an edge nearby.
+6. **Listening study** (`listening_study_plan.md`): where on the alert-rate / recall curve a blind
+   walker wants to be is not a question the replay can answer.
+
+**Hygiene**
+- Replays with seeds 1–2 for every arm that enters the paper (today: seed 0 only).
+- Retire the v1 chain (P1.4) once the paper is frozen.
+- The fused-input and early-objective GRUs are kept as options. Don't re-try them without new
+  inputs (range, chest camera).
 
 ## Integration and the 4-day plan (2026-10-19 to 2026-10-22)
 

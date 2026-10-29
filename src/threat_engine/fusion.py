@@ -242,7 +242,8 @@ class GroundTracker:
         # Right = forward turned the same way the camera's right is from its forward,
         # so the result has the same handedness as the pose.
         cam = pose.basis()
-        sign = 1.0 if np.linalg.det(cam) > 0 else -1.0
+        # 2x2 determinant written out: numpy's BLAS det can raise spurious "invalid value" warnings on macOS
+        sign = 1.0 if cam[0, 0] * cam[1, 1] - cam[0, 1] * cam[1, 0] > 0 else -1.0
         right = sign * np.array([fwd[1], -fwd[0]])
         return np.column_stack([right, fwd])
 

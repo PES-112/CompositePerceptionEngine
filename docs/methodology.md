@@ -1370,6 +1370,294 @@ The setting was chosen on 172 human-annotated head-camera frames of 43 official-
 Details and train grid: `evaluation/benchmarks/detector_recall_sanpo/report.md`. Videos:
 `tools/render_pole_comparison.py`.
 
+### 4.23 Earlier warnings: training objective, fused inputs, a rising trigger and conformal budgets (2026-10-25)
+
+**Why.** At 5 false alerts/min the GRU warns 0.35 of test arrivals but only 0.14 at least 0.2 s
+ahead (§4.18), and 0.45 of its announcements are *late*: about objects already inside the
+corridor. The training target contributes to this. The corridor label calls an object positive
+when it is in the corridor at any step of [T, T + 20], so an object already inside counts
+(tte = 0). That is the easiest positive to learn, and it is worthless as a warning: the safety
+envelope and the late class already cover it.
+
+**Four changes, each on the training split, chosen on validation, test read once.**
+1. **Future-only objective** (`models/GRU/train.py --future-only`). Objects with tte = 0 are left
+   out of the loss. At runtime they are still scored; they just don't train the model.
+2. **Earliness weighting** (`--early-weight a`). Each arriving object's cross-entropy is weighted
+   by 1 + a · tte / H (H = 20). It is the opposite of the exponential loss of accident
+   anticipation (DSA, Chan et al. ACCV 2016; AdaLEA, Suzuki et al. CVPR 2018), which down-weights
+   frames far from the event. Here, probability mass far from arrival is what buys lead time. a ∈
+   {1, 3}.
+3. **Fused ground-plane inputs** (`dataset/GRU/fused.py`; P1.3). Each history step gets six values
+   from the runtime Kalman tracker: lateral and forward position on the walker's direction of
+   travel, lateral and signed closing speed, position uncertainty, and an in-corridor flag. Head
+   motion is removed with `fixed_camera_poses.csv`. The builder runs the same `ThreatEngine` +
+   `GroundTracker` as the replay, and both it and the runtime predictor read the values through
+   `priority.FusedHistory`, so train and serve cannot drift. **No leakage:** the label's direction
+   of travel is the *next* 1 s of camera displacement, while the tracker's comes from *past* poses
+   only.
+4. **Rising-probability trigger** (`priority.RisingArrivalPredictor`). It boosts the arrival
+   log-odds by β · max(0, Δ over 0.4 s), a one-sided CUSUM-style evidence term, so a climbing
+   object crosses the threshold sooner. β ∈ {0.5, 1, 2}, wrapped around the baseline GRU.
+
+**And one new operating rule: conformal risk control on alert budgets** (`crc_budget_*`;
+Angelopoulos et al., ICLR 2024). Each validation walk's loss is min(false_i / min_i, 30) / 30.
+The rule picks the most-warned knob whose corrected risk (n/(n+1)) · mean + 1/(n+1) is within
+budget / 30. Under exchangeable walks this bounds a *new walk's* expected false-alert rate by the
+budget, without distributional assumptions. The `budget_*` rules match the pooled validation
+rate, with no guarantee.
+
+**Protocol.** Seed-0 checkpoint of each variant (3 seeds trained; the seed-0 convention of §4.18).
+Each variant has its own arm in `tools/replay_threat_engine.py`, with the threshold × announcer
+sweep on the 48 validation sessions, scored once on the 85 test sessions
+(`data/replay_423/*`, combined by `tools/compare_replay_variants.py` into
+`evaluation/benchmarks/threat_engine_replay/early_warning_2026_10_25/`). **Selection rule,
+declared before any result was read:** the highest validation warned ≥ 0.2 s at each variant's
+validation-chosen `early_budget_5` point.
+
+**Results.** The baseline reproduces §4.18 exactly (0.35 warned, 0.14 ≥ 0.2 s, 5.62 false/min).
+
+| Test, `early_budget_5` | warned | warned ≥ 0.2 s | warned ≥ 1 s | false/min | precision | late share |
+|---|---|---|---|---|---|---|
+| GRU, baseline | 0.35 [0.23, 0.52] | 0.14 [0.06, 0.25] | 0.04 | 5.62 | 0.55 | 0.45 |
+| **future-only + early weight 1 (chosen)** | 0.37 [0.26, 0.51] | **0.18 [0.07, 0.32]** | 0.03 | 5.97 | 0.56 | 0.42 |
+| future-only | 0.32 | 0.11 | 0.04 | 5.19 | 0.55 | 0.45 |
+| future-only + early weight 3 | 0.33 | 0.14 | 0.04 | 5.45 | 0.52 | 0.42 |
+| fused inputs | 0.32 | 0.11 | 0.03 | 5.11 | 0.56 | 0.47 |
+| fused + future-only (+ weight 1) | 0.23 (0.25) | 0.10 (0.13) | 0.03 (0.04) | 4.50 (5.28) | 0.47 (0.41) | 0.36 (0.30) |
+| rising trigger, β = 0.5 / 1 / 2 | 0.39 / 0.38 / 0.34 | 0.16 / 0.16 / 0.14 | 0.05 | 6.14 / 6.14 / 5.71 | 0.54 / 0.54 / 0.53 | 0.42 / 0.41 / 0.41 |
+| nearest in corridor | 0.23 | 0.10 | 0.03 | 4.93 | 0.39 | 0.29 |
+
+**Paired test of the chosen variant against the baseline** (one replay with both arms,
+`--paired`; `threat_engine_replay/early_warning_paired_2026_10_25/`; each arm at its own
+validation-chosen knob, paired session bootstrap over the 85 test walks):
+
+| chosen − baseline | Δ warned | Δ warned ≥ 0.2 s | Δ warned ≥ 1 s | Δ false/min | Δ precision |
+|---|---|---|---|---|---|
+| `budget_5` / `early_budget_5` | +0.01 [−0.12, +0.09] | +0.04 [−0.02, +0.10] | −0.01 [−0.06, 0.00] | +0.35 [−0.29, +0.92] | 0.00 [−0.05, +0.03] |
+| `budget_10` | +0.03 [−0.10, +0.09] | +0.06 [−0.08, +0.13] | +0.03 [−0.05, +0.08] | +3.37 [+1.98, +4.93] | −0.09 [−0.15, −0.05] |
+| `crc_budget_5` | −0.03 [−0.14, +0.04] | −0.01 [−0.08, +0.03] | −0.04 [−0.11, 0.00] | −0.61 [−1.39, +0.17] | +0.04 [−0.03, +0.07] |
+| `crc_budget_10` | +0.08 [−0.03, +0.14] | **+0.14 [+0.02, +0.21]** | +0.06 [−0.03, +0.15] | +7.10 [+4.91, +9.26] | −0.15 [−0.22, −0.10] |
+
+**Verdict: no measurable gain at a fixed budget.** At 5 false alerts/min the chosen objective
+warns +0.04 more arrivals ≥ 0.2 s ahead, but the CI includes 0. Where it does warn earlier
+(`crc_budget_10`, +0.14), it pays 7 false alerts/min more. The objective moves the operating
+curve along itself, not outward. The early-warning bottleneck is not the GRU's loss.
+
+- **The objective change is the one that moves lead,** and only together: future-only alone
+  (0.11) and weight 3 (0.14) do not. On validation the chosen variant tied the rising trigger
+  (β 0.5 and 1) at 0.15, against 0.12 for the baseline. The tie went to fewer false alerts
+  (4.83 vs 4.95 per minute), as declared.
+- **Fused inputs do not help at this sample size.** On ranking, the fused GRU's held-out AUROC is
+  0.909–0.912 over 3 seeds against 0.911. In the replay they are no better at budget 5, and worse
+  with the future-only objective. The camera-frame history already carries most of what the fused
+  state adds. The tracker and the GRU see the same depth, and head turns are a small part of
+  SANPO's motion. Kept as a builder and a runtime option, not the default.
+- **The rising trigger helps a little and costs a little.** It gives +0.02 ≥ 0.2 s and +0.01 ≥ 1 s
+  at +0.5 false/min, which is inside the CIs; its effect is easiest to see at budget 10 (warned
+  ≥ 1 s 0.06 → 0.09–0.11).
+- **CRC keeps its promise at 5/min.** Every arm's mean per-walk false-alert rate on test is ≤ 4.74
+  (budget 5). At budget 10 one arm exceeds it (fused + future-only + weight 1: 11.6), which is
+  within what a guarantee in expectation with a near-monotone loss allows; report the exception.
+  CRC also picks *lower* thresholds than `budget_5`. It bounds the per-walk mean, and long walks
+  have lower rates. The baseline GRU under `crc_budget_5` warns 0.39 (0.19 ≥ 0.2 s) at a per-walk
+  mean of 4.74 false/min.
+- **What it does not fix.** Warned ≥ 1 s stays at 0.03–0.05 at budget 5 for every arm. A quarter
+  of arrivals are first seen < 1 s before arriving (§4.18), and the rest are rarely confident
+  early. The remaining lever is perception range: detector recall on SANPO, §4.21–4.22.
+
+**Default.** The runtime GRU stays `corridor_h8` (the paired test shows no gain at a fixed
+budget). The training flags, the fused builder, the rising wrapper and the CRC rule are kept as
+options and as the record of what was tried. Worth adopting from this study: **`crc_budget_*` as
+the way to choose the operating point**, because it is the only rule with a stated guarantee on
+the false-alert rate of a new walk.
+
+### 4.24 Edge memory for "Curb ahead." (2026-10-25): a negative result
+
+**Idea.** The head camera sees no ground closer than ~2.6 m, and edges are first seen 6–10 m
+ahead, so the confirm-within-5 m rule has a ~1.5 s window (§6.4). `EdgeMemoryAlerter`
+(`src/segmentation/edge_alert.py`) anchors each sighting on the ground plane with the camera pose
+and merges sightings within 1.5 m. It dead-reckons the walker toward the edge and announces once
+it is on the walking line (±1.5 m) and within 5 m or `ttr_s` at walking speed, even after the edge
+has left the image.
+
+**Evaluation** (`tools/evaluate_edge_alerts.py --source gt --memory --sweep`; SANPO's masks; the
+same step-off reference; ttr ∈ {2, 3, 4} s × confirmations ∈ {1, 2, 3}, chosen on the 43 train
+sessions at ≤ 1 alert/min; `edge_alerts/gt_memory_trainsweep_2026_10_25/`).
+
+| Train, at matched alert rates | alerts/min | step-offs warned |
+|---|---:|---:|
+| distance rule (§6.4 sweep) | 0.7 / 1.1 / 2.2 | 0.18 / 0.34 / 0.58 |
+| edge memory | 0.79 / 1.16 / 2.36 | 0.18 / 0.26 / 0.53 |
+
+The memory gives no recall at any alert rate; it is slightly worse. At the ≤ 1/min budget it
+chooses ttr 4 s and 3 confirmations and warns 0.16 [0.05, 0.30] overall (test 1/7, as before).
+42 of 45 step-offs are onto road, which the walker approaches along its edge for a long time, so
+the binding constraint is alerts spent on edges walked beside, not the confirmation window. The
+default stays `EdgeAlerter`. A better edge alert needs to know the walker will *cross* the edge
+(path curvature or a crosswalk context), not just that the edge is near.
+
+### 4.25 Fixes after the first phone walk (2026-10-27)
+
+The first walk with CPEWalk, on Indian streets, raised three problems:
+1. the road was called "crosswalk" or "sidewalk";
+2. a scooter was sometimes called "car";
+3. once on stairs, the app said nothing useful.
+
+None of these can be scored on the phone yet, so each fix was checked on SANPO where possible.
+
+**1. Road called safe: a road logit bias.** This is scored at the level narration uses: the walker
+patch (`context.walker_surface`).
+- The segmenter as shipped calls **67 %** of ground-truth road walker patches walkable or crosswalk
+  on validation (35 % crosswalk alone). Its pixel-level "road as walkable" of 17 % (§4.19) hides
+  this.
+- `tools/tune_surface_rules.py` takes the model's stride-8 logits, adds +b to road, then the argmax.
+- Declared rule: minimise road-called-safe, subject to walkable-called-road ≤ 5 %.
+
+| Walker patches | road called safe | road called crosswalk | walkable called road |
+|---|---:|---:|---:|
+| val, as shipped | 0.669 | 0.346 | 0.008 |
+| val, b = 2.5 (chosen) | 0.391 | 0.226 | 0.049 |
+| test, as shipped | 0.433 | 0.100 | 0.011 |
+| test, b = 2.5 | 0.300 | 0.033 | 0.039 |
+
+- The test set has only 30 ground-truth road patches (3,850 frames), so take the size of the drop
+  loosely.
+- **Chest camera**, the phone's mount: road called safe 0.31 → 0.15 and walkable called road
+  0.010 → 0.031.
+- The phone now runs the logits export (`prepare_app.py`, [1, 8, 80, 80]; Core ML argmax agrees
+  with PyTorch on 99.6–99.9 % of cells), samples it bilinearly, and adds `ROAD_LOGIT_BIAS = 2.5`.
+- The replay's scene context still uses the plain argmax.
+
+**Crosswalk stripe check: a negative result.** The idea was to relabel a "crosswalk" walker patch
+as road when its luminance spread (p90 − p10) shows no painted stripes. Validation chose s = 45 by
+its declared rule (keep ≥ 90 % of true crosswalks), but:
+- it removed no road-called-crosswalk on validation at any s ≤ 60;
+- on test it raised crosswalk-called-road from 0.09 to 0.28.
+
+SANPO's roads carry lane paint, so brightness contrast does not separate road from zebra crossing.
+The check is not shipped.
+
+**2. Scooter called car: a width check.** "Motorcycle" is one of the 17 classes, but the detector's
+training data has few Indian two-wheelers.
+- `yolo_tracker.vehicle_class`: a car, bus or truck box narrower than 1.2 m (pinhole width at its
+  LiDAR depth, box not cut by the frame edge) is relabelled motorcycle.
+- Any car is at least ~1.4 m wide. A scooter with its rider is under ~1 m from the front or back.
+- Side-on scooters (~1.8 m long) still pass as cars.
+- There are no box labels for this locally, so the check is unit-tested but not scored.
+
+**3. On the stairs: stairs from the walker's height.** The segmenter sees the ground 2–3 m ahead and
+is weakest on stairs (IoU 0.47, boundary F 0.06). On the flight, though, the height of the camera
+rises or falls ~0.17 m per step.
+
+`stairs.StairMotion`:
+- **"Going up / down stairs."** needs the rise over 1 s ≥ 0.18 m, or over 2 s ≥ 0.25 m, with
+  rise ≥ 0.5 × run and run ≥ 0.1 m, on 2 frames in a row.
+- **"End of stairs."** needs the rise over 1 s < 0.07 m while still walking.
+- On the phone, its events take the edge lane. While on a flight, segmentation's edge and surface
+  phrases are held back.
+
+Evaluation (`tools/evaluate_stair_motion.py`; SANPO head-camera poses at 5 Hz against frames whose
+walker patch is labelled stairs; `stairs/stair_motion/`):
+- The slope and windows were chosen on train + val:
+  - slope 0.35 → 15 false starts, 0.5 → 9;
+  - adding the 2 s window, chosen so that one step per second is still caught, → 7;
+  - every setting found the same 2 of 7 episodes.
+
+| | sessions with labels | stair episodes | found | false starts / labelled min |
+|---|---:|---:|---:|---:|
+| train | 107 | 5 | 1 | 0.124 |
+| val | 32 | 2 | 1 | 0.057 |
+| test | 38 | 2 | 0 | 0.190 |
+
+**The evidence is weak, for three reasons:**
+- The labels mark stairs *seen ahead*, not stairs climbed. Most "missed" episodes are flights
+  the walker never took.
+- The one test flight that was taken falls 0.29 m over 1.4 m, a slope of 0.2: long outdoor
+  steps the slope rule cannot tell from a hill.
+- The false starts we viewed are on flat ground, where SANPO's head-camera height drifts.
+  ARKit's gravity-aligned height should drift less, but that is unverified.
+
+Test was scored twice: once at slope 0.5 with a 1 s window, then again after the 2 s window was
+added for slow walkers. The second change came from a failing unit test (one step per second), not
+from test scores. The stair detector is a field-test item, not a result.
+
+### 4.26 Indian street data: IDD fine-tunes and a two-detector phone build (2026-10-27)
+
+The first phone walk was in India. SANPO (US/Japan) gave the segmenter no Indian roads and the
+detector almost no scooters. Both models were fine-tuned on the India Driving Dataset (IDD, IIIT
+Hyderabad, Varma et al. WACV 2019) within a one-day budget, on the M4 Mac (MPS), one at a time.
+
+**Data.**
+- **Segmentation** (`tools/build_idd_segmentation.py`): IDD 20k Part I polygons are rasterised into
+  SANPO class ids, so SANPO's label mapping applies unchanged.
+  - train: 6,321 IDD frames plus 7,000 SANPO train frames;
+  - val (checkpoint choice): 672 IDD frames from held-out sequences plus 1,000 SANPO val frames;
+  - test: IDD's official val split, 981 frames.
+- **Detection** (`tools/build_idd_detection.py`): IDD VOC boxes mapped to the 17 CPE classes
+  (rider → person, autorickshaw → car, animal → dog). The original Roboflow training set is on the
+  lab server, so for classes IDD does not label the v3 detector supplies pseudo-labels at conf ≥ 0.5.
+  - train 10,000; val 1,500 (held-out sequences); test 2,000 (IDD val).
+
+**Training.**
+- Segmenter: from the shipped model, lr 0.001, 12 epochs, about 30 min each. Best validation mIoU
+  was at the last epoch: 0.659.
+- Detector: from v3, backbone frozen (6 layers), lr 0.002. It stopped early at epoch 9; the best was
+  epoch 5 at validation mAP50 0.412.
+
+**Segmenter results** (`evaluation/benchmarks/segmentation/`). Each model uses its own road bias,
+chosen on SANPO val by the §4.25 rule (minimise road called safe, with walkable called road ≤ 5 %).
+The new model's bias is 3.25.
+
+| | old | new |
+|---|---:|---:|
+| IDD test mIoU (pixels) | 0.246 | **0.742** |
+| IDD test: road pixels called walkable | 0.663 | **0.002** |
+| SANPO test mIoU | 0.615 | **0.635** |
+| SANPO test: road pixels called walkable | 0.173 | **0.090** |
+| SANPO val walker patch: road called safe (with bias) | **0.391** | 0.504 |
+| SANPO test walker patch: road called safe (with bias, 30 road patches) | 0.300 | **0.067** |
+| SANPO test walker patch: walkable called road (with bias) | **0.039** | 0.066 |
+| IDD test walker patch: road called safe (with bias, 976 road patches) | 0.639 | **0.000** |
+
+- The new segmenter ships. It wins on every Indian measure and on SANPO pixels.
+- **Caveat 1:** it is worse on SANPO val walker patches, and its false "careful" rate on SANPO test
+  (0.066) is above the 5 % cap set on val.
+- **Caveat 2:** SANPO test has only 30 road walker patches.
+- **Caveat 3:** IDD is filmed from a car, so its walker patch is almost always road. The IDD walker
+  row shows that road is no longer called sidewalk; it says nothing about sidewalks.
+
+**Detector results** (`evaluation/benchmarks/detector_idd/report.md`, `tools/compare_idd_detectors.py`).
+The rule was declared before the run:
+- a class IDD labels goes to the new model if its IDD test AP50 is higher;
+- any other class goes to the new model only if it keeps ≥ 80 % of the old model's boxes on 1,000
+  SANPO val frames (at least 20 boxes); otherwise the original detector keeps it.
+
+| | IDD AP50 old → new | SANPO retention | phone uses |
+|---|---|---:|---|
+| motorcycle | 0.024 → **0.464** | (no old boxes) | new |
+| person | 0.287 → 0.405 | 0.91 | new |
+| car | 0.391 → 0.526 | 0.67 | new |
+| bus / truck | 0.325 → 0.507 / 0.093 → 0.220 | 0.40 / 0.56 | new |
+| bicycle / dog | 0.071 → 0.127 / 0.004 → 0.104 | 0.42 / 0.33 | new |
+| traffic light | 0.007 → 0.052 | **0.06** (35 → 2 boxes) | new (by the rule) |
+| pole, bollard, stairs, crosswalk, bench, … | pseudo-labels only | 0.00 – 0.58 | **original** |
+
+- The fine-tune forgot the classes IDD does not label, even with pseudo-labels. Bollards fell to 1 of
+  83, stairs to 0 of 32, benches to 4 of 42.
+- So the phone runs both detectors: CPEDetector (IDD) answers for road users, traffic lights and
+  dogs; CPEDetectorLegacy (v3) answers for the 9 static and ground classes. Each detector takes its
+  arg-max class and drops the box if that class belongs to the other one, so no object is
+  double-counted.
+- **Cost:** a second detector pass per frame. On-device latency has not been re-measured.
+- **Retention is agreement with the old model, not accuracy**: SANPO val has no box labels on this
+  machine. The new model finds many more cars (838 vs 145), and these are probably true positives
+  the old model missed, but that is unverified.
+- **Traffic lights go to the new model by the declared rule,** yet on SANPO it keeps only 2 of 35.
+  IDD AP50 is near zero for both models, so neither is reliable for traffic lights.
+- IDD test scores for the pseudo-labelled classes are circular (the old model made those labels),
+  so they were not used.
+- The two-wheeler width check (§4.25) stays as a fallback.
+
 ## 5. Latency methodology
 
 ### 5.1 Measurement vs. simulation — kept strictly separate
@@ -1650,4 +1938,11 @@ section of this document (§1–6 above) as additional grounding context first.
 > and that the camera-pose check failed (§4.13), so ego-motion removal is not claimed. State the
 > limitations: open-loop replay, SANPO depth used as is (external LiDAR not modelled), head-mounted camera, no
 > user study, declared severity / announcer parameters. Do not claim a live deployment, phone FPS that
-> was not measured, or results for components that have not been run."
+> was not measured, or results for components that have not been run.
+> Add the 2026-10-25 study (§4.23–4.24) as follows. Three attempts at earlier warnings (a
+> future-only, earliness-weighted objective; Kalman-fused ground-plane inputs; a rising-probability
+> trigger) are a null result at a fixed budget (paired Δ warned ≥ 0.2 s +0.04 [−0.02, +0.10]), and
+> the bottleneck is perception range. Conformal risk control picks operating points whose per-walk
+> false-alert rate stayed within budget on test at 5/min for every arm. The edge memory gave no
+> recall at matched alert rates. The iPhone app (`ios/CPEWalk`) is built and parity-tested against
+> the Python engine; do not report it as field-tested."

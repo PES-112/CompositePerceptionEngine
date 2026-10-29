@@ -85,6 +85,23 @@ def is_valid_detection(det: dict, frame_w: int, frame_h: int) -> bool:
     return True
 
 
+# Smallest cars are ~1.4 m wide (front/back) and far longer side-on; a scooter or motorbike with its
+# rider is under ~1 m wide from the front or back. The detector (no Indian two-wheelers in its training
+# data) calls scooters "car" at times: a "car" narrower than this is relabelled a two-wheeler.
+FOUR_WHEELERS = ("car", "bus", "truck")
+CAR_MIN_WIDTH_M = 1.2
+EDGE_MARGIN_PX = 4      # a box cut by the frame edge says nothing about the object's width
+
+
+def vehicle_class(cls: str, x1: float, x2: float, depth_m: float | None, focal_px: float, frame_w: float) -> str:
+    """'motorcycle' for a four-wheeler box whose real width (pinhole, at the box's depth) is too narrow."""
+    if cls not in FOUR_WHEELERS or depth_m is None or not depth_m > 0:
+        return cls
+    if x1 <= EDGE_MARGIN_PX or x2 >= frame_w - EDGE_MARGIN_PX:
+        return cls
+    return "motorcycle" if (x2 - x1) * depth_m / focal_px < CAR_MIN_WIDTH_M else cls
+
+
 # ── Depth-guided 3-pass post-processing ───────────────────────────────────────
 
 def depth_rescore(detections: list[dict], depth_map: np.ndarray | None, frame_shape: tuple[int, int] | None = None,

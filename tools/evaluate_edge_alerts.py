@@ -29,6 +29,7 @@ unless --reference gt takes them from SANPO's masks; only the latter scores the
 model's alerts against annotated step-offs.
 
     python tools/evaluate_edge_alerts.py --source gt
+    python tools/evaluate_edge_alerts.py --source gt --memory --sweep   # edge memory (methodology §4.24)
     python tools/evaluate_edge_alerts.py --source training/runs/cpe_yolo26s_sem_walkable/weights/best.pt --device mps --imgsz 768
 """
 
@@ -48,7 +49,8 @@ import numpy as np
 
 from dataset.GRU.relabel import load_session_poses
 from src.segmentation.context import EdgeAhead, edge_ahead, walker_surface, _depth_on
-from src.segmentation.edge_alert import ALERT_KINDS, ALERT_M, CLEAR_S, CONFIRM_FRAMES, EdgeAlerter
+from src.segmentation.edge_alert import (ALERT_KINDS, ALERT_M, CLEAR_S, CONFIRM_FRAMES, TTR_ALERT_S, EdgeAlerter,
+                                         EdgeMemoryAlerter)
 from src.segmentation.labels import CPE_CLASSES, WALKABLE_CLASSES
 from tools.build_scene_context import AUDIT, DOWNSAMPLE, class_map_source, depth_map
 
@@ -85,15 +87,26 @@ def stays_off(rows: list[list], i: int, n: int) -> bool:
 SWEEP_ALERT_M = (5.0, 7.0, 10.0)
 SWEEP_CONFIRM = (1, 2)
 SWEEP_MAX_ALERTS_PER_MIN = 1.0
+SWEEP_TTR_S = (2.0, 3.0, 4.0)   # --memory: time-to-reach replaces the alert distance in the sweep
+SWEEP_MEMORY_CONFIRM = (1, 2, 3)
 
 
 def score_session(rows: list[list], stay: int = 1, ref_rows: list[list] | None = None,
-                  alert_m: float = ALERT_M, confirm_frames: int = CONFIRM_FRAMES) -> dict:
-    """Alerts from rows; step-offs from ref_rows (e.g. the gt track) if given, else from rows."""
-    alerter = EdgeAlerter(alert_m=alert_m, confirm_frames=confirm_frames)
+                  alert_m: float = ALERT_M, confirm_frames: int = CONFIRM_FRAMES,
+                  poses: list | None = None, ttr_s: float = TTR_ALERT_S) -> dict:
+    """
+    Alerts from rows; step-offs from ref_rows (e.g. the gt track) if given, else from rows.
+    poses (source-frame camera poses): use EdgeMemoryAlerter with ttr_s instead of EdgeAlerter.
+    """
+    if poses is None:
+        alerter = EdgeAlerter(alert_m=alert_m, confirm_frames=confirm_frames)
+    else:
+        alerter = EdgeMemoryAlerter(alert_m=alert_m, confirm_frames=confirm_frames, ttr_s=ttr_s)
     alerts, step_offs = [], []
     for f, _, kind, dist in rows:
-        a = alerter.step(f / SOURCE_FPS, None if kind is None else EdgeAhead(kind, dist))
+        edge = None if kind is None else EdgeAhead(kind, dist)
+        a = alerter.step(f / SOURCE_FPS, edge) if poses is None else \
+            alerter.step(f / SOURCE_FPS, edge, poses[min(f, len(poses) - 1)])
         if a is not None:
             alerts.append(a)
     ref = rows if ref_rows is None else ref_rows
@@ -135,6 +148,10 @@ def main() -> None:
                    help=f"Choose --alert-m x --confirm-frames on official-train sessions only: most step-offs "
                         f"warned with <= {SWEEP_MAX_ALERTS_PER_MIN:g} alerts/min (ties: fewer alerts); "
                         "then score every session with the choice.")
+    p.add_argument("--memory", action="store_true",
+                   help="EdgeMemoryAlerter (ground-plane edge memory, time-to-reach) instead of EdgeAlerter; "
+                        "--sweep then chooses time-to-reach x confirmations.")
+    p.add_argument("--ttr-s", type=float, default=TTR_ALERT_S, help="--memory: time-to-reach to announce at (s).")
     p.add_argument("--reference", choices=["source", "gt"], default="source",
                    help="Where step-offs come from: the same class maps as the alerts (source), or SANPO's "
                         "masks (gt), so a model's alerts are scored against annotated, not predicted, step-offs.")
@@ -168,12 +185,28 @@ def main() -> None:
     refs = load_tracks("gt") if args.reference == "gt" and args.source != "gt" else tracks
     usable = [sid for sid, rows in tracks.items() if len(rows) > 1 and len(refs[sid]) > 1]
 
-    def score_all(alert_m: float, confirm: int) -> dict[str, dict]:
+    poses = {sid: load_session_poses(sid) for sid in usable} if args.memory else {}
+
+    def score_all(alert_m: float, confirm: int, ttr_s: float = args.ttr_s) -> dict[str, dict]:
         return {sid: score_session(tracks[sid], args.step_off_stay, None if refs is tracks else refs[sid],
-                                   alert_m, confirm) for sid in usable}
+                                   alert_m, confirm, poses.get(sid), ttr_s) for sid in usable}
 
     sweep = []
-    if args.sweep:
+    if args.sweep and args.memory:
+        train = [s for s in usable if audit[s]["split"] == "train"]
+        for ttr in SWEEP_TTR_S:
+            for confirm in SWEEP_MEMORY_CONFIRM:
+                sc = score_all(args.alert_m, confirm, ttr)
+                minutes = sum(sc[s]["minutes"] for s in train)
+                leads = [l for s in train for l in sc[s]["leads"]]
+                sweep.append({"ttr_s": ttr, "confirm_frames": confirm,
+                              "alerts_per_min": sum(len(sc[s]["alerts"]) for s in train) / minutes,
+                              "warned": sum(l is not None for l in leads) / len(leads), "step_offs": len(leads)})
+        ok = [r for r in sweep if r["alerts_per_min"] <= SWEEP_MAX_ALERTS_PER_MIN]
+        best = max(ok, key=lambda r: (r["warned"], -r["alerts_per_min"]))
+        args.ttr_s, args.confirm_frames = best["ttr_s"], best["confirm_frames"]
+        print("train sweep (memory):", *sweep, f"chosen: {best}", sep="\n  ", flush=True)
+    elif args.sweep:
         train = [s for s in usable if audit[s]["split"] == "train"]
         for alert_m in SWEEP_ALERT_M:
             for confirm in SWEEP_CONFIRM:
@@ -212,7 +245,9 @@ def main() -> None:
     reference = "gt" if args.source == "gt" or args.reference == "gt" else "source"
     result = {"source": args.source, "step_off_reference": reference, "sessions": len(sessions), "frame_step": FRAME_STEP,
               "rule": {"kinds": [CPE_CLASSES[k] for k in ALERT_KINDS], "alert_m": args.alert_m,
-                       "confirm_frames": args.confirm_frames, "clear_s": CLEAR_S},
+                       "confirm_frames": args.confirm_frames, "clear_s": CLEAR_S,
+                       "alerter": "EdgeMemoryAlerter" if args.memory else "EdgeAlerter",
+                       **({"ttr_s": args.ttr_s} if args.memory else {})},
               "train_sweep": sweep,
               "lookback_s": LOOKBACK_S, "step_off_hold": STEP_OFF_HOLD, "step_off_stay": args.step_off_stay,
               "overall": overall,
@@ -242,8 +277,14 @@ def main() -> None:
     c = result["ci"]
     lines = [f"# Edge-ahead alerts - {name}", "",
              f"{len(sessions)} sessions with head-camera masks, {overall['minutes']:.1f} min at 2.5 Hz; class maps from "
-             f"`{args.source}`. Rule: announce {result['rule']['kinds']} within {args.alert_m:g} m, seen in "
-             f"{args.confirm_frames} consecutive frames, one alert per edge episode ({CLEAR_S:g} s clear). Step-off: the "
+             f"`{args.source}`. "
+             + (f"Rule (edge memory): announce {result['rule']['kinds']} seen {args.confirm_frames} time(s) at the same "
+                f"ground-plane spot (camera pose), once it is on the walking line within {args.alert_m:g} m or "
+                f"{args.ttr_s:g} s at walking speed, even out of view; at most one alert per {CLEAR_S:g} s. "
+                if args.memory else
+                f"Rule: announce {result['rule']['kinds']} within {args.alert_m:g} m, seen in "
+                f"{args.confirm_frames} consecutive frames, one alert per edge episode ({CLEAR_S:g} s clear). ")
+             + f"Step-off: the "
              f"ground just ahead turns from walkable to an announced kind after {STEP_OFF_HOLD} walkable frames "
              f"and stays off walkable ground for {args.step_off_stay} frame(s), on "
              f"{'SANPO masks' if reference == 'gt' else 'the same class maps as the alerts (self-referenced)'}. "

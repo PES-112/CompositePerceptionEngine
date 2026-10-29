@@ -1,0 +1,29 @@
+{
+  "created_utc": "2026-10-25T13:59:28+00:00",
+  "run": "/Users/ksrikrishnareddy/Documents/Capstone/CompositePerceptionEngine/models/GRU/GRU/runs/corridor_h8_seed0",
+  "package": "cpe_gru_corridor_h8_seed0_fp16.mlpackage",
+  "precision": "16",
+  "shapes": {
+    "x": [
+      1,
+      32,
+      8,
+      9
+    ],
+    "cls": [
+      1,
+      32
+    ],
+    "p": [
+      1,
+      32,
+      5
+    ]
+  },
+  "coremltools": "9.0",
+  "torch": "2.14.1",
+  "check": {
+    "skipped": false,
+    "max_abs_diff": 0.0010547339916229248
+  }
+}

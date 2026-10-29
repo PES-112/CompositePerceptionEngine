@@ -26,6 +26,18 @@ BEARING_FAR_DEG = 45.0
 DISTANCE_BUCKETS_M = (5, 10, 20)
 DIRECTIONS = ("ahead", "left", "right", "far left", "far right")
 
+# Ground phrases (announcer kinds "edge" and "surface"), keyed by CPE class name
+# (src/segmentation/labels.py). Edges are spoken to the metre up to EDGE_MAX_M,
+# the edge alerter's range.
+EDGE_WORDS = {"curb": "Curb", "stairs": "Stairs", "road": "Road"}
+EDGE_MAX_M = 5
+# stairs.StairMotion events ride the edge lane with these kinds; the walker is already on the flight
+STAIR_PHRASES = {"stairs_up": "Going up stairs.", "stairs_down": "Going down stairs. Careful.",
+                 "stairs_end": "End of stairs."}
+SURFACE_WORDS = {"walkable": "the sidewalk", "crosswalk": "the crosswalk", "road": "the road",
+                 "curb": "the curb", "stairs": "stairs", "non-walkable ground": "rough ground"}
+UNSAFE_SURFACES = ("road", "curb", "stairs", "non-walkable ground")
+
 
 def direction(bearing_deg: float) -> str:
     """Ahead / left / right / far left / far right, as narration-ready words."""
@@ -45,6 +57,22 @@ def distance_words(distance_m: float) -> str:
     return "far"
 
 
+def edge_phrase(kind: str, distance_m: float) -> str:
+    """'Curb ahead, 3 meters.' The edge alerter only fires within EDGE_MAX_M."""
+    if kind in STAIR_PHRASES:
+        return STAIR_PHRASES[kind]
+    m = int(min(EDGE_MAX_M, max(1, round(distance_m))))
+    return f"{EDGE_WORDS.get(kind, 'Edge')} ahead, {m} meter{'s' if m > 1 else ''}."
+
+
+def surface_phrase(surface: str, changed: bool) -> str:
+    """'Now on the road. Careful.' on a change; 'Walking on the sidewalk.' as a reminder."""
+    words = SURFACE_WORDS.get(surface, surface)
+    if not changed:
+        return f"Walking on {words}."
+    return f"Now on {words}." + (" Careful." if surface in UNSAFE_SURFACES else "")
+
+
 def _class_words(object_class: str) -> str:
     return object_class[:1].upper() + object_class[1:]
 
@@ -55,6 +83,10 @@ def narrate(event: NarratorEvent) -> str:
     for SLM-2) deterministic warning. Never returns an empty string — the
     critical path always has something to say.
     """
+    if event.reason == "edge ahead":
+        return edge_phrase(event.object_class, event.distance_m)
+    if event.reason in ("now on", "still on"):                 # announcer.SURFACE_CHANGE / SURFACE_REMINDER
+        return surface_phrase(event.object_class, changed=event.reason == "now on")
     cls = _class_words(event.object_class)
     d = direction(event.bearing_deg)
 
@@ -76,6 +108,13 @@ def all_phrases(classes: list[str]) -> list[str]:
             phrases += [f"Stop! {cls} very close {d}.", f"{cls} fast from your {d}.", f"{cls} close, {d}."]
             phrases += [f"{cls} {d}, {w}." for w in [f"{b} meters" for b in DISTANCE_BUCKETS_M] + ["far"]]
     return phrases
+
+
+def ground_phrases() -> list[str]:
+    """Every edge and surface phrase: the rest of the clip library."""
+    phrases = [edge_phrase(k, m) for k in [*EDGE_WORDS, "other"] for m in range(1, EDGE_MAX_M + 1)]
+    return (phrases + list(STAIR_PHRASES.values())
+            + [surface_phrase(s, c) for s in SURFACE_WORDS for c in (True, False)])
 
 
 # ── Self-check ───────────────────────────────────────────────────────────────
@@ -116,6 +155,17 @@ def _demo() -> None:
     library = set(all_phrases(list(CLASS_SEVERITY)))
     for ev in (fast_left, override, near_slow, far_away):
         assert narrate(ev) in library, narrate(ev)
+
+    curb = NarratorEvent(track_id="edge:curb", object_class="curb", distance_m=3.2,
+                         closing_velocity_ms=0.0, bearing_deg=0.0, reason="edge ahead", is_override=False)
+    assert narrate(curb) == "Curb ahead, 3 meters.", narrate(curb)
+    road = NarratorEvent(track_id="surface:road", object_class="road", distance_m=0.0,
+                         closing_velocity_ms=0.0, bearing_deg=0.0, reason="now on", is_override=False)
+    assert narrate(road) == "Now on the road. Careful.", narrate(road)
+    assert surface_phrase("walkable", changed=False) == "Walking on the sidewalk."
+    assert edge_phrase("stairs", 0.6) == "Stairs ahead, 1 meter."
+    for ev in (curb, road):
+        assert narrate(ev) in ground_phrases(), narrate(ev)
 
     assert direction(0.0) == "ahead"
     assert direction(-10.0) == "ahead"       # within center cone

@@ -2,6 +2,97 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-10-28] - Indian street fine-tunes; the phone runs two detectors (methodology §4.26)
+
+### Added
+- **Data builders:** `tools/build_idd_segmentation.py` (IDD polygons mixed with SANPO) and
+  `tools/build_idd_detection.py` (IDD boxes plus v3 pseudo-labels for the classes IDD lacks).
+- **Segmenter `cpe_yolo26n_sem_walkable_idd`**, now on the phone with `ROAD_LOGIT_BIAS = 3.25`
+  (re-tuned on SANPO val).
+  - IDD test: mIoU 0.246 → 0.742; road pixels called walkable 0.663 → 0.002.
+  - SANPO test: mIoU 0.615 → 0.635.
+  - SANPO walker patch: road called safe, val 0.39 → 0.50 (worse) and test 0.30 → 0.07 (better).
+- **Detector `cpe_yolo26n_hazards_v4_idd`.** Motorcycle AP50 on IDD test 0.02 → 0.46; car 0.39 → 0.53.
+  - It forgot the static and ground classes, so CPEWalk also bundles v3 as `CPEDetectorLegacy`.
+  - v3 answers for stop sign, fire hydrant, pole, bollard, stairs, crosswalk, pothole, puddle and
+    bench (`prepare_app.LEGACY_CLASSES`, from `tools/compare_idd_detectors.py`).
+
+### Open
+- Two detector passes per frame: latency not re-measured.
+- Traffic lights: the IDD model keeps 2 of the old model's 35 SANPO boxes.
+
+## [2026-10-27] - Fixes after the first phone walk (methodology §4.25)
+
+### Added
+- **Road bias on the phone:** the segmenter is exported with stride-8 logits; CPEWalk adds
+  `context.ROAD_LOGIT_BIAS = 2.5` to road before the argmax.
+  - Walker patches with road called safe: val 0.67 → 0.39, test 0.43 → 0.30.
+  - Walkable called road: val 0.008 → 0.049, test 0.011 → 0.039.
+  - Tool: `tools/tune_surface_rules.py`.
+- **Stairs from height** (`src/threat_engine/stairs.py`, `ios/CPEWalk/Sources/Engine/Stairs.swift`):
+  "Going up stairs.", "Going down stairs. Careful." and "End of stairs." from ARKit's camera
+  height; they take the edge lane. Evaluated by `tools/evaluate_stair_motion.py`, with weak
+  evidence (§4.25).
+- **Two-wheeler width check** (`yolo_tracker.vehicle_class`): a car, bus or truck box narrower than
+  1.2 m at its depth is relabelled motorcycle.
+- `tests/test_field_fixes.py` (11 tests) and `ios/CPEWalk/Tests/FieldFixTests.swift` (4 tests).
+
+### Not shipped
+- **Crosswalk stripe check** (luminance spread): no gain on validation; on test, crosswalk called
+  road went from 0.09 to 0.28.
+
+## [2026-10-26] - CPEWalk builds and matches the Python engine
+
+### Fixed
+- `ios/CPEWalk` `GroundTracker.relative`: `position_std` used trace(P_pos), assuming the basis is a
+  rotation. When standing, the basis is SANPO's camera right / forward pair, which is slightly
+  non-orthogonal, so the result was off by up to 2e-4 m. It now computes trace(Wᵀ P_pos W) as
+  `fusion.py` does.
+
+### Verified
+- The app compiles for iPhone (Xcode 27.1). The golden test passes on the iOS 27 simulator, 120 frames:
+  tracks within 2e-14, GRU inputs identical, max |Δ P(arrive)| 0.003, ranking identical, 18/18 phrases.
+- Build notes in `ios/CPEWalk/README.md`: `-runFirstLaunch`, the simulator download, and keeping
+  DerivedData out of iCloud (code signing rejects iCloud's file attributes).
+
+## [2026-10-25] - Surface narration, early-warning study, conformal budgets, and the iPhone app
+
+### Added
+- **Ground narration** (`src/segmentation/edge_alert.py` `SurfaceTracker`, announcer surface lane,
+  `src/narration/templates.py` `edge_phrase` / `surface_phrase` / `ground_phrases`): edges are spoken
+  with their distance ("Curb ahead, 3 meters."); a change of the walker's surface is announced at
+  once ("Now on the road. Careful."); after 5 s of silence with no threat in view, the surface is
+  repeated ("Walking on the sidewalk."). The surface lane is the lowest, and any hazard cuts a
+  surface clip.
+- **Stereo panning** by bearing (`src/narration/spatial.py`), used by `tools/render_demo_video.py`,
+  which also now runs on macOS (`say`, Homebrew ffmpeg).
+- **Early-warning study** (methodology §4.23):
+  - `models/GRU/train.py --future-only --early-weight`;
+  - `dataset/GRU/fused.py` (Kalman ground-plane GRU inputs through `priority.FusedHistory`);
+  - `priority.RisingArrivalPredictor`;
+  - replay `--gru-variant`, `--rise`, `--arms`, `--paired`;
+  - `crc_budget_*` operating rules (conformal risk control) and the `false_per_min_walk` metric;
+  - `tools/compare_replay_variants.py`.
+  - Results: `threat_engine_replay/early_warning_2026_10_25/`, `early_warning_paired_2026_10_25/`.
+- **Edge memory** (`EdgeMemoryAlerter`, `tools/evaluate_edge_alerts.py --memory`), methodology §4.24:
+  a negative result; the default alerter is unchanged.
+- **`ios/CPEWalk`**: the navigation app on the iPhone (ARKit pose + LiDAR depth, Core ML detector /
+  segmenter / GRU, Swift port of fusion, envelope, priority, announcer, narration, segmentation
+  context and edge / surface alerts, panned speech). `prepare_app.py` writes the models, a config
+  exported from the Python constants, and a golden SANPO walk for the parity test.
+- `tests/test_v2_additions.py` (rising trigger, fused history, edge memory, panning, CRC bound) and
+  surface-announcement tests; 108 tests pass.
+
+### Results
+- Early-warning variants: no gain at a fixed budget. The chosen objective (future-only + weight 1)
+  gives a paired Δ warned ≥ 0.2 s of +0.04 [−0.02, +0.10] at 5 false/min. Fused inputs and the
+  rising trigger are within CI. The runtime GRU stays `corridor_h8_seed0`.
+- CRC budgets held on test at 5/min for every arm (per-walk mean ≤ 4.74).
+
+### Fixed
+- `fusion.walking_basis`: the 2×2 determinant is written out. numpy's BLAS `det` raised spurious
+  "invalid value" warnings on macOS; the value is unchanged.
+
 ## [2026-10-22, pole recall] - Inference size and pole confidence don't recover SANPO poles
 
 ### Added

@@ -11,6 +11,10 @@ dataset/GRU/build.py, then score it on that dataset's test sessions.
     # cross-validation dataset + arrival-time output (rank objects by how soon they arrive)
     python -m models.GRU.train --arch gru --dataset dataset/GRU/<name>_f5_s0 --time-bins 4 --seeds 0 1 2
 
+    # early-warning objective (methodology §4.23): objects already in the zone don't train the model,
+    # and positives further from arrival weigh more
+    python -m models.GRU.train --arch gru --dataset <corridor dataset> --time-bins 4 --future-only --early-weight 1
+
 Both architectures read the same dataset files (same samples, same session
 splits) and run this same loop, so a gap between their metrics comes from the
 attention layer. Each run writes models/GRU/<GRU|GRU_attention>/runs/<run-name>[_fold<F>]_seed<N>/
@@ -31,7 +35,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from dataset.GRU.samples import N_CLASSES, N_FEATURES, collate, load_dataset, truncate_history
+from dataset.GRU.samples import N_CLASSES, collate, load_dataset, truncate_history
 from models.GRU.evaluate import evaluate_samples, write_report
 from models.GRU.registry import ARCHS, RUN_ROOTS, build_model
 
@@ -53,6 +57,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--time-bins", type=int, default=0,
                    help="0 = one yes/no encounter output; K > 0 = arrival-time output over K slices of the horizon "
                         "plus 'not within it', so objects can be ranked by how soon they arrive.")
+    p.add_argument("--future-only", action="store_true",
+                   help="Leave objects already inside the zone (tte == 0) out of the loss: the safety envelope "
+                        "and the late class cover them, and they teach the model nothing about warning early.")
+    p.add_argument("--early-weight", type=float, default=0.0,
+                   help="Weight each arriving object by 1 + a * tte / horizon (a = this value), so probability "
+                        "mass far ahead of arrival is rewarded; 0 = unweighted (the original objective).")
     p.add_argument("--history-steps", type=int, default=0,
                    help="Ablation: blank all but the last N history steps (0 = use the dataset's full history).")
     p.add_argument("--hidden", type=int, default=64)
@@ -69,8 +79,14 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def make_loss(time_bins: int, horizon: int, pos_weight: float, device: str):
-    """Per-object loss over real (unpadded) objects: BCE for yes/no, cross-entropy over arrival slices otherwise."""
+def make_loss(time_bins: int, horizon: int, pos_weight: float, device: str,
+              future_only: bool = False, early_weight: float = 0.0):
+    """
+    Per-object loss over real (unpadded) objects: BCE for yes/no, cross-entropy over arrival slices otherwise.
+    future_only / early_weight (arrival-time output only): see --future-only and --early-weight.
+    """
+    if (future_only or early_weight) and not time_bins:
+        raise SystemExit("--future-only / --early-weight need --time-bins")
     if time_bins == 0:
         weight = torch.tensor(pos_weight, device=device)
         return lambda logits, batch, mask: nn.functional.binary_cross_entropy_with_logits(
@@ -80,7 +96,13 @@ def make_loss(time_bins: int, horizon: int, pos_weight: float, device: str):
     def loss(logits, batch, mask):
         tte = batch["tte"].to(device)
         target = torch.where(tte >= 0, torch.clamp(tte // width, max=time_bins - 1), time_bins)
-        return nn.functional.cross_entropy(logits[mask], target[mask])
+        keep = mask & (tte != 0) if future_only else mask
+        if not future_only and not early_weight:
+            return nn.functional.cross_entropy(logits[keep], target[keep])
+        per = nn.functional.cross_entropy(logits[keep], target[keep], reduction="none")
+        t = tte[keep].float()
+        w = torch.where(t > 0, 1.0 + early_weight * t / horizon, torch.ones_like(t))
+        return (per * w).sum() / w.sum().clamp(min=1e-6)
     return loss
 
 
@@ -114,7 +136,7 @@ def train_run(args: argparse.Namespace, seed: int, manifest: dict, samples: dict
     horizon = manifest["label"]["HORIZON_FRAMES"]
     if args.time_bins and "tte" not in samples["train"][0]:
         raise SystemExit(f"{manifest['name']} has no arrival times - rebuild it with dataset/GRU/build.py")
-    model_kwargs = {"n_features": N_FEATURES, "n_classes": N_CLASSES, "hidden": args.hidden,
+    model_kwargs = {"n_features": int(samples["train"][0]["x"].shape[-1]), "n_classes": N_CLASSES, "hidden": args.hidden,
                     "dropout": args.dropout, "gru_layers": args.gru_layers,
                     "n_outputs": args.time_bins + 1 if args.time_bins else 1}
     if args.arch == "gru_attention":
@@ -123,7 +145,7 @@ def train_run(args: argparse.Namespace, seed: int, manifest: dict, samples: dict
 
     y = np.concatenate([s["y"] for s in samples["train"]])
     pos_weight = float(min((len(y) - y.sum()) / max(y.sum(), 1.0), POS_WEIGHT_CAP))
-    loss_fn = make_loss(args.time_bins, horizon, pos_weight, args.device)
+    loss_fn = make_loss(args.time_bins, horizon, pos_weight, args.device, args.future_only, args.early_weight)
 
     train_loader = DataLoader(samples["train"], batch_size=args.batch_size, shuffle=True,
                               collate_fn=collate, generator=torch.Generator().manual_seed(seed))

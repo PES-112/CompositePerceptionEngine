@@ -1,0 +1,507 @@
+{
+ "split": "test",
+ "frames": 981,
+ "weights": "/Users/ksrikrishnareddy/Documents/Capstone/CompositePerceptionEngine/training/runs/cpe_yolo26n_sem_walkable/weights/best.pt",
+ "data": "data/cpe_walkable_idd",
+ "chosen_bias": 2.5,
+ "chosen_stripe": 0.0,
+ "by_bias": {
+  "0.0": {
+   "road_patches": 976,
+   "walkable_patches": 0,
+   "crosswalk_patches": 0,
+   "road_called_safe": 0.8340163934426229,
+   "road_called_crosswalk": 0.00819672131147541,
+   "walkable_called_road": 0.0,
+   "crosswalk_called_road": 0.0,
+   "agreement": 0.1567622950819672
+  },
+  "2.5": {
+   "road_patches": 976,
+   "walkable_patches": 0,
+   "crosswalk_patches": 0,
+   "road_called_safe": 0.639344262295082,
+   "road_called_crosswalk": 0.005122950819672131,
+   "walkable_called_road": 0.0,
+   "crosswalk_called_road": 0.0,
+   "agreement": 0.35348360655737704
+  }
+ },
+ "by_bias_camera": {
+  "0.0": {
+   "119": {
+    "road_patches": 12,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 1.0,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "132": {
+    "road_patches": 27,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8888888888888888,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.1111111111111111
+   },
+   "147": {
+    "road_patches": 29,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9655172413793104,
+    "road_called_crosswalk": 0.034482758620689655,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.034482758620689655
+   },
+   "148": {
+    "road_patches": 13,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 1.0,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "149": {
+    "road_patches": 49,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9387755102040817,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.061224489795918366
+   },
+   "150": {
+    "road_patches": 38,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8157894736842105,
+    "road_called_crosswalk": 0.02631578947368421,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.18421052631578946
+   },
+   "153": {
+    "road_patches": 56,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.4107142857142857,
+    "road_called_crosswalk": 0.017857142857142856,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.5714285714285714
+   },
+   "167": {
+    "road_patches": 46,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9347826086956522,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.06521739130434782
+   },
+   "17": {
+    "road_patches": 18,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 1.0,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "172": {
+    "road_patches": 70,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7571428571428571,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.24285714285714285
+   },
+   "18": {
+    "road_patches": 114,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7719298245614035,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.22807017543859648
+   },
+   "181": {
+    "road_patches": 40,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.875,
+    "road_called_crosswalk": 0.025,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.125
+   },
+   "21": {
+    "road_patches": 80,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9375,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "24": {
+    "road_patches": 32,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.75,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.25
+   },
+   "3": {
+    "road_patches": 83,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8554216867469879,
+    "road_called_crosswalk": 0.012048192771084338,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.14457831325301204
+   },
+   "47": {
+    "road_patches": 22,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9090909090909091,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.045454545454545456
+   },
+   "51": {
+    "road_patches": 37,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.972972972972973,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "62": {
+    "road_patches": 56,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9821428571428571,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.017857142857142856
+   },
+   "66": {
+    "road_patches": 10,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.1
+   },
+   "67": {
+    "road_patches": 97,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7319587628865979,
+    "road_called_crosswalk": 0.030927835051546393,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.26804123711340205
+   },
+   "88": {
+    "road_patches": 20,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.95,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "89": {
+    "road_patches": 27,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7407407407407407,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.25925925925925924
+   }
+  },
+  "2.5": {
+   "119": {
+    "road_patches": 12,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.75,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.25
+   },
+   "132": {
+    "road_patches": 27,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.5185185185185185,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.48148148148148145
+   },
+   "147": {
+    "road_patches": 29,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8620689655172413,
+    "road_called_crosswalk": 0.034482758620689655,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.13793103448275862
+   },
+   "148": {
+    "road_patches": 13,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 1.0,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0
+   },
+   "149": {
+    "road_patches": 49,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7755102040816326,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.22448979591836735
+   },
+   "150": {
+    "road_patches": 38,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.5263157894736842,
+    "road_called_crosswalk": 0.02631578947368421,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.47368421052631576
+   },
+   "153": {
+    "road_patches": 56,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.05357142857142857,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.9464285714285714
+   },
+   "167": {
+    "road_patches": 46,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.782608695652174,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.21739130434782608
+   },
+   "17": {
+    "road_patches": 18,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7777777777777778,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.2222222222222222
+   },
+   "172": {
+    "road_patches": 70,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.34285714285714286,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.6571428571428571
+   },
+   "18": {
+    "road_patches": 114,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.5701754385964912,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.4298245614035088
+   },
+   "181": {
+    "road_patches": 40,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.65,
+    "road_called_crosswalk": 0.025,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.35
+   },
+   "21": {
+    "road_patches": 80,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8875,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.0625
+   },
+   "24": {
+    "road_patches": 32,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.5625,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.4375
+   },
+   "3": {
+    "road_patches": 83,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.6987951807228916,
+    "road_called_crosswalk": 0.012048192771084338,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.30120481927710846
+   },
+   "47": {
+    "road_patches": 22,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8636363636363636,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.09090909090909091
+   },
+   "51": {
+    "road_patches": 37,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.7567567567567568,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.21621621621621623
+   },
+   "62": {
+    "road_patches": 56,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9642857142857143,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.03571428571428571
+   },
+   "66": {
+    "road_patches": 10,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.8,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.2
+   },
+   "67": {
+    "road_patches": 97,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.5051546391752577,
+    "road_called_crosswalk": 0.010309278350515464,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.4948453608247423
+   },
+   "88": {
+    "road_patches": 20,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.9,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.05
+   },
+   "89": {
+    "road_patches": 27,
+    "walkable_patches": 0,
+    "crosswalk_patches": 0,
+    "road_called_safe": 0.5185185185185185,
+    "road_called_crosswalk": 0.0,
+    "walkable_called_road": 0.0,
+    "crosswalk_called_road": 0.0,
+    "agreement": 0.48148148148148145
+   }
+  }
+ },
+ "baseline": {
+  "road_patches": 976,
+  "walkable_patches": 0,
+  "crosswalk_patches": 0,
+  "road_called_safe": 0.8340163934426229,
+  "road_called_crosswalk": 0.00819672131147541,
+  "walkable_called_road": 0.0,
+  "crosswalk_called_road": 0.0,
+  "agreement": 0.1567622950819672
+ },
+ "final": {
+  "road_patches": 976,
+  "walkable_patches": 0,
+  "crosswalk_patches": 0,
+  "road_called_safe": 0.639344262295082,
+  "road_called_crosswalk": 0.005122950819672131,
+  "walkable_called_road": 0.0,
+  "crosswalk_called_road": 0.0,
+  "agreement": 0.35348360655737704
+ },
+ "by_stripe": {},
+ "crosswalk_spreads": {
+  "truth_crosswalk": [],
+  "truth_road": [
+   84.0,
+   78.0,
+   100.0,
+   54.0,
+   61.0
+  ]
+ }
+}

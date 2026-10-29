@@ -23,6 +23,13 @@ Rules, in order:
      EDGE_STALE_S, one clip: an edge doesn't move, so a "Curb ahead." that is
      one clip late is still ahead of the walker, unlike a late object warning.
      No hysteresis or cooldown; the alerter already debounces edges.
+  6. Surface. Lowest: only when nothing else is said this frame and no clip is
+     playing. The walker's surface (src/segmentation/edge_alert.py
+     SurfaceTracker, already debounced) is said when it changes ("Now on the
+     road."), and as a reminder ("Walking on the sidewalk.") once SURFACE_IDLE_S
+     has passed since the last clip ended with no override or ranked threat in
+     view. It is current state, not an event, so it never goes stale. A surface
+     clip never holds up a hazard: an edge or object alert cuts it.
 
 Times are seconds on the replay (or device) clock. The manager never looks at
 labels, so the same parameters run in replay and on the phone; they are
@@ -44,9 +51,12 @@ OVERRIDE_REPEAT_S = 2.0
 STALE_S = 0.6
 CLIP_S = 1.2            # typical pre-rendered phrase length
 EDGE_STALE_S = 1.2      # an edge can wait out one clip
+SURFACE_IDLE_S = 5.0    # silence before the surface is repeated
 
-Kind = Literal["override", "threat", "edge"]
+Kind = Literal["override", "threat", "edge", "surface"]
 EDGE_PREFIX = "edge:"
+SURFACE_PREFIX = "surface:"
+SURFACE_CHANGE, SURFACE_REMINDER = "now on", "still on"
 
 
 class Edge(Protocol):
@@ -75,7 +85,10 @@ class AnnouncementManager:
     stale_s: float = STALE_S
     clip_s: float = CLIP_S
     edge_stale_s: float = EDGE_STALE_S
+    surface_idle_s: float = SURFACE_IDLE_S
+    _last_surface: str | None = None
     _busy_until: float = -1e9
+    _surface_playing: bool = False                    # the clip until _busy_until is a surface one: cut it for a hazard
     _current: str | None = None
     _last_said: dict[str, tuple[float, float]] = field(default_factory=dict)   # track -> (t, priority)
     _last_override: dict[str, float] = field(default_factory=dict)
@@ -83,15 +96,18 @@ class AnnouncementManager:
     _pending_edge: tuple[float, Edge] | None = None
 
     def step(self, t: float, overrides: list[Override], ranked: list[RankedThreat],
-             edge: Edge | None = None) -> Announcement | None:
-        """At most one announcement for time t. edge: a new edge-ahead alert this frame, if any."""
+             edge: Edge | None = None, surface: str | None = None) -> Announcement | None:
+        """
+        At most one announcement for time t. edge: a new edge-ahead alert this
+        frame, if any; surface: the walker's current (debounced) surface, if known.
+        """
         if edge is not None:
             self._pending_edge = (t, edge)                    # kept even if an override plays now
         for o in overrides:
             tid = o.track.track_id
             if t - self._last_override.get(tid, -1e9) >= self.override_repeat_s:
                 self._last_override[tid] = t
-                self._busy_until = t + self.clip_s            # interrupts whatever was playing
+                self._busy_until, self._surface_playing = t + self.clip_s, False   # interrupts whatever was playing
                 self._pending = None
                 self._current = tid
                 return Announcement(t, "override", tid, o.track.class_name, float("inf"), o.reason)
@@ -100,12 +116,18 @@ class AnnouncementManager:
             seen_at, e = self._pending_edge
             if t - seen_at > self.edge_stale_s:
                 self._pending_edge = None                     # stale: dropped like any late message
-            elif t >= self._busy_until:
+            elif not self._busy(t):
                 self._pending_edge = None
-                self._busy_until = t + self.clip_s
+                self._busy_until, self._surface_playing = t + self.clip_s, False
                 return Announcement(t, "edge", EDGE_PREFIX + e.kind, e.kind, float("nan"),
                                     f"edge ahead, {e.distance_m:.1f} m", e.distance_m)
 
+        a = self._threat(t, ranked)
+        if a is None and not overrides and t >= self._busy_until:
+            a = self._surface(t, surface, quiet=not ranked)
+        return a
+
+    def _threat(self, t: float, ranked: list[RankedThreat]) -> Announcement | None:
         candidate = self._choose(t, ranked)
         if candidate is not None and (self._pending is None or candidate.track.track_id != self._pending[1].track.track_id):
             self._pending = (t, candidate)
@@ -115,16 +137,33 @@ class AnnouncementManager:
         if t - chosen_at > self.stale_s:
             self._pending = None                              # couldn't play in time: drop, don't queue
             return None
-        if t < self._busy_until:
+        if self._busy(t):
             return None
         self._pending = None
         tid = threat.track.track_id
-        self._busy_until = t + self.clip_s
+        self._busy_until, self._surface_playing = t + self.clip_s, False
         self._current = tid
         self._last_said[tid] = (t, threat.priority)
         return Announcement(t, "threat", tid, threat.track.class_name, threat.priority,
                             f"priority {threat.priority:.2f}, P(arrive) {threat.arrival.p_arrive:.2f}, "
                             f"~{threat.arrival.expected_s:.1f} s")
+
+    def _busy(self, t: float) -> bool:
+        """A hazard clip is playing (a surface clip doesn't count: it is cut)."""
+        return t < self._busy_until and not self._surface_playing
+
+    def _surface(self, t: float, surface: str | None, quiet: bool) -> Announcement | None:
+        if surface is None:
+            return None
+        if surface != self._last_surface:
+            reason = SURFACE_CHANGE
+        elif quiet and t - self._busy_until >= self.surface_idle_s:
+            reason = SURFACE_REMINDER
+        else:
+            return None
+        self._last_surface = surface
+        self._busy_until, self._surface_playing = t + self.clip_s, True
+        return Announcement(t, "surface", SURFACE_PREFIX + surface, surface, float("nan"), reason)
 
     def _choose(self, t: float, ranked: list[RankedThreat]) -> RankedThreat | None:
         if not ranked:

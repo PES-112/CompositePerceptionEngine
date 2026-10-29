@@ -253,6 +253,12 @@ Decides **whether** to speak, separately from **what** is most dangerous:
   - It reaches narration as a `NarratorEvent` with `reason="edge ahead"` and bearing 0.
   - It isn't in the replay. Edge alerts are scored on their own (§6.3), so the interplay with
     object alerts is not measured.
+- **Surface (lowest):** when nothing else is said and no clip is playing, the walker's debounced
+  surface is said on a change and again after 5 s of silence with no threat in view. A surface clip
+  never holds up a hazard: edge, object and override alerts cut it. Not in the replay.
+- **Operating point:** `tools/replay_threat_engine.py` also offers `crc_budget_*`, conformal risk
+  control on the per-walk false-alert rate (methodology §4.23). It is the only rule with a stated
+  bound for a new walk.
 
 Code: `src/threat_engine/announcer.py` (cooldown 4 s, escalation ×1.5, switch margin ×1.25,
 override repeat 2 s, stale after 0.6 s, edges 1.2 s; declared values). `src/threat_engine/engine.py` composes
@@ -266,9 +272,22 @@ override repeat 2 s, stale after 0.6 s, edges 1.2 s; declared values). `src/thre
 | Critical lane: override → English + cached clip only, never translation or model speech | ✅ | Enforced in code (`src/narration/pipeline.py`) |
 | Pre-rendered clip library | list ✅ · audio ⬜ | `templates.all_phrases()` enumerates every phrase (classes × 5 directions × 7 forms); rendering it **offline** with a high-quality voice is pending. Zero runtime speech synthesis on the phone |
 | Distance buckets ("close", "5 meters", "10 meters", "20 meters", "far") | ✅ | Keeps the clip set finite |
-| Segmentation phrases ("Curb ahead.", "Crosswalk ahead.") | ⬜ | Needs §6.3 |
+| Ground phrases: edges ("Curb ahead, 3 meters."), surface change ("Now on the road. Careful."), surface reminder after 5 s of silence ("Walking on the sidewalk.") | ✅ | `templates.edge_phrase` / `surface_phrase`; announcer surface lane (lowest; any hazard cuts it), `edge_alert.SurfaceTracker` (3-frame debounce) |
 | Translation | ✅ phrase table · optional | Pre-translated phrases; no runtime translation model |
-| Spatial audio (pan the clip toward the object) | ⬜ optional | Free on iOS |
+| Spatial audio (pan the clip toward the object) | ✅ | Constant-power pan, full at ±60° (`src/narration/spatial.py`; demo renderer; `ios/CPEWalk` Speech.swift) |
+
+### 6.7 On the iPhone (`ios/CPEWalk`) ✅ built, ⬜ field-tested
+
+The full chain runs on device at 5 Hz:
+- ARKit world tracking gives the pose; it replaces `fixed_camera_poses.csv`, projected to a top
+  view (X = x, Y = −z).
+- LiDAR scene depth (confidence ≥ medium) replaces SANPO's stereo depth.
+- YOLO26n v3, the segmenter and the GRU run as Core ML.
+- The engine is a Swift port with constants exported from Python (`AppData/cpe_config.json`).
+- A golden SANPO walk checks parity (`Tests/GoldenSessionTests.swift`).
+
+Known differences from the replay: a greedy IoU tracker instead of ByteTrack, the LiDAR's ~5 m
+reliable range, and a chest mounting where SANPO is head-mounted (`ios/CPEWalk/README.md`).
 
 ## 7. Latency budget (iPhone 17 Pro Max)
 

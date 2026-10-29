@@ -242,3 +242,30 @@ Directly grounds the ablation and referee design (`methodology.md` §4).
 - Section 1 (positioning) is the one to keep most current — new competing assistive-navigation
   systems are the citations most likely to matter to a reviewer, and the field moves fast (the
   Liu & Slade paper above is from 2026).
+
+
+## 2026-10-25 additions (verified by live search on 2026-10-25)
+
+- **Angelopoulos, A. N., Bates, S., Fisch, A., Lei, L. & Schuster, T. (2024). "Conformal Risk
+  Control."** ICLR 2024. arXiv:2208.02814. Extends split conformal prediction to bound the expected
+  value of any monotone loss. **Use:** the `crc_budget_*` operating rules of the replay
+  (methodology §4.23) bound a new walk's expected false-alert rate.
+- **Chan et al. (2016). "Anticipating Accidents in Dashcam Videos."** ACCV 2016 (full author list
+  not yet verified). DSA-RNN with an exponential loss on positive frames. **Use:** contrast for the
+  earliness-weighted arrival objective (§4.23), which up-weights positives far from the event.
+- **Suzuki et al. (2018). "Anticipating Traffic Accidents with Adaptive Loss and Large-scale
+  Incident DB."** (full author list not yet verified) CVPR 2018. arXiv:1804.02675. LEA / AdaLEA, earliness
+  losses adapted over training. **Use:** same contrast.
+- **Kvamme, H. & Borgan, Ø. (2021). "Continuous and Discrete-Time Survival Prediction with Neural
+  Networks."** *Lifetime Data Analysis*. arXiv:1910.06724. Discrete-time hazard parameterisations
+  edge out PMF ones. **Use:** the arrival-time head (`--time-bins`) is a PMF parameterisation; a
+  hazard head is a follow-up.
+- **Presti, G., Ahmetovic, D., Ducci, M., Bernareggi, C., Ludovico, L., Baratè, A., Avanzini, F. &
+  Mascetti, S. (2019). "WatchOut: Obstacle Sonification for People with Visual Impairment or
+  Blindness."** ASSETS '19. Horizontal position mapped to stereo panning. **Use:**
+  `src/narration/spatial.py`.
+- **HEADS-UP: Head-Mounted Egocentric Dataset for Trajectory Prediction in Blind Assistance
+  Systems** (2024). arXiv:2409.20324. The closest dataset to ours (head-mounted, collision risk for
+  blind walkers). **Use:** related work; a cross-dataset check of the arrival predictor.
+- **BlinkBud** (arXiv:2512.01366): Kalman 3-D tracking with head-motion correction on an earbud,
+  for hazards from behind. **Use:** already cited in the paper; it shares our fusion design.

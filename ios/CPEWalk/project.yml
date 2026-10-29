@@ -1,0 +1,61 @@
+# XcodeGen spec: `xcodegen generate` writes CPEWalk.xcodeproj (generated, never committed).
+# Models/ and AppData/ are filled by prepare_app.py. Install on your own iPhone with a free Apple ID:
+# see README.md ("Run it on your iPhone").
+name: CPEWalk
+options:
+  bundleIdPrefix: edu.pes.cpe
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ${CPE_TEAM_ID}
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  CPEWalk:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Models           # *.mlpackage: Xcode compiles each to <name>.mlmodelc in the app bundle
+        optional: true
+      - path: AppData          # not "Resources" (iOS reads a top-level Resources/ as an old-style bundle)
+        type: folder
+        optional: true
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: CPE Walk
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiredDeviceCapabilities: [arkit]
+        NSCameraUsageDescription: CPE Walk uses the camera and LiDAR to find hazards ahead of you and speak alerts.
+        UIBackgroundModes: [audio]
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${CPE_BUNDLE_ID}
+  CPEWalkTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: CPEWalk
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CPEWalk.app/CPEWalk
+        BUNDLE_LOADER: $(TEST_HOST)
+schemes:
+  CPEWalk:
+    build:
+      targets:
+        CPEWalk: all
+        CPEWalkTests: [test]
+    test:
+      targets: [CPEWalkTests]

@@ -1,0 +1,570 @@
+{
+  "weights": "training/runs/cpe_yolo26n_sem_walkable/weights/best.pt",
+  "split": "test",
+  "imgsz": 640,
+  "sessions": 1,
+  "overall": {
+    "frames": 981,
+    "pixels": 586963917,
+    "miou": 0.24570009111498076,
+    "pixel_accuracy": 0.5881715025422934,
+    "iou": {
+      "walkable": 0.01060570103886106,
+      "crosswalk": 0.0,
+      "road": 0.25515967733547146,
+      "curb": 0.056802183551124194,
+      "stairs": 0.0,
+      "non-walkable ground": 0.07886714676672694,
+      "obstacle": 0.6573057098461437,
+      "sky": 0.9068603103815187
+    },
+    "false_safe_rate": 0.6157332953969155,
+    "road_as_walkable_rate": 0.6634949834990881,
+    "walkable_as_unsafe_rate": 0.20736769331073918,
+    "boundary_f": {
+      "curb": 0.1296691900646556,
+      "stairs": NaN
+    },
+    "boundary_tol_px": 3
+  },
+  "by_camera": {
+    "119": {
+      "frames": 12,
+      "pixels": 7069778,
+      "miou": 0.23885565579416518,
+      "pixel_accuracy": 0.5010230872878894,
+      "iou": {
+        "walkable": 0.0,
+        "crosswalk": NaN,
+        "road": 0.05616380517919797,
+        "curb": 0.0,
+        "stairs": 0.0,
+        "non-walkable ground": 0.011433539856641596,
+        "obstacle": 0.7402812706240594,
+        "sky": 0.8641109748992571
+      },
+      "false_safe_rate": 0.8524309995633041,
+      "road_as_walkable_rate": 0.860176428382723,
+      "walkable_as_unsafe_rate": NaN,
+      "boundary_f": {
+        "curb": NaN,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "132": {
+      "frames": 27,
+      "pixels": 15924642,
+      "miou": 0.2307307994605811,
+      "pixel_accuracy": 0.6280906660256476,
+      "iou": {
+        "walkable": 0.0,
+        "crosswalk": 0.0,
+        "road": 0.22556757101804917,
+        "curb": 0.003432080603134289,
+        "stairs": 0.0,
+        "non-walkable ground": 0.06989045593755701,
+        "obstacle": 0.6087861035626044,
+        "sky": 0.9381701845633037
+      },
+      "false_safe_rate": 0.5604856498495995,
+      "road_as_walkable_rate": 0.6699225364727538,
+      "walkable_as_unsafe_rate": NaN,
+      "boundary_f": {
+        "curb": 0.029946567124801465,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "147": {
+      "frames": 29,
+      "pixels": 17100085,
+      "miou": 0.24341279175097086,
+      "pixel_accuracy": 0.5814976358304652,
+      "iou": {
+        "walkable": 0.01849939875365028,
+        "crosswalk": 0.0,
+        "road": 0.22361357693049008,
+        "curb": 0.03512054787545508,
+        "stairs": 0.0,
+        "non-walkable ground": 0.021686515756905965,
+        "obstacle": 0.7283827941684431,
+        "sky": 0.9199995005228223
+      },
+      "false_safe_rate": 0.6960416659286246,
+      "road_as_walkable_rate": 0.7233703589397467,
+      "walkable_as_unsafe_rate": 0.11369317171632659,
+      "boundary_f": {
+        "curb": 0.11614089582458599,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "148": {
+      "frames": 13,
+      "pixels": 7667513,
+      "miou": 0.1945106499507206,
+      "pixel_accuracy": 0.45456342884583306,
+      "iou": {
+        "walkable": 0.00904837356373647,
+        "crosswalk": 0.0,
+        "road": 0.08191008466874111,
+        "curb": 0.022505099291215577,
+        "stairs": NaN,
+        "non-walkable ground": 0.03037974337769261,
+        "obstacle": 0.37192807113617193,
+        "sky": 0.8458031776174865
+      },
+      "false_safe_rate": 0.833284902909012,
+      "road_as_walkable_rate": 0.8888112683579424,
+      "walkable_as_unsafe_rate": 0.1781935627575454,
+      "boundary_f": {
+        "curb": 0.09774711968885302,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "149": {
+      "frames": 49,
+      "pixels": 28892039,
+      "miou": 0.27233399509195194,
+      "pixel_accuracy": 0.5715336671115527,
+      "iou": {
+        "walkable": 0.00016847954599196027,
+        "crosswalk": 0.0,
+        "road": 0.19562834002054955,
+        "curb": 0.21791583368817616,
+        "stairs": 0.0,
+        "non-walkable ground": 0.16356973976064154,
+        "obstacle": 0.6409276183372058,
+        "sky": 0.9604619493830504
+      },
+      "false_safe_rate": 0.6908067878820309,
+      "road_as_walkable_rate": 0.7623805437436655,
+      "walkable_as_unsafe_rate": 0.2934668071654373,
+      "boundary_f": {
+        "curb": 0.3520334722573429,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "150": {
+      "frames": 38,
+      "pixels": 22411079,
+      "miou": 0.24664967134333923,
+      "pixel_accuracy": 0.6490297945940041,
+      "iou": {
+        "walkable": 0.004752732884600714,
+        "crosswalk": 0.0,
+        "road": 0.3907394039393627,
+        "curb": 0.0006173523897836998,
+        "stairs": 0.0,
+        "non-walkable ground": 0.01398793082894116,
+        "obstacle": 0.7315122720333934,
+        "sky": 0.8315876786706322
+      },
+      "false_safe_rate": 0.5334903583493948,
+      "road_as_walkable_rate": 0.5607042056266811,
+      "walkable_as_unsafe_rate": 0.20758484122784526,
+      "boundary_f": {
+        "curb": 0.009051449658322282,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "153": {
+      "frames": 56,
+      "pixels": 43840586,
+      "miou": 0.2834053429491578,
+      "pixel_accuracy": 0.6870180065567554,
+      "iou": {
+        "walkable": 0.0,
+        "crosswalk": 0.0,
+        "road": 0.5883611073599054,
+        "curb": 0.05945226666008531,
+        "stairs": NaN,
+        "non-walkable ground": 0.002348716778609904,
+        "obstacle": 0.3870274757309228,
+        "sky": 0.9466478341145813
+      },
+      "false_safe_rate": 0.3623238789670057,
+      "road_as_walkable_rate": 0.3718736897619092,
+      "walkable_as_unsafe_rate": 1.0,
+      "boundary_f": {
+        "curb": 0.15840876718852478,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "167": {
+      "frames": 47,
+      "pixels": 27719928,
+      "miou": 0.22953868020703205,
+      "pixel_accuracy": 0.5942038521889379,
+      "iou": {
+        "walkable": 0.0667688066425856,
+        "crosswalk": 0.0,
+        "road": 0.16411252868487283,
+        "curb": 0.009168164010721964,
+        "stairs": 0.0,
+        "non-walkable ground": 0.0051900639250475845,
+        "obstacle": 0.7076830239747334,
+        "sky": 0.8833868544182951
+      },
+      "false_safe_rate": 0.7374881558878459,
+      "road_as_walkable_rate": 0.7675766289578865,
+      "walkable_as_unsafe_rate": 0.2479982963377232,
+      "boundary_f": {
+        "curb": 0.043989401451926986,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "17": {
+      "frames": 18,
+      "pixels": 10611839,
+      "miou": 0.2816398233025644,
+      "pixel_accuracy": 0.48423105552204476,
+      "iou": {
+        "walkable": 0.008662694990062964,
+        "crosswalk": 0.0,
+        "road": 0.11780461825159035,
+        "curb": 0.16671516985817667,
+        "stairs": NaN,
+        "non-walkable ground": 0.2597305562245956,
+        "obstacle": 0.44930575032927333,
+        "sky": 0.969259973464252
+      },
+      "false_safe_rate": 0.7141490085104324,
+      "road_as_walkable_rate": 0.8517824946551663,
+      "walkable_as_unsafe_rate": 0.045655172413793105,
+      "boundary_f": {
+        "curb": 0.18471095288404601,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "172": {
+      "frames": 70,
+      "pixels": 41263565,
+      "miou": 0.22996413445266844,
+      "pixel_accuracy": 0.5619451688190296,
+      "iou": {
+        "walkable": 0.0,
+        "crosswalk": 0.0,
+        "road": 0.45968210727571845,
+        "curb": 0.04304032220296914,
+        "stairs": 0.0,
+        "non-walkable ground": 0.12828001127165584,
+        "obstacle": 0.23715508678294955,
+        "sky": 0.9715555480880547
+      },
+      "false_safe_rate": 0.44259765794261563,
+      "road_as_walkable_rate": 0.48597390641082355,
+      "walkable_as_unsafe_rate": NaN,
+      "boundary_f": {
+        "curb": 0.11042258550480806,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "18": {
+      "frames": 118,
+      "pixels": 67237720,
+      "miou": 0.23814164991640152,
+      "pixel_accuracy": 0.6694185198427312,
+      "iou": {
+        "walkable": 0.015984422463455748,
+        "crosswalk": 0.0,
+        "road": 0.2297439718533565,
+        "curb": 0.05180535827338975,
+        "stairs": 0.0,
+        "non-walkable ground": 0.011452548526219514,
+        "obstacle": 0.8024344493077847,
+        "sky": 0.793712448907006
+      },
+      "false_safe_rate": 0.6404978503121761,
+      "road_as_walkable_rate": 0.6641764779134165,
+      "walkable_as_unsafe_rate": 0.26850337302105315,
+      "boundary_f": {
+        "curb": 0.10226838353372837,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "181": {
+      "frames": 40,
+      "pixels": 23590056,
+      "miou": 0.23071355523988674,
+      "pixel_accuracy": 0.6929028485561882,
+      "iou": {
+        "walkable": 0.011676624379656102,
+        "crosswalk": 0.0,
+        "road": 0.13364312496641206,
+        "curb": 0.0,
+        "stairs": 0.0,
+        "non-walkable ground": 0.012886434665089957,
+        "obstacle": 0.8138531957662796,
+        "sky": 0.8736490621416562
+      },
+      "false_safe_rate": 0.6354116455108636,
+      "road_as_walkable_rate": 0.7113315791309613,
+      "walkable_as_unsafe_rate": 0.11616620860876406,
+      "boundary_f": {
+        "curb": NaN,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "21": {
+      "frames": 80,
+      "pixels": 47173812,
+      "miou": 0.21524799887058896,
+      "pixel_accuracy": 0.3890368452733902,
+      "iou": {
+        "walkable": 0.0012476768115596648,
+        "crosswalk": 0.0,
+        "road": 0.019687361768847684,
+        "curb": 0.0,
+        "stairs": NaN,
+        "non-walkable ground": 0.1007612312244007,
+        "obstacle": 0.5131038048838538,
+        "sky": 0.8719359174054611
+      },
+      "false_safe_rate": 0.8131324019233942,
+      "road_as_walkable_rate": 0.866343162255618,
+      "walkable_as_unsafe_rate": 0.09644463884028993,
+      "boundary_f": {
+        "curb": NaN,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "24": {
+      "frames": 32,
+      "pixels": 18871143,
+      "miou": 0.22885368808455764,
+      "pixel_accuracy": 0.6082868960295622,
+      "iou": {
+        "walkable": 0.08021234488660677,
+        "crosswalk": 0.0,
+        "road": 0.3111112539946953,
+        "curb": 0.006317937195119983,
+        "stairs": 0.0,
+        "non-walkable ground": 0.036146643551057386,
+        "obstacle": 0.7227097702562499,
+        "sky": 0.6743315547927317
+      },
+      "false_safe_rate": 0.5893467405855219,
+      "road_as_walkable_rate": 0.6254854956262657,
+      "walkable_as_unsafe_rate": 0.15455291618385478,
+      "boundary_f": {
+        "curb": 0.0233329180285307,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "3": {
+      "frames": 83,
+      "pixels": 48947865,
+      "miou": 0.24091189732063095,
+      "pixel_accuracy": 0.5565303001469012,
+      "iou": {
+        "walkable": 0.0012750693512155367,
+        "crosswalk": 0.0,
+        "road": 0.2132009646608005,
+        "curb": 0.15713081548446234,
+        "stairs": 0.0,
+        "non-walkable ground": 0.0858198154835792,
+        "obstacle": 0.5877216283356784,
+        "sky": 0.8821468852493117
+      },
+      "false_safe_rate": 0.6180545699871053,
+      "road_as_walkable_rate": 0.6769995531894869,
+      "walkable_as_unsafe_rate": 0.3763243602525756,
+      "boundary_f": {
+        "curb": 0.24716512978531768,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "47": {
+      "frames": 22,
+      "pixels": 12975833,
+      "miou": 0.2261952659143429,
+      "pixel_accuracy": 0.617340250911059,
+      "iou": {
+        "walkable": 0.00949386622990218,
+        "crosswalk": 0.0,
+        "road": 0.31365014618910736,
+        "curb": 0.0,
+        "stairs": 0.0,
+        "non-walkable ground": 0.009878475639411426,
+        "obstacle": 0.5536429553297972,
+        "sky": 0.9228966839265251
+      },
+      "false_safe_rate": 0.595294797896753,
+      "road_as_walkable_rate": 0.6328482902258394,
+      "walkable_as_unsafe_rate": 0.3165418139999785,
+      "boundary_f": {
+        "curb": NaN,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "51": {
+      "frames": 37,
+      "pixels": 21820762,
+      "miou": 0.26524500345760493,
+      "pixel_accuracy": 0.4805378932229773,
+      "iou": {
+        "walkable": 0.0,
+        "crosswalk": NaN,
+        "road": 0.10044300092557436,
+        "curb": 0.021077740368372615,
+        "stairs": NaN,
+        "non-walkable ground": 0.08444459575850753,
+        "obstacle": 0.4571599935821701,
+        "sky": 0.928344690111005
+      },
+      "false_safe_rate": 0.6729760448760153,
+      "road_as_walkable_rate": 0.7479379590355053,
+      "walkable_as_unsafe_rate": NaN,
+      "boundary_f": {
+        "curb": 0.0885745342212858,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "62": {
+      "frames": 56,
+      "pixels": 33023720,
+      "miou": 0.21815667802039088,
+      "pixel_accuracy": 0.401836649535546,
+      "iou": {
+        "walkable": 0.0002326112498257534,
+        "crosswalk": 0.0,
+        "road": 0.03544475217205297,
+        "curb": 0.2016079564065152,
+        "stairs": 0.0,
+        "non-walkable ground": 0.1112435863072446,
+        "obstacle": 0.5121840473703086,
+        "sky": 0.8845404706571799
+      },
+      "false_safe_rate": 0.8325011417501963,
+      "road_as_walkable_rate": 0.9184717253952205,
+      "walkable_as_unsafe_rate": 0.04881013777352096,
+      "boundary_f": {
+        "curb": 0.23422379669519336,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "66": {
+      "frames": 10,
+      "pixels": 5897768,
+      "miou": 0.2653285736965471,
+      "pixel_accuracy": 0.8192473830778016,
+      "iou": {
+        "walkable": 0.0,
+        "crosswalk": 0.0,
+        "road": 0.06472359837151126,
+        "curb": 0.0,
+        "stairs": NaN,
+        "non-walkable ground": 0.0,
+        "obstacle": 0.9402254869071226,
+        "sky": 0.852350930597196
+      },
+      "false_safe_rate": 0.7801030203745497,
+      "road_as_walkable_rate": 0.7801030203745497,
+      "walkable_as_unsafe_rate": NaN,
+      "boundary_f": {
+        "curb": NaN,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "67": {
+      "frames": 97,
+      "pixels": 57204962,
+      "miou": 0.27126136298912873,
+      "pixel_accuracy": 0.7123074393441604,
+      "iou": {
+        "walkable": 0.0038254877116523514,
+        "crosswalk": 0.0,
+        "road": 0.3848210097344126,
+        "curb": 0.01760236204014911,
+        "stairs": 0.0,
+        "non-walkable ground": 0.11643389827892854,
+        "obstacle": 0.7560346603529976,
+        "sky": 0.8913734857948897
+      },
+      "false_safe_rate": 0.44226266247477514,
+      "road_as_walkable_rate": 0.4882921166954976,
+      "walkable_as_unsafe_rate": 0.1675062373390735,
+      "boundary_f": {
+        "curb": 0.04586367190137184,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "88": {
+      "frames": 20,
+      "pixels": 11795059,
+      "miou": 0.19002554477263423,
+      "pixel_accuracy": 0.4302313366978495,
+      "iou": {
+        "walkable": 0.026733135362351904,
+        "crosswalk": 0.0,
+        "road": 0.07345619434717791,
+        "curb": 0.024052700495417054,
+        "stairs": 0.0,
+        "non-walkable ground": 0.001740230595173311,
+        "obstacle": 0.5323879854761419,
+        "sky": 0.8618341119048117
+      },
+      "false_safe_rate": 0.733881194610029,
+      "road_as_walkable_rate": 0.8082531583718003,
+      "walkable_as_unsafe_rate": 0.24861867897564444,
+      "boundary_f": {
+        "curb": 0.08477260192018664,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    },
+    "89": {
+      "frames": 27,
+      "pixels": 15924163,
+      "miou": 0.2594436544931363,
+      "pixel_accuracy": 0.7183146140867812,
+      "iou": {
+        "walkable": 0.005718536592623451,
+        "crosswalk": 0.0,
+        "road": 0.36417174087174725,
+        "curb": 0.0,
+        "stairs": 0.0,
+        "non-walkable ground": 0.0017103484791483787,
+        "obstacle": 0.8760775209047288,
+        "sky": 0.8278710890968425
+      },
+      "false_safe_rate": 0.576097085374269,
+      "road_as_walkable_rate": 0.5810804230597795,
+      "walkable_as_unsafe_rate": 0.33887424222112994,
+      "boundary_f": {
+        "curb": NaN,
+        "stairs": NaN
+      },
+      "boundary_tol_px": 3
+    }
+  },
+  "ci95": {
+    "miou": [
+      0.24570009111498076,
+      0.24570009111498076
+    ],
+    "false_safe_rate": [
+      0.6157332953969155,
+      0.6157332953969155
+    ]
+  }
+}

@@ -14,15 +14,16 @@ Max; evaluation replays the SANPO egocentric dataset.
 SANPO replay: RGB + SANPO depth (as is) + camera pose   (product: phone camera + external LiDAR)
   → Perception        YOLO26n v3 + ByteTrack + depth per box                         ✅
   → Sensor fusion     Kalman track per object, ground plane, head motion removed      ✅ (pose unvalidated on SANPO)
-  → Scene context     walkable-surface segmentation (road / curb / sidewalk), 2–5 Hz  ⬜
+  → Scene context     walkable-surface segmentation (road / curb / sidewalk), 2–5 Hz  ✅ (no measurable effect, §4.19)
   → Threat engine
        safety envelope   TTC ≤ 1 s in the walking cone → immediate alert             ✅
        when              GRU arrival predictor (runtime wrapper)                     ✅
        how bad           class severity (mass law), compressed by γ                  ✅
-       what              segmentation context                                        ⬜ (interface ✅)
+       what              segmentation context                                        ✅ declared multipliers
        fusion            priority = P(arrive) × severity^γ × context                 ✅
-  → Announcement manager  cooldown, hysteresis, override preempts, drop stale         ✅
-  → Narration         scripted phrases → pre-rendered audio clips                     ✅ templates · ⬜ audio
+  → Announcement manager  override › "Curb ahead" › object › surface lane               ✅
+  → Narration         scripted phrases, surface narration, stereo-panned by bearing   ✅
+  → iPhone app        the whole chain live on device: ARKit + LiDAR + Core ML         ✅ built · ⬜ field-tested
 ```
 
 ✅ built · ⬜ planned. There is no language model at runtime; the v1 SLM cognitive and narrator
@@ -33,6 +34,26 @@ replay baseline.
 cone-restricted TTC 0.765; in end-to-end replay, v2 is 2.5× more precise than v1 (0.59 vs. 0.24) at
 7× fewer alerts (17 vs. 119 per minute), but warns about fewer arrivals (26% vs. 65%). Details:
 `docs/progress.md` §6–7.
+
+## What is new here, and how far each claim goes
+
+Every item is tested on SANPO's official split: fitted on train, chosen on validation, test scored
+once. Negative and null results are reported as such.
+
+| # | Contribution | Status of the claim |
+|---|---|---|
+| 1 | **Alerting as hazard-arrival forecasting.** Formula-free corridor arrival labels for SANPO-Real (will this object enter the walker's path within 4 s?), and a replay harness that scores whole alert engines at frozen false-alert budgets with opportunity-normalised lead time. No prior assistive system evaluates the *alert policy* this way. | Benchmark built; GRU beats every geometric baseline on ranking (AUROC 0.911 vs ≤ 0.886, §4.18). |
+| 2 | **Learned ranking inside a deterministic envelope.** No learned output can suppress a TTC ≤ 1 s override in the corridor. | Built and unit-tested on its edge cases. |
+| 3 | **Distribution-free alert budgets** (conformal risk control, Angelopoulos et al. ICLR 2024). The operating point is chosen so a *new walk's* expected false-alert rate is ≤ the budget. We have not found CRC used for assistive alert thresholds (searched, not exhaustively). | Held on test for every arm at 5/min (per-walk mean ≤ 4.74); one exception at 10/min (§4.23). |
+| 4 | **Testing context rules before trusting them.** Segmentation context uses SANPO's own masks as an oracle bound; one plausible rule ("near a boundary") points the wrong way and was neutralised by a rule declared in advance. | Final (§4.19, paper §6.3, §6.6). |
+| 5 | **Early-warning study.** A future-only, earliness-weighted arrival objective (the opposite of accident anticipation's exponential loss), Kalman-fused ground-plane GRU inputs, and a CUSUM-style rising-probability trigger. | **Null result**: no gain at a fixed budget (paired Δ warned ≥ 0.2 s +0.04 [−0.02, +0.10], §4.23). The bottleneck is perception range, not the loss. |
+| 6 | **Ground narration.** "Curb ahead, 3 meters.", "Now on the road. Careful.", and a surface reminder every 5 s of silence, on a lane that any hazard cuts. Alerts are panned toward the object (constant-power stereo). An edge memory that tracks curbs out of view was tried and did not help (§4.24). | Built and tested; not user-tested. |
+| 7 | **Train/serve parity by construction.** One feature encoder for dataset and runtime, constants exported from Python to the phone, and a golden SANPO walk that the Swift engine must reproduce. | Python side tested (108 tests). Swift golden test passes on the iOS simulator: fused tracks within 2e-14, GRU inputs identical, ranking identical on 120/120 frames, 18/18 phrases. |
+| 8 | **The whole pipeline on an iPhone** (`ios/CPEWalk`): ARKit pose + LiDAR depth replace SANPO's, every stage on device, no network and no language model. | Compiles for iPhone (Xcode 27.1) and passes its parity test; on-device latency of the models measured separately (`ios/CPETiming`); not field-tested with blind users. |
+
+What this does **not** show: that alerts make walking safer, or that any alert rate is acceptable
+to a blind walker. The replay is open-loop, and the listening study (`docs/listening_study_plan.md`)
+has not run.
 
 Run the v2 engine on a synthetic scene: `python tools/run_full_pipeline_demo.py` (`--v1` for the
 baseline chain).
@@ -59,9 +80,10 @@ CompositePerceptionEngine/
 │   ├── perception_stack/            # YOLO26n v3 + ByteTrack + depth sampling, physics (severity, pinhole bearing, K0)
 │   ├── threat_engine/               # v2: fusion.py (Kalman, train-fitted noise), envelope.py, priority.py (GRU/physics),
 │   │                                #     kalman_arrival.py (P(enter corridor) over the track's uncertainty), announcer.py, engine.py
-│   ├── segmentation/                # v2 §6.3: labels.py (SANPO 31 -> 8 walkable classes), context.py (SceneContext per track, edge ahead), edge_alert.py ("Curb ahead." rule)
+│   ├── segmentation/                # v2 §6.3: labels.py (SANPO 31 -> 8 walkable classes), context.py (SceneContext per track, edge ahead),
+│   │                                #     edge_alert.py ("Curb ahead." rule, SurfaceTracker, EdgeMemoryAlerter)
 │   ├── pipeline/                    # orchestrator.py — V2Pipeline (v2 + narration) and the v1 process_frame baseline
-│   ├── narration/                   # Scripted templates (distance buckets, all_phrases), phrase-table translation, TTS
+│   ├── narration/                   # Scripted templates (objects, edges, surfaces), spatial.py (stereo pan), translation, TTS
 │   ├── threat_prioritizer/          # v1 baseline: ThreatEvent contract and K0 routing
 │   ├── reflex_layer/                # v1 baseline: reflex path
 │   ├── physics_verification/        # v1 baseline: judge; NarratorEvent (narration input type)
@@ -73,7 +95,8 @@ CompositePerceptionEngine/
 │   ├── yolo/                        # Detector registry: base_yolo26n, cpe_yolo26n_hazards_v1, ..._v3_from_base
 │   └── tts/piper/                   # Piper ONNX voice (live-synthesis benchmark)
 ├── dataset/
-│   └── GRU/                         # samples.py, build.py, resplit.py (official split), relabel.py (corridor label); built .npz datasets
+│   └── GRU/                         # samples.py, build.py, resplit.py (official split), relabel.py (corridor label),
+│                                    #     fused.py (Kalman ground-plane inputs); built .npz datasets
 ├── evaluation/
 │   ├── kinetic_ablation.py          # K0 term ablation, label-free metrics, encounter labels (reused for v2)
 │   ├── kinetic_ablation_stratified.py # Ablation restricted to severity-discriminating frames
@@ -88,7 +111,8 @@ CompositePerceptionEngine/
 │   └── benchmarks/
 │       ├── detector_recall_sanpo/   # Sweep results: train selection grid, test scored once
 │       ├── heldout_official_split/  # GRU / ensemble / baselines on SANPO's official test split
-│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics (SANPO depth as is); oracle_context_* / model_context_* = segmentation on/off
+│       ├── threat_engine_replay/    # End-to-end replay, v1 vs v2, system metrics (SANPO depth as is); oracle_context_* / model_context_* = segmentation on/off;
+│       │                            #     early_warning_* = objective / fused / rising-trigger / CRC study (methodology §4.23)
 │       ├── scene_context/           # Scene-context flag vs arrival-label association (all / train / val+test; gt_* oracle, model_* trained model)
 │       ├── edge_alerts/             # Edge-ahead alert vs mask-implied step-offs (evaluate_edge_alerts.py; *_vs_gt_* = model alerts vs SANPO-mask step-offs)
 │       ├── segmentation/            # Walkable-surface model scores (evaluate_yolo26_sem_walkable.py); pilot_mps_* = M4 speed pilot
@@ -105,7 +129,9 @@ CompositePerceptionEngine/
 ├── tools/
 │   ├── stream_sanpo_perception.py   # Stage 1 over SANPO streamed from the public bucket (per-session fps / fx)
 │   ├── audit_sanpo_sessions.py      # FPS / intrinsics / official split / mask coverage for all 462 sessions
-│   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 engines; --context-dir (context on/off), --latency-csv
+│   ├── replay_threat_engine.py      # End-to-end SANPO replay: v1 vs v2 engines; --context-dir, --latency-csv, --gru-variant,
+│   │                                #     --rise, --paired, crc_budget_* (conformal risk control) operating rules
+│   ├── compare_replay_variants.py   # One table from several single-arm replays, with the declared validation selection rule
 │   ├── build_sanpo_segmentation.py  # SANPO masks (237 sessions, head + chest) -> Ultralytics semantic dataset
 │   ├── build_scene_context.py       # Per-frame SceneContext for replay sessions (SANPO masks or a trained model)
 │   ├── evaluate_edge_alerts.py      # "Curb ahead." alerts over the 53 head-masked sessions at 2.5 Hz
@@ -127,6 +153,8 @@ CompositePerceptionEngine/
 │   │                                #     export_gru_coreml.py (arrival GRU → Core ML)
 │   ├── configs/                     # 17-class taxonomy, Roboflow source manifest
 │   └── runs/                        # Ultralytics runs and checkpoints (v1, v2, v3); cpe_yolo26n_sem_walkable/ = segmentation (best.pt, best.mlpackage)
+├── ios/CPEWalk/                     # The navigation app on the iPhone: ARKit + LiDAR + Core ML, Swift port of the engine,
+│                                    #     prepare_app.py (models, cpe_config.json, golden walk), golden-parity tests, README (Developer Mode install)
 ├── ios/CPETiming/                   # On-device latency harness (SwiftUI, XcodeGen): detector + GRU per stage on SANPO data,
 │                                    #     prepare_bundle.py, analyze_timing.py, TestFlight how-to in its README
 ├── notebooks/                       # sanpo_yolo_gap_analysis.ipynb + gap_analysis_output/

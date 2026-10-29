@@ -43,6 +43,12 @@ MIN_GROUND_PX = 5
 BOUNDARY_SHARE = 0.15           # both walkable and unsafe ground at least this share -> near a boundary
 CURB_SHARE = 0.10
 MAX_EDGE_M = 10.0
+# Added to the road logit before the argmax (phone: CPEWalk Segmenter), for the IDD fine-tune
+# (cpe_yolo26n_sem_walkable_idd). As shipped it calls 76 % of road walker patches walkable or crosswalk on
+# SANPO validation; +3.25 was chosen there under a 5 % cap on walkable-called-road (tools/tune_surface_rules.py,
+# methodology §4.26; the SANPO-only model's value was 2.5, §4.25). The replay scene context
+# (build_scene_context.py) still uses the plain argmax.
+ROAD_LOGIT_BIAS = 3.25
 APPROACH_MS = 0.3               # closing on the walker's centre line at least this fast -> approaching the path
 APPROACH_STEPS = 3              # over the last 3 steps (0.6 s at 5 Hz)
 GROUND = np.array(sorted(GROUND_CLASSES), dtype=np.uint8)

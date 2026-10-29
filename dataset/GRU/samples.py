@@ -57,6 +57,19 @@ FEATURES = [
 ]
 N_FEATURES = len(FEATURES)
 
+# Optional per-timestep inputs from the threat engine's Kalman fusion (methodology §4.23): the track
+# on the ground plane relative to the walker and their walking direction, head motion removed with
+# the camera pose. Appended after FEATURES by dataset/GRU/fused.py; at runtime the same values come
+# from src.threat_engine.priority.FusedHistory, which also writes them into the dataset.
+FUSED_FEATURES = [
+    "f_lateral",       # lateral_m / 2, + = right of the walking direction
+    "f_forward",       # forward_m / 10
+    "f_lateral_speed", # lateral_speed_ms / 2
+    "f_closing",       # signed closing_speed_ms / 5
+    "f_position_std",  # position_std_m / 2, capped at 1
+    "f_in_corridor",   # 1 if inside the walking corridor now (envelope.in_corridor)
+]
+
 DEFAULT_HISTORY = 8        # steps per object (1.6 s at the 5 Hz processing rate)
 DEFAULT_MAX_OBJECTS = 32   # nearest-N per frame; the same cap applies to every baseline
 SPLITS = ("train", "val", "test")
@@ -331,7 +344,7 @@ def load_dataset(dataset_dir: Path, splits: tuple[str, ...] = SPLITS,
     """
     dataset_dir = Path(dataset_dir)
     manifest = json.loads((dataset_dir / "manifest.json").read_text(encoding="utf-8"))
-    if manifest["features"] != FEATURES:
+    if manifest["features"] not in (FEATURES, FEATURES + FUSED_FEATURES):
         raise ValueError(f"{dataset_dir} was built with a different feature list — rebuild it with dataset/GRU/build.py")
     if "folds" not in manifest:
         if fold is not None:
@@ -368,7 +381,7 @@ def collate(samples: list[dict]) -> dict[str, torch.Tensor]:
     """Pad frames to the batch's largest object count; `mask` marks real objects."""
     n = max(len(s["y"]) for s in samples)
     history = samples[0]["x"].shape[1]
-    x = torch.zeros(len(samples), n, history, N_FEATURES)
+    x = torch.zeros(len(samples), n, history, samples[0]["x"].shape[2])
     cls = torch.full((len(samples), n), UNKNOWN_CLASS, dtype=torch.long)
     y = torch.zeros(len(samples), n)
     tte = torch.full((len(samples), n), -1, dtype=torch.long)
