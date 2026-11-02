@@ -7,10 +7,14 @@ import os
 ///
 ///   ARKit (camera image + LiDAR scene depth + camera pose, held portrait)
 ///     -> Stage 1: YOLO26n v3 -> IoU tracker -> LiDAR depth per box, closing speed, bearing
-///     -> segmentation (every 2nd frame, 2.5 Hz): walker surface, edge ahead, per-object context
+///     -> street rules (phone only): vehicles approaching while crossing, posts in the path,
+///        LiDAR "Obstacle ahead"
 ///     -> threat engine: Kalman fusion with ego-motion removed, safety envelope, GRU arrival,
 ///        fused priority, announcement manager (override / edge / threat / surface lanes)
 ///     -> phrase -> on-device speech, panned toward the object
+///     -> segmentation (every 2nd frame, 2.5 Hz), after the alert is spoken: walker surface, edge
+///        ahead, per-object context, used from the next frame on. It is the slowest stage (~87 ms),
+///        so it stays off the alert path; the replay uses each frame's own context (0.2 s sooner).
 ///
 /// ARKit's world tracking stands in for SANPO's fixed_camera_poses.csv, and the iPhone's LiDAR
 /// for SANPO's stereo depth.
@@ -46,6 +50,11 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     private var surfaces: SurfaceTracker?
     private var stairs: StairMotion?
     private var lastScene = SceneFrame(walkerSurface: nil, edge: nil)
+    private var sceneEdge: EdgeAlert?            // from the last segmentation, for the next frame
+    private var freshScene = false
+    private var crossing = CrossingWatch()
+    private var posts = PostWatch()
+    private var obstacles = PathObstacleAlerter()
     private let speech = Speech()
     private var perf: PerfLog?
 
@@ -65,6 +74,8 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
         edges = EdgeAlerter(c.segmentation)
         surfaces = SurfaceTracker(confirm: c.segmentation.surface_confirm_frames)
         stairs = StairMotion(c.stairs)
+        crossing = CrossingWatch(); posts = PostWatch(); obstacles = PathObstacleAlerter()
+        lastScene = SceneFrame(walkerSurface: nil, edge: nil); sceneEdge = nil; freshScene = false
     }
 
     func start() {
@@ -135,16 +146,30 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
             timing.det2Ms = dets.dropFirst().reduce(0, +)
             timing.trackMs = msSince(started) - dets.reduce(0, +)
             timing.tracks = rows.count
-            var edgeAlert: EdgeAlert?
-            let segStart = DispatchTime.now().uptimeNanoseconds
-            if let seg = segmenter, k % 2 == 0, let map = try seg.classMap(f) {
-                lastScene = seg.sceneFrame(map, f.depth, rows: rows, imageWidth: Double(f.size.width))
-                edgeAlert = edges.step(t: f.t, edge: lastScene.edge, label: seg.label)
-            }
-            timing.segMs = msSince(segStart)
-            let engineStart = DispatchTime.now().uptimeNanoseconds
-            let surfaceID = surfaces.step(k % 2 == 0 ? lastScene.walkerSurface : nil)
+            var edgeAlert = sceneEdge
+            sceneEdge = nil
+            let surfaceID = surfaces.step(freshScene ? lastScene.walkerSurface : nil)
+            freshScene = false
             var surfaceName = surfaceID.flatMap { segmenter?.label($0) }
+
+            // Street rules (StreetRules.swift); all run every frame to keep their history.
+            let rulesStart = DispatchTime.now().uptimeNanoseconds
+            let atRoadEdge = lastScene.edge.map { $0.kind == Ground.road && $0.distanceM <= 3 } ?? false
+            let onRoad = surfaceName == "road" || surfaceName == "crosswalk" || atRoadEdge
+            let crossingAlert = crossing.step(t: f.t, rows: rows, pose: f.pose, focalPx: f.focalPx, onRoad: onRoad)
+            let postAlert = posts.step(t: f.t, rows: rows)
+            var obstacleM: Double?
+            if let d = f.depth, let g = f.depthGeometry, let pose = f.pose {
+                let sx = Double(d.width) / Double(f.size.width), sy = Double(d.height) / Double(f.size.height)
+                let named = rows.filter { !StreetRules.groundClasses.contains($0.className) }   // already named by a lane
+                    .map { CGRect(x: $0.box.minX * sx, y: $0.box.minY * sy, width: $0.box.width * sx, height: $0.box.height * sy) }
+                obstacleM = PathObstacleScan.nearest(PathObstacleScan.points(d, g, pose: pose, exclude: named))
+            }
+            let obstacleAlert = obstacles.step(t: f.t, distanceM: postAlert == nil ? obstacleM : nil)
+            edgeAlert = crossingAlert ?? edgeAlert ?? postAlert ?? obstacleAlert
+            timing.rulesMs = msSince(rulesStart)
+
+            let engineStart = DispatchTime.now().uptimeNanoseconds
             // On a flight, the walker's height says more than the segmenter (which sees 2-3 m ahead):
             // stair events take the edge lane, and edge / surface phrases from the class map wait.
             if let c = f.camera, let kind = stairs.step(t: f.t, x: c.x, y: c.y, h: c.z) {
@@ -155,7 +180,6 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
             if stairs.onStairs { surfaceName = "stairs" }
             let frame = try engine.step(k: k, t: f.t, rows: rows, pose: f.pose, contexts: lastScene.contexts,
                                         edge: edgeAlert, surface: surfaceReminders && !stairs.onStairs ? surfaceName : nil)
-            k += 1
             var phrase: String?
             if let a = frame.announcement {
                 let track = frame.tracks.first { $0.trackID == a.trackID }
@@ -165,12 +189,23 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
                 DispatchQueue.main.async { self.speech.say(text, bearingDeg: bearing, interrupt: interrupt) }
                 log.info("t=\(f.t, format: .fixed(precision: 1)) \(a.kind.rawValue, privacy: .public): \(text, privacy: .public)")
             }
+            timing.engineMs = msSince(engineStart)
+            timing.alertMs = inputMs + msSince(started)      // camera frame -> alert handed to speech
+
+            // Segmentation last, off the alert path; its scene is used from the next frame.
+            let segStart = DispatchTime.now().uptimeNanoseconds
+            if let seg = segmenter, k % 2 == 0, let map = try seg.classMap(f) {
+                lastScene = seg.sceneFrame(map, f.depth, rows: rows, imageWidth: Double(f.size.width))
+                sceneEdge = edges.step(t: f.t, edge: lastScene.edge, label: seg.label)
+                freshScene = true
+            }
+            timing.segMs = msSince(segStart)
+            k += 1
             let ranked = Set(frame.ranked.map(\.track.trackID)), over = Set(frame.overrides.map(\.track.trackID))
             let ov = rows.map { r in
                 Overlay(box: r.box, label: "\(r.className) \(r.distanceM.map { String(format: "%.1fm", $0) } ?? "?")",
                         color: over.contains(r.trackID) ? 2 : ranked.contains(r.trackID) ? 1 : 0)
             }
-            timing.engineMs = msSince(engineStart)
             let ms = msSince(started)
             timing.totalMs = inputMs + ms
             perf?.add(t: f.t, timing)
@@ -199,11 +234,23 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
         let K = frame.camera.intrinsics
         let fy = Double(K.columns.1.y), cy = Double(K.columns.2.y)
         let depthData = frame.smoothedSceneDepth ?? frame.sceneDepth
+        var geometry: DepthGeometry?
+        if let dm = depthData?.depthMap {
+            let s = Double(CVPixelBufferGetWidth(dm)) / Double(CVPixelBufferGetWidth(frame.capturedImage))
+            let m = frame.camera.transform
+            let col = { (c: SIMD4<Float>) in SIMD3(Double(c.x), Double(c.y), Double(c.z)) }
+            geometry = DepthGeometry(fx: Double(K.columns.0.x) * s, fy: Double(K.columns.1.y) * s,
+                                     cx: Double(K.columns.2.x) * s, cy: Double(K.columns.2.y) * s,
+                                     sensorHeight: CVPixelBufferGetHeight(dm),
+                                     rotation: simd_double3x3(columns: (col(m.columns.0), col(m.columns.1), col(m.columns.2))),
+                                     position: col(m.columns.3))
+        }
         return FrameInput(t: t, image: upright, size: CGSize(width: ext.width, height: ext.height),
                           depth: depthData.map(Self.depth), focalPx: fy, principalX: sensorH - 1 - cy,
                           pose: Self.pose(frame.camera.transform),
                           camera: SIMD3(Double(frame.camera.transform.columns.3.x), -Double(frame.camera.transform.columns.3.z),
-                                        Double(frame.camera.transform.columns.3.y)))
+                                        Double(frame.camera.transform.columns.3.y)),
+                          depthGeometry: geometry)
     }
 
     static func depth(_ d: ARDepthData) -> DepthMap {

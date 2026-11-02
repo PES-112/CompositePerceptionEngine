@@ -18,10 +18,11 @@ struct FrameInput {
     let principalX: Double
     let pose: EgoPose?
     var camera: SIMD3<Double>? = nil    // camera position: top view (X, Y) and height, for stairs.StairMotion
+    var depthGeometry: DepthGeometry? = nil   // puts depth pixels in the world (PathObstacleScan)
 
     func with(pose p: EgoPose?) -> FrameInput {
         FrameInput(t: t, image: image, size: size, depth: depth, focalPx: focalPx, principalX: principalX, pose: p,
-                   camera: camera)
+                   camera: camera, depthGeometry: depthGeometry)
     }
 }
 
