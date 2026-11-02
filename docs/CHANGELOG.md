@@ -20,7 +20,12 @@ All notable changes to the Composite Perception Engine (CPE) project will be doc
 - **LiDAR obstacle:** "Obstacle ahead, 2 meters." for anything standing 0.2–2 m above the floor in a
   0.8 m path within 3 m. Steps and curbs are excluded by a height-span check. It covers poles and
   pillars the detector misses.
-- `Tests/StreetRulesTests.swift` (7 tests). All 14 Swift tests pass, golden parity included.
+- `Tests/StreetRulesTests.swift` (8 tests). All 15 Swift tests pass, golden parity included.
+  - The LiDAR test renders a synthetic depth map (floor 1.3 m down, pole 2 m ahead, heading 0° and
+    37°) and runs the full portrait → sensor → camera → world → walker chain. It finds the pole at
+    2.0 m.
+  - It assumes ARKit's camera axes for an upright phone. On the device, the logged `cam_height_m`
+    (the phone's height above the floor found by the scan) checks the same thing.
 - Installed on the iPhone 17 Pro Max.
 - Docs: `architecture.md` §5 diagram, §6.5, §6.7 and §7; `README.md` pipeline; `ios/CPEWalk/README.md`.
 

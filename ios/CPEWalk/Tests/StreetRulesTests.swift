@@ -1,3 +1,4 @@
+import simd
 import XCTest
 @testable import CPEWalk
 
@@ -106,6 +107,53 @@ final class StreetRulesTests: XCTestCase {
         XCTAssertNil(a.step(t: 0, distanceM: 2.5))
         XCTAssertEqual(a.step(t: 0.2, distanceM: 2.3)?.kind, "obstacle")
         XCTAssertNil(a.step(t: 0.4, distanceM: 2.0))
+    }
+
+    /// The full LiDAR path: a synthetic portrait depth map, rendered the way ARKit delivers it, through
+    /// PathObstacleScan.points (portrait -> sensor pixel -> camera -> world -> walker frame) and nearest.
+    /// Phone held upright at 1.3 m, camera level. With this app's portrait mapping (portrait v = sensor
+    /// x, portrait u = H - 1 - sensor y), the camera's +x axis points down and +y points right.
+    private func renderDepth(headingDeg: Double, pole: Bool) -> (DepthMap, DepthGeometry, EgoPose) {
+        let W = 256, H = 192, s = 256.0 / 1920
+        let fx = 1400 * s, cx = 960 * s, cy = 720 * s
+        let h = headingDeg * .pi / 180
+        let fwdW = SIMD3(sin(h), 0, -cos(h))                    // world forward (heading clockwise from -z)
+        let rightW = SIMD3(cos(h), 0, sin(h))
+        let R = simd_double3x3(columns: (SIMD3(0, -1, 0), rightW, -fwdW))   // camera x, y, z in the world
+        let g = DepthGeometry(fx: fx, fy: fx, cx: cx, cy: cy, sensorHeight: H, rotation: R, position: [0, 0, 0])
+        var vals = [Float](repeating: 0, count: W * H)
+        for v in 0..<W { for u in 0..<H {
+            let x = Double(v), y = Double(H - 1 - u)
+            let dir = R * SIMD3((x - cx) / fx, -(y - cy) / fx, -1)    // depth = t along this ray
+            var t = Double.infinity
+            if dir.y < 0 { t = -1.3 / dir.y }                          // floor
+            if pole {                                                  // 0.1 m pole, 2 m ahead, floor to 2 m up
+                let ahead = simd_dot(dir, fwdW)
+                if ahead > 0 {
+                    let tp = 2.0 / ahead, p = dir * tp
+                    if abs(simd_dot(p, rightW)) <= 0.05 && p.y >= -1.3 && p.y <= 0.7 { t = min(t, tp) }
+                }
+            }
+            vals[v * H + u] = t < 5 ? Float(t) : 0                     // LiDAR: nothing beyond ~5 m
+        } }
+        let f2 = SIMD2(fwdW.x, -fwdW.z)
+        return (DepthMap(width: H, height: W, values: vals), g, EgoPose(position: [0, 0], right: [f2.y, -f2.x], forward: f2))
+    }
+
+    func testLidarGeometryEndToEnd() {
+        for heading in [0.0, 37.0] {
+            let (d, g, pose) = renderDepth(headingDeg: heading, pole: true)
+            let pts = PathObstacleScan.points(d, g, pose: pose, exclude: [])
+            XCTAssertFalse(pts.isEmpty, "floor found")
+            let floor = pts.filter { $0.height < 0.05 }
+            XCTAssertGreaterThan(floor.count, 20)
+            XCTAssertEqual(PathObstacleScan.nearest(pts) ?? 0, 2.0, accuracy: 0.1, "pole at 2 m, heading \(heading)")
+            let (d0, g0, p0) = renderDepth(headingDeg: heading, pole: false)
+            XCTAssertNil(PathObstacleScan.nearest(PathObstacleScan.points(d0, g0, pose: p0, exclude: [])), "floor only")
+            // the pole's pixels inside a detector box are skipped
+            XCTAssertNil(PathObstacleScan.nearest(PathObstacleScan.points(d, g, pose: pose,
+                                                                          exclude: [CGRect(x: 80, y: 0, width: 32, height: 256)])))
+        }
     }
 
     func testPhrases() {

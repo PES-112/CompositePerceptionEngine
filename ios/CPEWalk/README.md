@@ -101,6 +101,9 @@ Every Start → Stop writes `cpewalk_perf_<time>.csv` to the app's Documents fol
 - `alert_ms`: camera frame → alert handed to speech, the number the 50 ms budget is about (since
   2026-11-02 segmentation is no longer in it);
 - `total_ms`, the whole frame including segmentation, which is the "ms per frame" shown on screen;
+- `cam_height_m` and `obstacle_m` from the LiDAR obstacle scan: the phone's height above the floor
+  it found (~1.2–1.4 m at chest height means the depth geometry is right; check this on every walk)
+  and the obstacle distance (empty = none);
 - the thermal state, battery level and charging state (`battery_state` 2 = charging, so a charging
   walk can be excluded from battery claims).
 

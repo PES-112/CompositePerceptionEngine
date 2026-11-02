@@ -163,7 +163,10 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
                 let sx = Double(d.width) / Double(f.size.width), sy = Double(d.height) / Double(f.size.height)
                 let named = rows.filter { !StreetRules.groundClasses.contains($0.className) }   // already named by a lane
                     .map { CGRect(x: $0.box.minX * sx, y: $0.box.minY * sy, width: $0.box.width * sx, height: $0.box.height * sy) }
-                obstacleM = PathObstacleScan.nearest(PathObstacleScan.points(d, g, pose: pose, exclude: named))
+                let scan = PathObstacleScan.scan(d, g, pose: pose, exclude: named)
+                obstacleM = PathObstacleScan.nearest(scan.points)
+                timing.cameraHeightM = scan.cameraHeightM
+                timing.obstacleM = obstacleM
             }
             let obstacleAlert = obstacles.step(t: f.t, distanceM: postAlert == nil ? obstacleM : nil)
             edgeAlert = crossingAlert ?? edgeAlert ?? postAlert ?? obstacleAlert

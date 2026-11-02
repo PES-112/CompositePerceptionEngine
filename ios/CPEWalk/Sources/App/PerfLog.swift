@@ -15,6 +15,8 @@ import UIKit
 ///   alert_ms   camera frame -> alert handed to speech (input .. engine); segmentation runs after it
 ///   seg_ms     segmentation + scene context, after the alert (0 on frames it skips)
 ///   total_ms   input_ms + everything on the pipeline queue
+///   cam_height_m, obstacle_m  LiDAR obstacle scan: camera height above the floor it found (a field
+///              check of the geometry, ~1.2-1.4 m at chest height) and the obstacle distance (empty = none)
 ///   thermal_state  ProcessInfo.ThermalState (0 nominal … 3 critical)
 ///   battery, battery_state  UIDevice level and state (1 unplugged, 2 charging, 3 full)
 final class PerfLog {
@@ -22,6 +24,7 @@ final class PerfLog {
         var inputMs = 0.0, det1Ms = 0.0, det2Ms = 0.0, trackMs = 0.0, rulesMs = 0.0, engineMs = 0.0, alertMs = 0.0
         var segMs = 0.0, totalMs = 0.0
         var tracks = 0
+        var cameraHeightM: Double?, obstacleM: Double?
     }
 
     let url: URL
@@ -40,7 +43,7 @@ final class PerfLog {
         let model = withUnsafeBytes(of: &sys.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
         let header = "# device=\(model) os=\(ProcessInfo.processInfo.operatingSystemVersionString) app=CPEWalk "
             + "detectors=\(detectors) segmenter=\(segmenter ? "yes" : "no") rate=5Hz mode=walk\n"
-            + "block,frame,t_s,input_ms,det_ms,det1_ms,det2_ms,track_ms,rules_ms,engine_ms,alert_ms,seg_ms,total_ms,tracks,"
+            + "block,frame,t_s,input_ms,det_ms,det1_ms,det2_ms,track_ms,rules_ms,engine_ms,alert_ms,seg_ms,total_ms,tracks,cam_height_m,obstacle_m,"
             + "thermal_state,battery,battery_state\n"
         FileManager.default.createFile(atPath: url.path, contents: Data(header.utf8))
         handle = try FileHandle(forWritingTo: url)
@@ -55,7 +58,7 @@ final class PerfLog {
         let f = { (x: Double) in String(format: "%.3f", x) }
         pending += [frame < warmup ? "warmup" : "walk", String(frame), f(t), f(r.inputMs), f(r.det1Ms + r.det2Ms),
                     f(r.det1Ms), f(r.det2Ms), f(r.trackMs), f(r.rulesMs), f(r.engineMs), f(r.alertMs), f(r.segMs),
-                    f(r.totalMs), String(r.tracks),
+                    f(r.totalMs), String(r.tracks), r.cameraHeightM.map(f) ?? "", r.obstacleM.map(f) ?? "",
                     String(ProcessInfo.processInfo.thermalState.rawValue), String(format: "%.2f", bat.level),
                     String(bat.state)].joined(separator: ",") + "\n"
         frame += 1

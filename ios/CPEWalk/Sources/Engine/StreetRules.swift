@@ -133,6 +133,13 @@ enum PathObstacleScan {
     /// Points in the walker frame, with the floor taken as the 10th-percentile height of the points
     /// 0.5–3 m ahead. Pixels inside `exclude` (boxes of objects the detector already names) are skipped.
     static func points(_ d: DepthMap, _ g: DepthGeometry, pose: EgoPose, exclude: [CGRect]) -> [PathPoint] {
+        scan(d, g, pose: pose, exclude: exclude).points
+    }
+
+    /// As `points`, plus the camera's height above the floor it found (logged, as a field check that
+    /// the geometry is right: ~1.2-1.4 m with the phone at chest height).
+    static func scan(_ d: DepthMap, _ g: DepthGeometry, pose: EgoPose, exclude: [CGRect])
+        -> (points: [PathPoint], cameraHeightM: Double?) {
         var raw: [(Double, Double, Double)] = []          // forward, lateral, world y
         var floorY: [Double] = []
         for v in stride(from: 0, to: d.height, by: 2) { for u in stride(from: 0, to: d.width, by: 2) {
@@ -149,12 +156,12 @@ enum PathObstacleScan {
             if exclude.contains(where: { $0.contains(p) }) { continue }
             raw.append((fwd, lat, w.y))
         }}
-        guard floorY.count >= 50 else { return [] }
+        guard floorY.count >= 50 else { return ([], nil) }
         floorY.sort()
         let floor = floorY[floorY.count / 10]
         let camHeight = g.position.y - floor
-        guard camHeight > 0.7, camHeight < 2.2 else { return [] }   // no floor in view
-        return raw.map { PathPoint(forward: $0.0, lateral: $0.1, height: $0.2 - floor) }
+        guard camHeight > 0.7, camHeight < 2.2 else { return ([], camHeight) }   // no floor in view
+        return (raw.map { PathPoint(forward: $0.0, lateral: $0.1, height: $0.2 - floor) }, camHeight)
     }
 
     /// The distance of the nearest thing standing up in the path: enough points 0.2–2 m above the floor,
