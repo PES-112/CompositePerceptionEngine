@@ -22,6 +22,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     @Published var lastPhrase = ""
     @Published var surface = "—"
     @Published var latencyMs = 0.0
+    @Published var perfFile = ""                 // CSV of this walk's per-frame timing (PerfLog)
     @Published var overlays: [Overlay] = []
     @Published var imageSize = CGSize(width: 1440, height: 1920)
     @Published var surfaceReminders = true
@@ -46,6 +47,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     private var stairs: StairMotion?
     private var lastScene = SceneFrame(walkerSurface: nil, edge: nil)
     private let speech = Speech()
+    private var perf: PerfLog?
 
     override init() {
         super.init()
@@ -78,6 +80,8 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
         }
         session.run(conf, options: [.resetTracking, .removeExistingAnchors])
         t0 = nil; k = 0; lastProcessed = -.infinity
+        perf = try? PerfLog(detectors: stage1?.detectors.count ?? 0, segmenter: segmenter != nil)
+        perfFile = perf?.url.lastPathComponent ?? ""
         running = true
         status = conf.frameSemantics.contains(.smoothedSceneDepth) || conf.frameSemantics.contains(.sceneDepth)
             ? "Running (LiDAR depth)" : "Running — no LiDAR on this device: distances unavailable"
@@ -87,6 +91,9 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     func stop() {
         session.pause()
         speech.stop()
+        let p = perf
+        perf = nil
+        queue.async { p?.close() }          // after the frame in flight
         running = false
         status = "Stopped"
         overlays = []
@@ -100,11 +107,13 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
         if case .notAvailable = frame.camera.trackingState { return }
         busy = true
         lastProcessed = t
+        let s0 = DispatchTime.now().uptimeNanoseconds
         var input = Self.input(frame, t: t - (t0 ?? t))
         if t0 == nil { t0 = t }
         if let p = input.pose { lastPose = p } else { input = input.with(pose: lastPose) }   // keep the world frame
+        let inputMs = msSince(s0)
         queue.async { [weak self] in
-            self?.process(input)
+            self?.process(input, inputMs: inputMs)
             self?.arQueue.async { self?.busy = false }
         }
     }
@@ -115,16 +124,25 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
 
     // MARK: one processed frame
 
-    private func process(_ f: FrameInput) {
+    private func process(_ f: FrameInput, inputMs: Double) {
         guard let stage1, let engine, let narrator, let edges, let surfaces, let stairs else { return }
         let started = DispatchTime.now().uptimeNanoseconds
+        var timing = PerfLog.Row(inputMs: inputMs)
         do {
             let rows = try stage1.process(f)
+            let dets = stage1.detectMs
+            timing.det1Ms = dets.first ?? 0
+            timing.det2Ms = dets.dropFirst().reduce(0, +)
+            timing.trackMs = msSince(started) - dets.reduce(0, +)
+            timing.tracks = rows.count
             var edgeAlert: EdgeAlert?
+            let segStart = DispatchTime.now().uptimeNanoseconds
             if let seg = segmenter, k % 2 == 0, let map = try seg.classMap(f) {
                 lastScene = seg.sceneFrame(map, f.depth, rows: rows, imageWidth: Double(f.size.width))
                 edgeAlert = edges.step(t: f.t, edge: lastScene.edge, label: seg.label)
             }
+            timing.segMs = msSince(segStart)
+            let engineStart = DispatchTime.now().uptimeNanoseconds
             let surfaceID = surfaces.step(k % 2 == 0 ? lastScene.walkerSurface : nil)
             var surfaceName = surfaceID.flatMap { segmenter?.label($0) }
             // On a flight, the walker's height says more than the segmenter (which sees 2-3 m ahead):
@@ -152,11 +170,14 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
                 Overlay(box: r.box, label: "\(r.className) \(r.distanceM.map { String(format: "%.1fm", $0) } ?? "?")",
                         color: over.contains(r.trackID) ? 2 : ranked.contains(r.trackID) ? 1 : 0)
             }
-            let ms = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
+            timing.engineMs = msSince(engineStart)
+            let ms = msSince(started)
+            timing.totalMs = inputMs + ms
+            perf?.add(t: f.t, timing)
             DispatchQueue.main.async {
                 self.overlays = ov
                 self.imageSize = f.size
-                self.latencyMs = ms
+                self.latencyMs = timing.totalMs
                 if let phrase { self.lastPhrase = phrase }
                 self.surface = surfaceName ?? "—"
             }

@@ -36,6 +36,10 @@ struct ContentView: View {
                 Text(pipe.lastPhrase.isEmpty ? "—" : pipe.lastPhrase).font(.title2.weight(.semibold))
                 Text("Surface: \(pipe.surface)   ·   \(String(format: "%.0f", pipe.latencyMs)) ms per frame")
                     .font(.footnote).foregroundStyle(.secondary)
+                if !pipe.perfFile.isEmpty {
+                    Text("Timing log: Files › On My iPhone › CPE Walk › \(pipe.perfFile)")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)

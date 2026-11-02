@@ -1,16 +1,20 @@
 """
 analyze_timing.py
 =================
-Summarise CSVs written by the CPE Timing app (ios/CPETiming) into the numbers
-the paper reports (docs/methodology.md §5):
+Summarise CSVs written by the CPE Timing app (ios/CPETiming), or the per-frame
+timing log of the CPEWalk app (cpewalk_perf_*.csv, ios/CPEWalk PerfLog), into
+the numbers the paper reports (docs/methodology.md §5):
 
   per stage (pre / det / det_post / gru / total): median, p95, p99 for the benchmark blocks and
       the sustained run, warm-up excluded
-  sustained run: p95 of total per 5-minute window, time in each thermal state per window,
-      battery drop per hour
+  sustained run or walk: p95 of total per 5-minute window, time in each thermal state per
+      window, battery drop per hour
+
+Every *_ms column is a stage, so both apps' CSVs work.
 
     python ios/CPETiming/analyze_timing.py cpe_timing_benchmark_*.csv cpe_timing_sustained30min_*.csv
         --out evaluation/benchmarks/ondevice_latency/<device>_<date>
+    python ios/CPETiming/analyze_timing.py cpewalk_perf_*.csv --out evaluation/benchmarks/ondevice_latency/<dir>
 
 The total column is what tools/replay_threat_engine.py --latency-csv adds to
 alert timing.
@@ -24,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-STAGES = ("pre_ms", "det_ms", "det_post_ms", "gru_ms", "total_ms")
+LONG_RUNS = ("sustained", "walk")       # blocks summarised per 5-minute window
 THERMAL = {0: "nominal", 1: "fair", 2: "serious", 3: "critical"}
 WINDOW_S = 300
 
@@ -37,8 +41,8 @@ def load(path: Path) -> tuple[pd.DataFrame, str]:
 
 def stage_table(df: pd.DataFrame) -> list[str]:
     lines = ["| stage | run | n | median ms | p95 ms | p99 ms |", "|---|---|---:|---:|---:|---:|"]
-    kind = np.where(df["block"] == "sustained", "sustained", "benchmark")
-    for stage in STAGES:
+    kind = np.where(df["block"].isin(LONG_RUNS), df["block"], "benchmark")
+    for stage in [c for c in df.columns if c.endswith("_ms")]:
         for run, g in df.groupby(kind):
             v = g[stage].to_numpy()
             lines.append(f"| {stage.removesuffix('_ms')} | {run} | {len(v)} | "
@@ -73,8 +77,9 @@ def main() -> None:
         df, header = load(path)
         lines += [f"## `{path.name}`", "", f"`{header}`", ""]
         lines += stage_table(df) + [""]
-        if (df["block"] == "sustained").any():
-            lines += ["### Sustained run, by 5-minute window", ""] + sustained_table(df[df["block"] == "sustained"]) + [""]
+        long = df[df["block"].isin(LONG_RUNS)]
+        if len(long):
+            lines += ["### Sustained run / walk, by 5-minute window", ""] + sustained_table(long) + [""]
     (args.out / "report.md").write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines))
 

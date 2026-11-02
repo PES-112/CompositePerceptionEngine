@@ -82,6 +82,31 @@ identical on every frame, 18/18 announcements word for word.
 - *Show camera overlay* draws the boxes for sighted testers: red = override, orange = ranked
   threat, grey = tracked.
 
+## Timing log (in-app performance)
+
+Every Start → Stop writes `cpewalk_perf_<time>.csv` to the app's Documents folder
+(`Sources/App/PerfLog.swift`). It has one row per processed frame, 5 Hz:
+- the time of each stage: ARKit frame conversion (`input_ms`), each detector (`det1_ms` IDD,
+  `det2_ms` legacy v3), tracking and depth (`track_ms`), segmentation (`seg_ms`, 0 on the frames it
+  skips) and the engine with narration (`engine_ms`);
+- `total_ms`, which is the "ms per frame" shown on screen;
+- the thermal state, battery level and charging state (`battery_state` 2 = charging, so a charging
+  walk can be excluded from battery claims).
+
+The first 10 frames are tagged `warmup`. Get the files from the iPhone's Files app (On My iPhone ›
+CPE Walk), or with the phone connected:
+
+```bash
+xcrun devicectl device copy from --device <UDID> --domain-type appDataContainer \
+  --domain-identifier <bundle id> --source Documents --destination /tmp/cpewalk_perf
+python ios/CPETiming/analyze_timing.py /tmp/cpewalk_perf/cpewalk_perf_*.csv \
+  --out evaluation/benchmarks/ondevice_latency/cpewalk_<device>_<date>
+```
+
+`analyze_timing.py` summarises any `*_ms` column, so the same script reads CPETiming and CPEWalk
+CSVs. It reports median / p95 / p99 per stage, then p95, thermal state and battery per 5-minute
+window.
+
 ## Differences from the replay (state them when reporting results)
 
 - **Depth:** iPhone LiDAR. It is reliable to ~5 m; beyond that ARKit's fused depth is an estimate,

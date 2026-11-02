@@ -220,11 +220,12 @@ Reading the numbers:
 
 ### 9.2 Whole-app performance (CPEWalk) — not recorded yet
 
-CPEWalk times each frame from ARKit frame to announcement and shows it on screen ("… ms per frame",
-`WalkPipeline.latencyMs`), but does not save it. Since 2026-10-28 every frame runs two detectors
-(v4 IDD + v3 legacy), so the CPETiming numbers above are a lower bound for the app. To report it:
-log the per-frame time, thermal state and battery to a CSV during a walk and summarise it with
-`ios/CPETiming/analyze_timing.py` (`pending_work.md` priority 2).
+Since 2026-10-28 every frame runs two detectors (v4 IDD + v3 legacy), so the CPETiming numbers
+above are a lower bound for the app. Since 2026-11-02 CPEWalk logs every processed frame to a CSV:
+the time of each stage, the total, the thermal state, the battery level and the charging state
+(`ios/CPEWalk/README.md`, "Timing log"). This build is installed on the iPhone 17 Pro Max. No walk
+has been recorded with it yet, so there are no numbers here. After the next walk, summarise the CSV
+with `ios/CPETiming/analyze_timing.py`.
 
 ## 10. Suggested slide order
 

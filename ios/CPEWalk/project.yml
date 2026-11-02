@@ -35,6 +35,8 @@ targets:
         UIRequiredDeviceCapabilities: [arkit]
         NSCameraUsageDescription: CPE Walk uses the camera and LiDAR to find hazards ahead of you and speak alerts.
         UIBackgroundModes: [audio]
+        UIFileSharingEnabled: true            # timing CSVs (PerfLog) show up in the Files app
+        LSSupportsOpeningDocumentsInPlace: true
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

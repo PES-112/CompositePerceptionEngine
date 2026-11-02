@@ -2,6 +2,22 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-11-02, timing log] - CPEWalk records its own per-frame performance
+
+### Added
+- `ios/CPEWalk/Sources/App/PerfLog.swift`: one CSV per walk in the app's Documents folder, one row
+  per processed frame:
+  - stage times: `input_ms`, `det1_ms` / `det2_ms` (each detector), `track_ms`, `seg_ms`,
+    `engine_ms`, and `total_ms`;
+  - track count, thermal state, battery level and charging state;
+  - the first 10 frames tagged `warmup`.
+  The files show up in the Files app (`UIFileSharingEnabled`).
+- `Stage1.detectMs`: the time of each detector on the last frame.
+- The on-screen "ms per frame" now includes the ARKit frame conversion (`input_ms`).
+- `ios/CPETiming/analyze_timing.py` treats every `*_ms` column as a stage and a `walk` block like the
+  sustained run, so it reads CPEWalk CSVs. It reproduces the 2026-10-21 report unchanged.
+- Built and installed on the iPhone 17 Pro Max. No walk recorded with it yet.
+
 ## [2026-11-02] - On-device performance written up; status docs brought up to date
 
 ### Docs

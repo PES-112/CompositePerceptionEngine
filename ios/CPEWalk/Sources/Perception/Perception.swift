@@ -192,12 +192,18 @@ final class Stage1 {
     let detectors: [Detector]
     private let tracker = BoxTracker()
     private var depthHistory: [String: [(Double, Double)]] = [:]     // (t, metres)
+    private(set) var detectMs: [Double] = []                          // last frame, per detector (PerfLog)
 
     init(config: CPEConfig, detectors: [Detector]) { cfg = config; self.detectors = detectors }
 
     func process(_ frame: FrameInput) throws -> [PerceptionRow] {
         let W = Double(frame.size.width), H = Double(frame.size.height)
-        let dets = try detectors.flatMap { try $0.detect(frame) }.filter { d in        // yolo_tracker.is_valid_detection
+        detectMs = []
+        let dets = try detectors.flatMap { det -> [Detection] in
+            let s = DispatchTime.now().uptimeNanoseconds
+            defer { detectMs.append(msSince(s)) }
+            return try det.detect(frame)
+        }.filter { d in        // yolo_tracker.is_valid_detection
             let bw = Double(d.box.width), bh = Double(d.box.height)
             return bw / max(bh, 1) <= 4 && bw * bh >= 500 && !(Double(d.box.maxY) >= H - 5 && bw > W * 0.5)
         }
