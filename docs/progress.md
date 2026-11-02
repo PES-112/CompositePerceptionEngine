@@ -1,7 +1,11 @@
 # CPE Progress
 
 Where the project stands, written so each section maps to one or two slides. The design itself is
-`architecture.md`; what's left is `pending_work.md`. Last updated 2026-10-14 (evening).
+`architecture.md`; what's left is `pending_work.md`. Last updated 2026-11-02.
+
+Sections 4–8 are the 2026-10-14 snapshot and are kept for the slide story. The current numbers
+(head-camera rerun, IDD fine-tunes, conformal budgets) are in `methodology.md` §4.18–4.26 and
+`CHANGELOG.md`. §3, §9 and §11 are current.
 
 ---
 
@@ -41,11 +45,17 @@ Full design and diagram: `architecture.md` §3, §5.
 | Announcement manager (cooldown, hysteresis, preemption, stale drop) | ✅ Built + tested | `src/threat_engine/announcer.py` |
 | End-to-end SANPO replay, v1 vs v2, official test split | ✅ Done | §7 |
 | Scripted narration, distance buckets, phrase list for pre-rendering | ✅ Done | `src/narration/` |
-| Walkable-surface segmentation | 🟨 Data, context, metrics, oracle check built; near-boundary weight neutralised (train-only check); edge-ahead alert rule + oracle evaluation; model not trained yet | `src/segmentation/`, `pending_work.md` P1.1 |
-| Pre-rendered audio clips | ⬜ Phrase list ready, audio not rendered | `pending_work.md` P4 |
-| On-iPhone latency | ⬜ Not started (Core ML export option added) | `pending_work.md` P3 |
+| Walkable-surface segmentation (YOLO26n-sem, SANPO + IDD) | ✅ Trained; on the phone with a road bias. Context has no measurable replay effect (§4.19) | `methodology.md` §4.18, §4.26 |
+| Surface narration, "Curb ahead", "Obstacle ahead", stairs from height | ✅ Built + tested; edge memory tried, no gain | `methodology.md` §4.23–4.25 |
+| Conformal alert budgets (CRC) | ✅ Held on test at 5/min for every arm | `methodology.md` §4.23 |
+| IDD (Indian street) fine-tunes: segmenter + detector v4 | ✅ Done; phone runs v4 + v3 for static classes | `methodology.md` §4.26 |
+| Pre-rendered audio clips | 🟨 Phone speaks with the system voice (`Speech.swift`), stereo-panned; clip library not rendered | `pending_work.md` P4 |
+| On-iPhone model latency (YOLO26n v3 + GRU, `ios/CPETiming`) | ✅ Measured 2026-10-21, iPhone 17 Pro Max | §9 |
+| CPEWalk iPhone app (whole chain on device) | ✅ Builds; golden parity test passes; one field walk (2026-10-27) | `ios/CPEWalk/README.md` |
+| Whole-app per-frame latency (CPEWalk, two detectors + segmenter) | ⬜ Not recorded; the app only shows it on screen | §9, `pending_work.md` 2 |
 
-Tests: 51 unit tests, all passing (`python -m unittest discover -s tests`).
+Tests: 119 Python unit tests, all passing (`python -m unittest discover -s tests`, 2026-11-02), plus
+the Swift golden-session and field-fix tests in `ios/CPEWalk/Tests`.
 
 ## 4. Result: hazard detector
 
@@ -164,9 +174,57 @@ Report: `evaluation/benchmarks/threat_engine_replay/official_2026_10_14/report.m
 | Same, legacy Jetson Orin Nano analytical proxy (4× + 3 ms) | avg p95 34.31 ms | Simulated; **retired** with the phone pivot |
 | Threat engine (fusion + GRU + priority + announcer), whole replay | 71 test sessions × 7 engines + 41 val sessions × 30 settings in 38 s total on a laptop CPU | Measured (CPU, not phone) |
 | Scripted narration template | ~0 ms | Measured |
-| iPhone 17 Pro Max | — | **Not measured yet**, next step |
+| iPhone 17 Pro Max: YOLO26n v3 + GRU (Core ML FP16), 30 min sustained | median **32.0 ms**, p95 **36.9 ms** per frame (models alone p95 8.6 ms) | **Measured on the phone** (§9.1) |
+| iPhone 17 Pro Max: whole CPEWalk app (two detectors, segmenter, fusion, engine) | — | **Not recorded yet** (§9.2) |
 
 Budget for the alert path: p95 < 50 ms. Real-time budget per processed frame: 200 ms (5 Hz).
+
+### 9.1 On-device performance (iPhone 17 Pro Max, measured 2026-10-21)
+
+`ios/CPETiming` on an iPhone 17 Pro Max (iPhone18,2, iOS 26.6.2). It runs the YOLO26n v3 detector and
+the arrival GRU (both Core ML FP16) on 300 bundled SANPO test frames and recorded SANPO features,
+paced at 15 FPS, 60 warm-up frames excluded. Two 1,500-frame benchmark runs and one 30-minute
+sustained run (27,000 frames). Raw CSVs and the generated report:
+`evaluation/benchmarks/ondevice_latency/iphone17promax_2026_10_21/`.
+
+Sustained 30-minute run, per frame:
+
+| Stage | Median ms | p95 ms | p99 ms | Max ms |
+|---|---:|---:|---:|---:|
+| JPEG decode + resize (`pre`) | 24.10 | 28.91 | 30.23 | 37.11 |
+| Detector, YOLO26n v3 (`det`) | 5.47 | 5.73 | 5.96 | 9.23 |
+| Reading detector output (`det_post`) | 2.01 | 2.41 | 2.62 | 4.79 |
+| Arrival GRU (`gru`) | 0.47 | 0.53 | 0.58 | 2.08 |
+| **Total** | **31.95** | **36.87** | **38.25** | **42.58** |
+| Models only (det + det_post + gru) | 7.94 | 8.59 | — | — |
+
+The two benchmark runs agree to within 0.2 ms at the median (total median 32.26 and 32.28 ms, p95
+35.78 and 35.89 ms).
+
+| What | Result |
+|---|---|
+| Frames over the 50 ms alert-path budget | 0 of 27,000 |
+| Headroom at 5 Hz processing (200 ms per frame) | p95 uses 18% of the budget |
+| Throttling over 30 min | None: p95 per 5-min window 36.3–37.3 ms, no upward trend |
+| Thermal state | Nominal for 100% of frames |
+| Battery | 85% at start and end. iOS reports the level coarsely and the charging state was not logged, so no battery claim is made |
+
+Reading the numbers:
+- **Most of the time is decoding the bundled JPEGs** (24 ms of 32 ms). The live app gets camera
+  pixel buffers from ARKit, so it has no JPEG decode; it has a resize and the other stages below
+  instead.
+- **The models are cheap:** detector + GRU fit in under 9 ms at p95.
+- **Scope:** two models on SANPO frames, not the whole app. Not included: the second (IDD) detector,
+  the segmenter (Ultralytics reports 4.9 ms for YOLO26n-sem on iPhone 17 Pro, not measured by us),
+  ByteTrack, LiDAR depth lookup, Kalman fusion, the engine, speech.
+
+### 9.2 Whole-app performance (CPEWalk) — not recorded yet
+
+CPEWalk times each frame from ARKit frame to announcement and shows it on screen ("… ms per frame",
+`WalkPipeline.latencyMs`), but does not save it. Since 2026-10-28 every frame runs two detectors
+(v4 IDD + v3 legacy), so the CPETiming numbers above are a lower bound for the app. To report it:
+log the per-frame time, thermal state and battery to a CSV during a walk and summarise it with
+`ios/CPETiming/analyze_timing.py` (`pending_work.md` priority 2).
 
 ## 10. Suggested slide order
 
@@ -179,7 +237,7 @@ Budget for the alert path: p95 < 50 ms. Real-time budget per processed frame: 20
 7. Held-out GRU results and the geometric-rule ceiling (§6)
 8. System replay: v1 vs v2, precision vs recall (§7)
 9. Data audit: what we found and fixed (§8)
-10. Latency so far + on-device plan (§9)
+10. On-device performance on the iPhone 17 Pro Max (§9)
 11. Limitations (`architecture.md` §10) and next steps (`pending_work.md` "Next three")
 
 ## 11. Numbers for Q&A
@@ -191,5 +249,7 @@ Budget for the alert path: p95 < 50 ms. Real-time budget per processed frame: 20
 - Held-out GRU AUROC 0.888 vs K0 0.571, TTC 0.661, cone TTC 0.765, nearest-in-cone 0.875.
 - Replay: v2 precision 0.59 vs v1 0.24; 17 vs 119 alerts/min; recall 0.26 vs 0.65.
 - GRU size ~31k parameters (attention model ~64k); checkpoints ~130–260 KB.
-- Alert-path budget p95 < 50 ms; measured server p95 7.83 ms; iPhone not yet measured.
+- Alert-path budget p95 < 50 ms; measured server p95 7.83 ms; iPhone 17 Pro Max detector + GRU p95
+  36.9 ms per frame including JPEG decode (8.6 ms for the models), flat over 30 min, thermal nominal.
+  Whole-app latency not recorded yet.
 - Zero human labels used so far; the referee + human calibration step hasn't run.

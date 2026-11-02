@@ -1723,7 +1723,7 @@ Three kinds of latency number exist and must never be conflated in a paper:
 - **Legacy analytical proxy (retired 2026-10-14):** the Jetson Orin Nano 8GB profile scaled GB10
   latency by 4.0× and added 3.0 ms (avg p95 34.31 ms). It was a screening heuristic for a target that
   is no longer planned, so don't report it as edge evidence.
-- **On-device measurement (harness built 2026-10-17, not yet run):** `ios/CPETiming` is a SwiftUI app
+- **On-device measurement (harness built 2026-10-17, run 2026-10-21; results below):** `ios/CPETiming` is a SwiftUI app
   built by GitHub Actions on macOS and installed through TestFlight (no team Mac needed). It runs:
   - YOLO26n v3 (FP16 Core ML) on 300 bundled SANPO test frames;
   - the arrival GRU (`training/scripts/export_gru_coreml.py`; FP16, fixed [1, 32, 8, 9] input,
@@ -1740,6 +1740,15 @@ Three kinds of latency number exist and must never be conflated in a paper:
   battery drop per hour (`ios/CPETiming/analyze_timing.py`). This is the only number that supports a
   "runs on the phone" claim. It times two models per frame, not the whole app, and SANPO frames come
   from a different camera than the phone's.
+
+  *Result (iPhone 17 Pro Max, iOS 26.6.2, 2026-10-21;
+  `evaluation/benchmarks/ondevice_latency/iphone17promax_2026_10_21/`).* 30-minute sustained run,
+  27,000 frames, median / p95 / p99 ms: decode + resize 24.10 / 28.91 / 30.23, detector 5.47 / 5.73 /
+  5.96, output read 2.01 / 2.41 / 2.62, GRU 0.47 / 0.53 / 0.58, total 31.95 / 36.87 / 38.25 (max
+  42.58). Two 1,500-frame benchmark runs: total p95 35.78 and 35.89. p95 per 5-minute window
+  36.3–37.3 ms, thermal state nominal for every frame, so no throttling. Battery stayed at 85%; the
+  charging state was not logged, so no battery claim. Not yet measured: the CPEWalk app end to end,
+  which since §4.26 runs two detectors and the segmenter per frame.
 
 **Latency-aware replay.** The SANPO replay is open-loop, so latency can't change what the walker
 does. It does change *when* an alert is heard. `tools/replay_threat_engine.py --latency-csv

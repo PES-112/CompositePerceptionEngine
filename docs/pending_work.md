@@ -1,7 +1,7 @@
 # Pending Work
 
 Everything not yet done for the v2 design (`architecture.md`), in priority order. When an item is
-finished, move it to `progress.md` and log it in `CHANGELOG.md`. Last updated 2026-10-25.
+finished, move it to `progress.md` and log it in `CHANGELOG.md`. Last updated 2026-11-02.
 
 Priority key: **P0** blocks correct numbers · **P1** builds the v2 engine · **P2** evaluation ·
 **P3** iPhone · **P4** narration · **P5** paper.
@@ -30,7 +30,10 @@ fused inputs, rising trigger) and none moved the operating curve outward.
    - First walk: done (2026-10-27). Road was called crosswalk or sidewalk, scooters were called
      cars, and stairs underfoot went unannounced. Partial fixes are in §4.25.
    - Still to do:
-     - Measure the full per-frame latency the app shows.
+     - Measure the full per-frame latency the app shows. It is on screen only
+       (`WalkPipeline.latencyMs`); log it per frame with thermal state and battery to a CSV, then
+       summarise with `ios/CPETiming/analyze_timing.py`. The model-only numbers are in
+       `progress.md` §9.1.
      - Do more walks with a sighted tester. Check the stair calls and the road bias on Indian
        streets.
      - Add session recording (frames, depth, pose, alerts) so phone-domain data can be replayed
@@ -223,10 +226,9 @@ Unaffected: segmentation training, its test scores, and the Core ML export (no d
      (option added; run it on a Mac).
    - The GRU: trace `models/GRU/GRU` and convert with `coremltools` (script not written yet).
    - The segmentation model, once it exists.
-2. **Measure on the phone.** Run each model on the iPhone 17 Pro Max over SANPO frames, then report
-   median/p95 latency and a sustained (several-minute) run to expose thermal throttling. Xcode's
-   Core ML performance report on a connected device is the simplest route. It **needs a Mac with
-   Xcode**; confirm one is available.
+2. **Measure on the phone.** **Done for YOLO26n v3 + GRU (2026-10-21, `ios/CPETiming`):** total p95
+   36.9 ms per frame over a 30-min sustained run, models alone 8.6 ms, thermal nominal throughout
+   (`progress.md` §9.1). Still open: the segmenter, the v4 IDD detector, and the whole CPEWalk app.
 3. **Latency-aware replay.** Delay each alert in `tools/replay_threat_engine.py` by the measured
    on-device latency.
 4. **Demo (needed, 2026-10-20).** Done for desktop: `tools/render_demo_video.py` runs the whole

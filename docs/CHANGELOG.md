@@ -2,6 +2,22 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-11-02] - On-device performance written up; status docs brought up to date
+
+### Docs
+- **`progress.md` §9.1 / §9.2: on-device performance.** The 2026-10-21 iPhone 17 Pro Max run
+  (`ios/CPETiming`, YOLO26n v3 + GRU, Core ML FP16) is now reported where the docs said "not measured":
+  - 30-min sustained run, 27,000 frames: total median 31.95 ms, p95 36.87 ms, p99 38.25 ms, max 42.58 ms.
+  - Models alone (detector + output read + GRU): median 7.94 ms, p95 8.59 ms. JPEG decode is 24 of
+    the 32 ms.
+  - No frame over the 50 ms budget; p95 per 5-min window 36.3–37.3 ms; thermal nominal throughout.
+- `progress.md` §3 status table, §11 and the test count (119) updated; `methodology.md` §5.1,
+  `paper_draft.md` §6.8 and abstract, `pending_work.md` P3.2 and `README.md` updated to match.
+
+### Open
+- Whole-app (CPEWalk) per-frame latency is shown on screen but not logged, so it is not reported.
+  The two-detector build has not been timed.
+
 ## [2026-10-28] - Indian street fine-tunes; the phone runs two detectors (methodology §4.26)
 
 ### Added

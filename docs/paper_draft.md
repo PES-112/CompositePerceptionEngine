@@ -31,7 +31,7 @@ that any alert rate is acceptable.
 | 6.6 | Edge alerts with the model's masks | final (correct depth) | `edge_alerts/cpe_yolo26n_sem_walkable_depthfix_*` |
 | 6.6 | Scene context with the model's masks | final (head-camera rerun; methodology §4.19) | `scene_context/model_headfx_*`, `threat_engine_replay/model_context_headfx_2026_10_20/` |
 | 6.7 | Optional: phone-LiDAR range check (SANPO depth cut to 5 m) | optional; supplementary only | teammate |
-| 6.8 | On-device latency, latency-aware replay | **[PENDING: iPhone run]** (sideloaded build, `ios/CPETiming/RUN_ON_IPHONE.md`) | EssKae1234 |
+| 6.8 | On-device latency, latency-aware replay | Detector + GRU measured 2026-10-21 (`progress.md` §9.1). **[PENDING: segmenter, two-detector app, latency-aware replay]** | EssKae1234 |
 | — | English audio clip library, clip durations vs. the announcer's 1.2 s | **[PENDING]**; translation is future work | `v2-narration` (Days 1–4) |
 | — | BLV listening study (ASSETS version only) | **[PENDING: ethics]** | teammate (`listening_study_plan.md`) |
 
@@ -55,8 +55,9 @@ strongest geometric baseline, though it switches announcements more often. Few w
 with SANPO's own masks as an oracle, one of three declared context rules points the wrong way, and
 we report it, and context does not change the alerts measurably. A trained segmentation model's
 edge-ahead ("Curb ahead.") alerts match the oracle's, and its context flags agree with the
-oracle's (κ 0.51–0.72); over all 85 test sessions, its context does not change the alerts either. All models run on
-an iPhone 17 Pro Max in [PENDING] ms (p95). We release labels, code and the replay harness.
+oracle's (κ 0.51–0.72); over all 85 test sessions, its context does not change the alerts either. The detector and
+arrival model run on an iPhone 17 Pro Max in 36.9 ms per frame (p95, including image decoding;
+8.6 ms for the models), with no throttling over 30 minutes. We release labels, code and the replay harness.
 
 ---
 
@@ -424,6 +425,15 @@ All headline results use SANPO's depth as is. **[PENDING: teammate.]** Each come
 - iPhone 17 Pro Max median / p95 / p99 by stage, a sustained run with the thermal timeline, and the
   latency-aware replay.
 
+**Measured (2026-10-21, `evaluation/benchmarks/ondevice_latency/iphone17promax_2026_10_21/`).**
+YOLO26n v3 and the arrival GRU, Core ML FP16, on 300 SANPO test frames at 15 FPS; 30-minute
+sustained run, 27,000 frames. Per frame, median / p95 / p99 ms: JPEG decode and resize 24.10 / 28.91
+/ 30.23; detector 5.47 / 5.73 / 5.96; reading its output 2.01 / 2.41 / 2.62; GRU 0.47 / 0.53 /
+0.58; total 31.95 / 36.87 / 38.25 (maximum 42.58; none over the 50 ms budget). The p95 per 5-minute
+window stays within 36.3–37.3 ms and the thermal state is nominal throughout. This times two models
+on SANPO frames, not the whole app; the segmenter, the second detector, tracking, fusion and the
+engine are not included. **[PENDING: whole-app timing, latency-aware replay.]**
+
 Not in this paper: judging *which* object should be announced first. Every result here scores
 announcements against the measured arrival labels; a human (or calibrated VLM) judgement of
 announcement order is future work, and is not part of the system.
@@ -516,4 +526,4 @@ on-device latency, §6.8.]
 | T1 | Baseline ladder | `baseline_ladder/…_corridor_w0.75_d3_h20/` | §6.1 table |
 | T2 | Replay at budgets | `threat_engine_replay/corridor_headfx/` | §6.2 table |
 | T3 | Segmentation scores | `segmentation/cpe_yolo26n_sem_walkable_test/` | §6.5 table |
-| T4 | On-device latency | EssKae1234 | **[PENDING]** |
+| T4 | On-device latency | EssKae1234 | Detector + GRU done (§6.8); **[PENDING: whole app]** |
