@@ -52,7 +52,7 @@ Full design and diagram: `architecture.md` §3, §5.
 | Pre-rendered audio clips | 🟨 Phone speaks with the system voice (`Speech.swift`), stereo-panned; clip library not rendered | `pending_work.md` P4 |
 | On-iPhone model latency (YOLO26n v3 + GRU, `ios/CPETiming`) | ✅ Measured 2026-10-21, iPhone 17 Pro Max | §9 |
 | CPEWalk iPhone app (whole chain on device) | ✅ Builds; golden parity test passes; one field walk (2026-10-27) | `ios/CPEWalk/README.md` |
-| Whole-app per-frame latency (CPEWalk, two detectors + segmenter) | ⬜ Not recorded; the app only shows it on screen | §9, `pending_work.md` 2 |
+| Whole-app per-frame latency (CPEWalk, two detectors + segmenter) | 🟨 First walks logged 2026-11-02 (2.5 min); keeps 5 Hz, but over the 50 ms alert budget on segmentation frames; no sustained walk yet | §9.2 |
 
 Tests: 119 Python unit tests, all passing (`python -m unittest discover -s tests`, 2026-11-02), plus
 the Swift golden-session and field-fix tests in `ios/CPEWalk/Tests`.
@@ -175,7 +175,7 @@ Report: `evaluation/benchmarks/threat_engine_replay/official_2026_10_14/report.m
 | Threat engine (fusion + GRU + priority + announcer), whole replay | 71 test sessions × 7 engines + 41 val sessions × 30 settings in 38 s total on a laptop CPU | Measured (CPU, not phone) |
 | Scripted narration template | ~0 ms | Measured |
 | iPhone 17 Pro Max: YOLO26n v3 + GRU (Core ML FP16), 30 min sustained | median **32.0 ms**, p95 **36.9 ms** per frame (models alone p95 8.6 ms) | **Measured on the phone** (§9.1) |
-| iPhone 17 Pro Max: whole CPEWalk app (two detectors, segmenter, fusion, engine) | — | **Not recorded yet** (§9.2) |
+| iPhone 17 Pro Max: whole CPEWalk app (two detectors, segmenter, fusion, engine), 6 short walks | median **119.6 ms**, p95 **145.4 ms** per frame (40 ms without the segmenter, 136 ms with it) | **Measured on the phone**, 2.5 min only (§9.2) |
 
 Budget for the alert path: p95 < 50 ms. Real-time budget per processed frame: 200 ms (5 Hz).
 
@@ -218,14 +218,32 @@ Reading the numbers:
   the segmenter (Ultralytics reports 4.9 ms for YOLO26n-sem on iPhone 17 Pro, not measured by us),
   ByteTrack, LiDAR depth lookup, Kalman fusion, the engine, speech.
 
-### 9.2 Whole-app performance (CPEWalk) — not recorded yet
+### 9.2 Whole-app performance (CPEWalk, measured 2026-11-02)
 
-Since 2026-10-28 every frame runs two detectors (v4 IDD + v3 legacy), so the CPETiming numbers
-above are a lower bound for the app. Since 2026-11-02 CPEWalk logs every processed frame to a CSV:
-the time of each stage, the total, the thermal state, the battery level and the charging state
-(`ios/CPEWalk/README.md`, "Timing log"). This build is installed on the iPhone 17 Pro Max. No walk
-has been recorded with it yet, so there are no numbers here. After the next walk, summarise the CSV
-with `ios/CPETiming/analyze_timing.py`.
+The live app on the iPhone 17 Pro Max, on the street: ARKit camera and LiDAR, two detectors (v4 IDD
++ v3 legacy), the segmenter every 2nd frame, tracking, fusion, GRU, announcer and narration. Logged
+by the app (`ios/CPEWalk/README.md`, "Timing log"). 6 runs, 744 frames after warm-up, **2.5 min in
+total; the longest run is 53 s**. Data and summary:
+`evaluation/benchmarks/ondevice_latency/cpewalk_iphone17promax_2026_11_02/`.
+
+| Stage | Median ms | p95 ms | Max ms |
+|---|---:|---:|---:|
+| ARKit frame → input | 6.5 | 8.2 | 14.3 |
+| Both detectors (incl. letterbox) | 37.9 | 43.4 | 49.4 |
+| Tracking, depth per box | 0.5 | 1.2 | 3.3 |
+| Segmentation, on the frames it runs | 86.7 | 98.4 | 114.1 |
+| Engine + narration | 0.4 | 0.8 | 5.7 |
+| **Total, frames without segmentation** | **40.2** | **43.9** | 46.6 |
+| **Total, frames with segmentation** | **136.0** | **149.3** | 168.5 |
+
+- **It keeps the 5 Hz rate:** the slowest frame (169 ms) fits in the 200 ms between frames.
+- **It misses the 50 ms alert budget on every frame with segmentation.** An alert on those frames is
+  heard about 136 ms after the camera frame (p95 149 ms), not counting speech synthesis. Moving
+  segmentation off the alert path (run it after the announcement, or on its own queue) would bring
+  every frame near 40 ms.
+- **Each detector is 18–20 ms in the app vs 5.5 ms for the model in CPETiming.** This is most likely
+  the Core Image letterbox of the full camera image; it was not measured separately.
+- Thermal state nominal throughout; no battery claim (runs too short). A 10+ min walk is still needed.
 
 ## 10. Suggested slide order
 
@@ -252,5 +270,6 @@ with `ios/CPETiming/analyze_timing.py`.
 - GRU size ~31k parameters (attention model ~64k); checkpoints ~130–260 KB.
 - Alert-path budget p95 < 50 ms; measured server p95 7.83 ms; iPhone 17 Pro Max detector + GRU p95
   36.9 ms per frame including JPEG decode (8.6 ms for the models), flat over 30 min, thermal nominal.
-  Whole-app latency not recorded yet.
+  Whole app on the street (2 detectors + segmenter): median 120 ms, p95 145 ms per frame, 5 Hz held;
+  over the 50 ms alert budget on segmentation frames (2.5 min of walks).
 - Zero human labels used so far; the referee + human calibration step hasn't run.

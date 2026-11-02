@@ -30,9 +30,9 @@ fused inputs, rising trigger) and none moved the operating curve outward.
    - First walk: done (2026-10-27). Road was called crosswalk or sidewalk, scooters were called
      cars, and stairs underfoot went unannounced. Partial fixes are in §4.25.
    - Still to do:
-     - Measure the full per-frame latency the app shows. Logging is built (2026-11-02,
-       `PerfLog.swift`, per-stage CSV per walk). Still to do: record a walk, pull the CSV and
-       summarise it with `ios/CPETiming/analyze_timing.py` (`ios/CPEWalk/README.md`, "Timing log").
+     - Full per-frame latency: first walks logged 2026-11-02 (`progress.md` §9.2). Still to do:
+       a 10+ min unplugged walk (thermal, battery); take segmentation off the alert path, since it
+       puts alerts at ~136 ms against a 50 ms budget; time the detector letterbox on its own.
      - Do more walks with a sighted tester. Check the stair calls and the road bias on Indian
        streets.
      - Add session recording (frames, depth, pose, alerts) so phone-domain data can be replayed

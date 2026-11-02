@@ -2,6 +2,21 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-11-02, first in-app timing] - CPEWalk measured on the street
+
+### Measured
+- 6 walks on the iPhone 17 Pro Max, 744 frames after warm-up (2.5 min):
+  `evaluation/benchmarks/ondevice_latency/cpewalk_iphone17promax_2026_11_02/` (raw CSVs, `report.md`,
+  pooled `README.md`).
+- Per frame: median 119.6 ms, p95 145.4 ms, max 168.5 ms; the 5 Hz rate held on every frame.
+- Frames without segmentation: median 40.2 ms. Frames with it: median 136.0 ms, p95 149.3 ms.
+  Segmentation alone is 86.7 ms median; the two detectors 37.9 ms.
+- Thermal nominal throughout. No battery claim: the runs are too short.
+
+### Open
+- Every segmentation frame misses the 50 ms alert budget.
+- No sustained walk yet.
+
 ## [2026-11-02, timing log] - CPEWalk records its own per-frame performance
 
 ### Added
