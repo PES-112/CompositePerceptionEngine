@@ -89,13 +89,22 @@ It can be bounded by re-running the evaluation with SANPO depth truncated at 5 m
  └──────┬───────┘   in each box            │
         ▼                                  ▼
  ┌──────────────────────────────────────────────┐      ┌──────────────────────┐
- │ 2 SENSOR FUSION & TRACKING  ✅               │      │ 3 SCENE CONTEXT  ⬜   │
+ │ 2 SENSOR FUSION & TRACKING  ✅               │      │ 3 SCENE CONTEXT  ✅   │
  │ Kalman filter per track, ground-plane (x, z) │◄─────│ walkable-surface     │
- │ head motion removed using camera pose        │ mask │ segmentation, 2–5 Hz │
+ │ head motion removed using camera pose        │ mask │ segmentation, 2.5 Hz │
  │ → position, velocity, uncertainty            │      │ road / curb / sidewalk│
- └──────┬───────────────────────────────────────┘      └──────────┬───────────┘
-        ▼                                                         │
- ┌───────────────────────────────────────────────────────────────▼──────────┐
+ └──────┬───────────────────────────────────────┘      │ phone: runs AFTER the │
+        │                                              │ alert, used next frame│
+        │                                              └──────────┬───────────┘
+        │   ┌────────────────────────────────────────────────┐    │
+        │   │ 3b STREET RULES (phone only)  ✅ built, ⬜ walked│    │
+        │   │ crossing: vehicles approaching left/right      │    │
+        │   │   from box motion (no depth needed)            │    │
+        │   │ posts: bollard / pole in the path              │    │
+        │   │ LiDAR: anything standing up in the path        │    │
+        │   └──────────────────────┬─────────────────────────┘    │
+        ▼                          │ edge lane                    │
+ ┌─────────────────────────────────┼─────────────────────────────▼──────────┐
  │ 4 THREAT ENGINE                                                           │
  │  SAFETY ENVELOPE ✅  TTC ≤ 1 s in the walking cone → OVERRIDE (bypasses all)│
  │  WHEN     ✅  GRU arrival predictor → P(arrives ≤ 4 s), expected time       │
@@ -106,10 +115,20 @@ It can be bounded by re-running the evaluation with SANPO depth truncated at 5 m
         ▼
  ┌──────────────────────────────┐    ┌──────────────────────────────────────┐
  │ 5 ANNOUNCEMENT MANAGER  ✅    │───►│ 6 NARRATION & AUDIO                   │
- │ cooldown, hysteresis,        │    │ scripted templates ✅                 │
- │ override preempts, drop stale│    │ clip list ✅ · rendered clips ⬜       │
- └──────────────────────────────┘    │ critical lane: English + cached clip ✅│
-                                     └──────────────────────────────────────┘
+ │ override › edge / street     │    │ scripted templates ✅                 │
+ │ rules › object › surface;    │    │ phone: system voice, stereo-panned ✅ │
+ │ cooldown, hysteresis, stale  │    │ critical lane: English + cached clip ✅│
+ └──────────────────────────────┘    └──────────────────────────────────────┘
+```
+
+On the phone, the alert is handed to speech **before** segmentation runs. Segmentation is the
+slowest stage (87 ms median, measured 2026-11-02), and it now runs after the alert in the same
+frame. Its surface, edge and per-object context are used from the next frame on, 0.2 s later than
+the replay uses them.
+
+```text
+ phone frame (5 Hz):  ARKit → detectors ×2 → tracking → street rules → engine → SPEAK ─► segmentation
+                      └──────────────── alert path (alert_ms) ─────────────────┘      (next frame's scene)
 ```
 
 ## 6. Components
@@ -253,6 +272,21 @@ Decides **whether** to speak, separately from **what** is most dangerous:
   - It reaches narration as a `NarratorEvent` with `reason="edge ahead"` and bearing 0.
   - It isn't in the replay. Edge alerts are scored on their own (§6.3), so the interplay with
     object alerts is not measured.
+- **Street rules (phone only, `ios/CPEWalk/Sources/Engine/StreetRules.swift`)** share the edge
+  lane. The order is crossing, then segmentation edge, then post, then LiDAR obstacle:
+  - "Vehicles approaching from your left." On the road, or with road ≤ 3 m ahead, a vehicle box
+    that drifts toward the image centre (head turns removed with ARKit's heading) or grows faster
+    than the walker's own approach explains. It needs no depth: vehicles across a road are beyond
+    the LiDAR's ~5 m, so fusion never tracks them. It speaks when a side is new, then every 4 s
+    while vehicles keep coming.
+  - "Bollard ahead, 2 meters. Watch out." A detected bollard, hydrant (spoken as bollard) or pole
+    within 4 m and 0.5 m of the path, once per object.
+  - "Obstacle ahead, 2 meters." LiDAR points 0.3–3 m ahead, within 0.4 m of the path, rising 0.2–2 m
+    above the floor (10th-percentile height). It needs at least 0.3 m of height within 0.3 m of depth,
+    so a step or curb doesn't count. Detected objects' boxes are skipped. Confirmed on 2 frames, once
+    per episode.
+  - Not in the replay (SANPO has no phone LiDAR); unit-tested on synthetic tracks and point sets;
+    not walked yet.
 - **Surface (lowest):** when nothing else is said and no clip is playing, the walker's debounced
   surface is said on a change and again after 5 s of silence with no threat in view. A surface clip
   never holds up a hazard: edge, object and override alerts cut it. Not in the replay.
@@ -282,7 +316,12 @@ The full chain runs on device at 5 Hz:
 - ARKit world tracking gives the pose; it replaces `fixed_camera_poses.csv`, projected to a top
   view (X = x, Y = −z).
 - LiDAR scene depth (confidence ≥ medium) replaces SANPO's stereo depth.
-- YOLO26n v3, the segmenter and the GRU run as Core ML.
+- Two detectors (v4 IDD for road users, v3 for static and ground classes), the segmenter and the GRU
+  run as Core ML.
+- Segmentation runs after the alert is spoken, so it is off the alert path (§5).
+- Street rules that only the phone has (§6.5): vehicles approaching while crossing, posts in the path,
+  and a class-free LiDAR obstacle check.
+- Every frame's stage times are logged to a CSV (`PerfLog.swift`, `alert_ms` = camera frame → speech).
 - The engine is a Swift port with constants exported from Python (`AppData/cpe_config.json`).
 - A golden SANPO walk checks parity (`Tests/GoldenSessionTests.swift`).
 
@@ -293,10 +332,11 @@ reliable range, and a chest mounting where SANPO is head-mounted (`ios/CPEWalk/R
 
 | Path | Rate | Budget | Evidence today |
 |---|---|---|---|
-| Perception → safety envelope → cached clip | every processed frame | **p95 < 50 ms** | GB10 native p95 7.83 ms (measured). The legacy Jetson analytical proxy gave 34.31 ms (simulated, retired). **Not yet measured on the iPhone** |
-| Sensor fusion (Kalman) | every frame | < 1 ms | Estimate (a few matrix operations per track) |
-| GRU + fusion score | every frame | < 2 ms | Estimate (~30–65k parameters) |
-| Segmentation | 2–5 Hz, async | must not delay perception | Not measured |
+| Perception → safety envelope → speech (phone alert path) | every processed frame | **p95 < 50 ms** | CPEWalk 2026-11-02, segmentation still on the path: 40 ms median without segmentation, 136 ms (p95 149) on segmentation frames. Segmentation is now after the alert. The new alert path (`alert_ms`) has **not been measured yet**; it is measured on the next walk |
+| Two detectors, incl. letterbox | every frame | — | 37.9 ms median, p95 43.4 (CPEWalk, measured) |
+| Sensor fusion + GRU + announcer + narration | every frame | < 2 ms | 0.4 ms median, p95 0.8 (CPEWalk, measured) |
+| Street rules (crossing, posts, LiDAR scan) | every frame | — | Not measured (`rules_ms`) |
+| Segmentation | 2.5 Hz, after the alert | must not delay the alert | 86.7 ms median, p95 98.4 (CPEWalk, measured) |
 | Narration | per announcement | ~0 ms (template + pre-rendered clip) | Template measured at ~0 ms |
 
 On-device numbers come from `ios/CPETiming`. This SwiftUI timing app runs YOLO26n v3 and the
@@ -304,9 +344,8 @@ arrival GRU (both FP16 Core ML) on bundled SANPO frames and recorded SANPO featu
 camera and LiDAR aren't used. It's built by
 GitHub Actions on macOS and installed through TestFlight, so no team Mac is needed. The replay then
 delays each alert by the measured latency (`--latency-csv`, "latency-aware replay"), so the reported
-timeline matches the device. Status: the harness, the GRU export and the replay option are built.
-The phone run hasn't happened yet: it needs an Apple Developer account and the phone
-(`ios/CPETiming/README.md`).
+timeline matches the device. CPETiming ran on 2026-10-21 (`progress.md` §9.1). The whole app's own
+per-frame log is the CPEWalk one above (`progress.md` §9.2).
 
 ## 8. Evaluation design
 

@@ -2,6 +2,32 @@
 
 All notable changes to the Composite Perception Engine (CPE) project will be documented in this file.
 
+## [2026-11-02, street rules] - Segmentation off the alert path; crossing, post and LiDAR obstacle alerts
+
+### Changed
+- **CPEWalk runs segmentation after the alert is spoken.** It was the slowest stage (86.7 ms median)
+  and put every segmentation frame over the 50 ms alert budget.
+  - Surface, edge and context are now used from the next frame, 0.2 s later than the replay.
+  - PerfLog adds `alert_ms` (camera frame → speech) and `rules_ms`.
+  - The new alert path has not been measured yet.
+
+### Added (phone only, `ios/CPEWalk/Sources/Engine/StreetRules.swift`; from the 2026-11-02 walks)
+- **Vehicles while crossing:** "Vehicle(s) approaching from your left / right / both sides."
+  - Fires on the road, or with road ≤ 3 m ahead, from box motion with head turns removed.
+  - Vehicles beyond the LiDAR's ~5 m had no depth, so fusion never tracked them.
+- **Posts:** "Bollard ahead, 2 meters. Watch out." for a detected bollard, hydrant or pole in the
+  path. The detector's "fire hydrant" is spoken as "bollard" everywhere.
+- **LiDAR obstacle:** "Obstacle ahead, 2 meters." for anything standing 0.2–2 m above the floor in a
+  0.8 m path within 3 m. Steps and curbs are excluded by a height-span check. It covers poles and
+  pillars the detector misses.
+- `Tests/StreetRulesTests.swift` (7 tests). All 14 Swift tests pass, golden parity included.
+- Installed on the iPhone 17 Pro Max.
+- Docs: `architecture.md` §5 diagram, §6.5, §6.7 and §7; `README.md` pipeline; `ios/CPEWalk/README.md`.
+
+### Open
+- None of the rules have been walked. Thresholds are declared, not tuned.
+- The camera sees about ±25° in portrait, so vehicles fully to the side are not seen.
+
 ## [2026-11-02, first in-app timing] - CPEWalk measured on the street
 
 ### Measured

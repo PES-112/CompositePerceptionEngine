@@ -9,12 +9,15 @@ ARKit, phone held upright at chest height:
   camera image + LiDAR scene depth (confidence ≥ medium) + camera pose (world tracking)
 → Stage 1        YOLO26n v3 (Core ML, FP16) → per-class NMS → IoU tracker → LiDAR depth per box
                  (central 20% patch, closer boxes masked), least-squares closing speed, pinhole bearing
-→ Segmentation   YOLO26n-sem (Core ML) every 2nd frame: walker surface, edge ahead, per-object context
+→ Street rules   phone only (Sources/Engine/StreetRules.swift): vehicles approaching left/right
+                 while on the road, bollard / pole in the path, LiDAR "Obstacle ahead"
 → Threat engine  Kalman fusion with ego-motion removed (fitted noise, Student-t update) → safety
                  envelope (TTC ≤ 1 s in the corridor) → arrival GRU (Core ML) → priority
                  P(arrive) × severity^γ × context → announcement manager
                  (override › "Curb ahead" › object threat › surface reminder)
 → Speech         on-device voice, panned toward the object's bearing; overrides cut in
+→ Segmentation   YOLO26n-sem (Core ML) every 2nd frame, AFTER the alert: walker surface, edge ahead,
+                 per-object context, used from the next frame (keeps ~87 ms off the alert path)
 ```
 
 Processing runs at 5 Hz, the replay's rate. The Swift engine is a line-by-line port of
@@ -74,6 +77,12 @@ identical on every frame, 18/18 announcements word for word.
   5 meters.", "Curb ahead, 3 meters.", "Now on the road. Careful.". With nothing around, it says
   your surface every ~5 s ("Walking on the sidewalk."); switch that off with *Surface reminders
   when quiet*.
+- Crossing a road (or standing with road just ahead) it says "Vehicle approaching from your left."
+  / "Vehicles approaching from both sides." for vehicles moving toward your path. It has no distance
+  for them, and it only sees what the camera sees: turn toward each side before you cross.
+- A bollard or pole in your path: "Bollard ahead, 2 meters. Watch out." Anything else standing in
+  your path within 3 m (a pillar, a pole the detector missed): "Obstacle ahead, 2 meters." from the
+  LiDAR alone.
 - On a flight of stairs it says "Going up stairs." or "Going down stairs. Careful." within about a
   second of starting, and "End of stairs." about a second after the last step. This comes from the
   phone's height, so it works even when the camera can't see the steps.
@@ -87,9 +96,11 @@ identical on every frame, 18/18 announcements word for word.
 Every Start → Stop writes `cpewalk_perf_<time>.csv` to the app's Documents folder
 (`Sources/App/PerfLog.swift`). It has one row per processed frame, 5 Hz:
 - the time of each stage: ARKit frame conversion (`input_ms`), each detector (`det1_ms` IDD,
-  `det2_ms` legacy v3), tracking and depth (`track_ms`), segmentation (`seg_ms`, 0 on the frames it
-  skips) and the engine with narration (`engine_ms`);
-- `total_ms`, which is the "ms per frame" shown on screen;
+  `det2_ms` legacy v3), tracking and depth (`track_ms`), street rules (`rules_ms`), the engine with
+  narration (`engine_ms`), and segmentation (`seg_ms`, after the alert, 0 on the frames it skips);
+- `alert_ms`: camera frame → alert handed to speech, the number the 50 ms budget is about (since
+  2026-11-02 segmentation is no longer in it);
+- `total_ms`, the whole frame including segmentation, which is the "ms per frame" shown on screen;
 - the thermal state, battery level and charging state (`battery_state` 2 = charging, so a charging
   walk can be excluded from battery claims).
 

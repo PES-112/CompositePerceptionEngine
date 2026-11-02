@@ -52,7 +52,8 @@ Full design and diagram: `architecture.md` §3, §5.
 | Pre-rendered audio clips | 🟨 Phone speaks with the system voice (`Speech.swift`), stereo-panned; clip library not rendered | `pending_work.md` P4 |
 | On-iPhone model latency (YOLO26n v3 + GRU, `ios/CPETiming`) | ✅ Measured 2026-10-21, iPhone 17 Pro Max | §9 |
 | CPEWalk iPhone app (whole chain on device) | ✅ Builds; golden parity test passes; one field walk (2026-10-27) | `ios/CPEWalk/README.md` |
-| Whole-app per-frame latency (CPEWalk, two detectors + segmenter) | 🟨 First walks logged 2026-11-02 (2.5 min); keeps 5 Hz, but over the 50 ms alert budget on segmentation frames; no sustained walk yet | §9.2 |
+| Whole-app per-frame latency (CPEWalk, two detectors + segmenter) | 🟨 First walks logged 2026-11-02 (2.5 min); keeps 5 Hz. Segmentation was over the 50 ms alert budget and is now after the alert; new alert path not measured yet | §9.2 |
+| Phone street rules: vehicles approaching while crossing, bollards / poles in the path, LiDAR obstacle | ✅ Built + unit-tested (7 tests); ⬜ not walked | `architecture.md` §6.5 |
 
 Tests: 119 Python unit tests, all passing (`python -m unittest discover -s tests`, 2026-11-02), plus
 the Swift golden-session and field-fix tests in `ios/CPEWalk/Tests`.
@@ -244,6 +245,10 @@ total; the longest run is 53 s**. Data and summary:
 - **Each detector is 18–20 ms in the app vs 5.5 ms for the model in CPETiming.** This is most likely
   the Core Image letterbox of the full camera image; it was not measured separately.
 - Thermal state nominal throughout; no battery claim (runs too short). A 10+ min walk is still needed.
+
+**Change after this measurement (2026-11-02):** segmentation now runs after the alert is handed to
+speech, and its scene is used from the next frame. The log has a new `alert_ms` column (camera frame
+→ speech). The new alert path has not been walked yet; its number goes here after the next walk.
 
 ## 10. Suggested slide order
 
