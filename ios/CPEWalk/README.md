@@ -7,7 +7,8 @@ language model.
 ```
 ARKit, phone held upright at chest height:
   camera image + LiDAR scene depth (confidence ≥ medium) + camera pose (world tracking)
-→ Stage 1        YOLO26n v3 (Core ML, FP16) → per-class NMS → IoU tracker → LiDAR depth per box
+→ Stage 1        two YOLO26n detectors (Core ML, FP16): v4 IDD for road users, v3 for static and
+                 ground classes → per-class NMS → IoU tracker → LiDAR depth per box
                  (central 20% patch, closer boxes masked), least-squares closing speed, pinhole bearing
 → Street rules   phone only (Sources/Engine/StreetRules.swift): vehicles approaching left/right
                  while on the road, bollard / pole in the path, LiDAR "Obstacle ahead"

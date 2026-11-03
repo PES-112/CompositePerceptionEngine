@@ -325,6 +325,65 @@ The full chain runs on device at 5 Hz:
 - The engine is a Swift port with constants exported from Python (`AppData/cpe_config.json`).
 - A golden SANPO walk checks parity (`Tests/GoldenSessionTests.swift`).
 
+The app as it runs today (`WalkPipeline.process`, one frame every 0.2 s):
+
+```text
+ ARKit, phone upright at chest height (world tracking, gravity-aligned)
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ camera image 1920×1440 · LiDAR depth 256×192 (conf ≥ medium) · camera pose    │
+ └───────┬──────────────────────────────┬────────────────────────────┬──────────┘
+         │ rotated to portrait          │                            │
+         ▼                              │                            │
+ ┌───────────────────────────────────┐  │                            │
+ │ DETECTORS  (Core ML, both run)     │  │                            │
+ │ CPEDetector  v4 IDD  road users:   │  │                            │
+ │   person, bicycle, car, motorcycle,│  │                            │
+ │   bus, truck, traffic light, dog   │  │                            │
+ │ CPEDetectorLegacy v3  static/ground│  │                            │
+ │   pole, bollard, fire hydrant,     │  │                            │
+ │   stop sign, stairs, crosswalk,    │  │                            │
+ │   pothole, puddle, bench           │  │                            │
+ └───────┬───────────────────────────┘  │                            │
+         ▼                              ▼                            │
+ ┌──────────────────────────────────────────────────┐                │
+ │ TRACKING  IoU tracker · LiDAR depth per box ·      │                │
+ │ bearing · closing speed                            │                │
+ └───────┬──────────────────────────────────────────┘                │
+         ▼                                                            ▼
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ STREET RULES  (phone only, every frame)                       → edge lane     │
+ │  CrossingWatch    on road / crosswalk / ≤ 3 m from road edge: vehicle boxes    │
+ │                   drifting inward or growing (head turns and own walking       │
+ │                   removed) → "Vehicle(s) approaching from your left/right"     │
+ │  PostWatch        bollard / hydrant / pole ≤ 4 m in the path                   │
+ │                   → "Bollard ahead, 2 meters. Watch out."                      │
+ │  PathObstacleScan LiDAR points → world → floor found → anything 0.2–2 m tall   │
+ │                   ≤ 3 m ahead, ±0.4 m wide, not inside a detector box          │
+ │                   → "Obstacle ahead, 2 meters."                                │
+ │  StairMotion      camera height change → stairs up / down                      │
+ └───────┬──────────────────────────────────────────────────────────────────────┘
+         ▼        (+ surface, curb edge and per-object context from LAST frame's segmentation)
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ THREAT ENGINE  (Swift port, constants from cpe_config.json)                   │
+ │  Kalman fusion, ego-motion removed → safety envelope (TTC ≤ 1 s) → OVERRIDE   │
+ │  arrival GRU (Core ML) → priority = P(arrive) × severity^γ × context          │
+ │  ANNOUNCEMENT MANAGER  override › edge (crossing › curb › post › obstacle,    │
+ │                        stairs) › object threat › surface reminder             │
+ └───────┬──────────────────────────────────────────────────────────────────────┘
+         ▼
+ ┌──────────────────────────────────────────┐
+ │ NARRATOR → SPEECH  on-device voice,       │ ◄── alert_ms ends here
+ │ panned to the bearing; overrides cut in   │
+ └───────┬──────────────────────────────────┘
+         ▼   after the alert, every 2nd frame (2.5 Hz)
+ ┌──────────────────────────────────────────────────────────────────────────────┐
+ │ SEGMENTATION  YOLO26n-sem (Core ML): walker surface, edge ahead, per-object   │
+ │ context → used by street rules and the engine from the NEXT frame             │
+ └──────────────────────────────────────────────────────────────────────────────┘
+         │
+         └─► PerfLog: one CSV per walk (stage times, alert_ms, cam_height_m, obstacle_m)
+```
+
 Known differences from the replay: a greedy IoU tracker instead of ByteTrack, the LiDAR's ~5 m
 reliable range, and a chest mounting where SANPO is head-mounted (`ios/CPEWalk/README.md`).
 

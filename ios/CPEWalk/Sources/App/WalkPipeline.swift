@@ -6,7 +6,7 @@ import os
 /// The whole product on the phone, one processed frame every 0.2 s (5 Hz, as the replay):
 ///
 ///   ARKit (camera image + LiDAR scene depth + camera pose, held portrait)
-///     -> Stage 1: YOLO26n v3 -> IoU tracker -> LiDAR depth per box, closing speed, bearing
+///     -> Stage 1: YOLO26n v4 IDD + v3 legacy -> IoU tracker -> LiDAR depth per box, closing speed, bearing
 ///     -> street rules (phone only): vehicles approaching while crossing, posts in the path,
 ///        LiDAR "Obstacle ahead"
 ///     -> threat engine: Kalman fusion with ego-motion removed, safety envelope, GRU arrival,
