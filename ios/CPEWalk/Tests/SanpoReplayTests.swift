@@ -50,6 +50,10 @@ final class SanpoReplayTests: XCTestCase {
             if let s = r.surface { o["surface"] = s }
             if let h = r.timing.cameraHeightM { o["cam_height_m"] = h }
             if let d = r.timing.obstacleM { o["obstacle_m"] = d }
+            o["boxes"] = r.overlays.map { [Double($0.box.minX), Double($0.box.minY), Double($0.box.width), Double($0.box.height)]
+                                          .map { ($0 * 10).rounded() / 10 } }
+            o["labels"] = r.overlays.map(\.label)
+            o["colors"] = r.overlays.map(\.color)
             let j = try! JSONSerialization.data(withJSONObject: o, options: [.sortedKeys])
             lines.append(String(decoding: j, as: UTF8.self))
         }

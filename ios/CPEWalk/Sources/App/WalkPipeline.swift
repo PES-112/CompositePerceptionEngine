@@ -61,7 +61,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     /// One processed frame, for the SANPO replay (Tests/SanpoReplayTests.swift): what was said and the
     /// stage times. `speakAloud = false` keeps the replay silent.
     struct FrameResult { let t: Double; let kind: String?; let className: String?; let phrase: String?
-                         let surface: String?; let timing: PerfLog.Row }
+                         let surface: String?; let timing: PerfLog.Row; let overlays: [Overlay] }
     var onFrame: ((FrameResult) -> Void)?
     var speakAloud = true
 
@@ -216,11 +216,11 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
                 Overlay(box: r.box, label: "\(r.className) \(r.distanceM.map { String(format: "%.1fm", $0) } ?? "?")",
                         color: over.contains(r.trackID) ? 2 : ranked.contains(r.trackID) ? 1 : 0)
             }
+            onFrame?(FrameResult(t: f.t, kind: frame.announcement?.kind.rawValue, className: frame.announcement?.className,
+                                 phrase: phrase, surface: surfaceName, timing: timing, overlays: ov))
             let ms = msSince(started)
             timing.totalMs = inputMs + ms
             perf?.add(t: f.t, timing)
-            onFrame?(FrameResult(t: f.t, kind: frame.announcement?.kind.rawValue, className: frame.announcement?.className,
-                                 phrase: phrase, surface: surfaceName, timing: timing))
             DispatchQueue.main.async {
                 self.overlays = ov
                 self.imageSize = f.size
