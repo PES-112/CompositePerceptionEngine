@@ -61,7 +61,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     /// One processed frame, for the SANPO replay (Tests/SanpoReplayTests.swift): what was said and the
     /// stage times. `speakAloud = false` keeps the replay silent.
     struct FrameResult { let t: Double; let kind: String?; let className: String?; let phrase: String?
-                         let surface: String?; let timing: PerfLog.Row; let overlays: [Overlay] }
+                         let bearingDeg: Double?; let surface: String?; let timing: PerfLog.Row; let overlays: [Overlay] }
     var onFrame: ((FrameResult) -> Void)?
     var speakAloud = true
 
@@ -191,10 +191,12 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
             let frame = try engine.step(k: k, t: f.t, rows: rows, pose: f.pose, contexts: lastScene.contexts,
                                         edge: edgeAlert, surface: surfaceReminders && !stairs.onStairs ? surfaceName : nil)
             var phrase: String?
+            var spokenBearing: Double?
             if let a = frame.announcement {
                 let track = frame.tracks.first { $0.trackID == a.trackID }
                 let (text, bearing) = narrator.phrase(a, track: track)
                 phrase = text
+                spokenBearing = bearing
                 let interrupt = a.kind == .override
                 if speakAloud { DispatchQueue.main.async { self.speech.say(text, bearingDeg: bearing, interrupt: interrupt) } }
                 log.info("t=\(f.t, format: .fixed(precision: 1)) \(a.kind.rawValue, privacy: .public): \(text, privacy: .public)")
@@ -217,7 +219,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
                         color: over.contains(r.trackID) ? 2 : ranked.contains(r.trackID) ? 1 : 0)
             }
             onFrame?(FrameResult(t: f.t, kind: frame.announcement?.kind.rawValue, className: frame.announcement?.className,
-                                 phrase: phrase, surface: surfaceName, timing: timing, overlays: ov))
+                                 phrase: phrase, bearingDeg: spokenBearing, surface: surfaceName, timing: timing, overlays: ov))
             let ms = msSince(started)
             timing.totalMs = inputMs + ms
             perf?.add(t: f.t, timing)

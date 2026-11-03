@@ -5,6 +5,10 @@ Video of one SANPO walk as the CPEWalk app saw it (Tests/SanpoReplayTests.swift 
 overlays (grey = tracked, amber = ranked threat, red = override; label = class and LiDAR distance), the
 walker surface, and each spoken alert as a caption for 3 s. Real time, 5 frames a second.
 
+Audio: each alert spoken by macOS `say` (Samantha, the iPhone's en-US voice) at the moment the app speaks
+it, panned toward the object as the app does (constant power, full at ±60°), and cut off by the next
+alert, as Speech.swift does.
+
     python tools/render_app_replay.py <session_id> [--replay-dir data.nosync/app_replay] [--out <file.mp4>]
 """
 
@@ -12,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import cv2
@@ -62,12 +68,29 @@ def main() -> None:
             text(img, caption, ((W - tw) // 2, H - 52), 0.9, (0, 0, 0), 2, ccol)
         vw.write(img)
     vw.release()
-    if shutil.which("ffmpeg"):           # H.264 so QuickTime and browsers play it
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(tmp), "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                        "-crf", "23", str(out)], check=True)
-        tmp.unlink()
-    else:
-        tmp.replace(out)
+    said = [r for r in rows if "phrase" in r]
+    dur = len(rows) / 5
+    with tempfile.TemporaryDirectory() as td:
+        inputs, chains = ["-i", str(tmp)], []
+        for i, r in enumerate(said):
+            wav = Path(td) / f"{i}.aiff"
+            subprocess.run(["say", "-v", "Samantha", "-r", "200", "-o", str(wav), r["phrase"]], check=True)
+            inputs += ["-i", str(wav)]
+            start = r["t"]
+            end = said[i + 1]["t"] if i + 1 < len(said) else dur        # the next alert cuts this one
+            a = math.radians((max(-1.0, min(1.0, r.get("bearing_deg", 0.0) / 60)) + 1) * 45)
+            l, rr = math.cos(a), math.sin(a)                              # constant-power pan
+            ms = int(start * 1000)
+            chains.append(f"[{i + 1}:a]atrim=0:{max(end - start, 0.05):.3f},aformat=channel_layouts=mono,"
+                          f"pan=stereo|c0={l:.3f}*c0|c1={rr:.3f}*c0,adelay={ms}|{ms}[a{i}]")
+        cmd = ["ffmpeg", "-y", "-loglevel", "error", *inputs]
+        if said:
+            mix = "".join(f"[a{i}]" for i in range(len(said)))
+            graph = ";".join(chains) + f";{mix}amix=inputs={len(said)}:normalize=0,apad[aout]"
+            cmd += ["-filter_complex", graph, "-map", "0:v", "-map", "[aout]", "-c:a", "aac", "-b:a", "128k"]
+        cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "23", "-t", f"{dur:.2f}", str(out)]
+        subprocess.run(cmd, check=True)
+    tmp.unlink()
     print(out)
 
 

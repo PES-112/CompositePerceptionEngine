@@ -47,6 +47,7 @@ final class SanpoReplayTests: XCTestCase {
             if let k = r.kind { o["kind"] = k }
             if let c = r.className { o["class"] = c }
             if let s = r.phrase { o["phrase"] = s }
+            if let b = r.bearingDeg { o["bearing_deg"] = b }
             if let s = r.surface { o["surface"] = s }
             if let h = r.timing.cameraHeightM { o["cam_height_m"] = h }
             if let d = r.timing.obstacleM { o["obstacle_m"] = d }
