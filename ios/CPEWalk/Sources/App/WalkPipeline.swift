@@ -58,6 +58,13 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
     private let speech = Speech()
     private var perf: PerfLog?
 
+    /// One processed frame, for the SANPO replay (Tests/SanpoReplayTests.swift): what was said and the
+    /// stage times. `speakAloud = false` keeps the replay silent.
+    struct FrameResult { let t: Double; let kind: String?; let className: String?; let phrase: String?
+                         let surface: String?; let timing: PerfLog.Row }
+    var onFrame: ((FrameResult) -> Void)?
+    var speakAloud = true
+
     override init() {
         super.init()
         session.delegate = self
@@ -135,7 +142,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
 
     // MARK: one processed frame
 
-    private func process(_ f: FrameInput, inputMs: Double) {
+    func process(_ f: FrameInput, inputMs: Double) {
         guard let stage1, let engine, let narrator, let edges, let surfaces, let stairs else { return }
         let started = DispatchTime.now().uptimeNanoseconds
         var timing = PerfLog.Row(inputMs: inputMs)
@@ -189,7 +196,7 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
                 let (text, bearing) = narrator.phrase(a, track: track)
                 phrase = text
                 let interrupt = a.kind == .override
-                DispatchQueue.main.async { self.speech.say(text, bearingDeg: bearing, interrupt: interrupt) }
+                if speakAloud { DispatchQueue.main.async { self.speech.say(text, bearingDeg: bearing, interrupt: interrupt) } }
                 log.info("t=\(f.t, format: .fixed(precision: 1)) \(a.kind.rawValue, privacy: .public): \(text, privacy: .public)")
             }
             timing.engineMs = msSince(engineStart)
@@ -212,6 +219,8 @@ final class WalkPipeline: NSObject, ObservableObject, ARSessionDelegate {
             let ms = msSince(started)
             timing.totalMs = inputMs + ms
             perf?.add(t: f.t, timing)
+            onFrame?(FrameResult(t: f.t, kind: frame.announcement?.kind.rawValue, className: frame.announcement?.className,
+                                 phrase: phrase, surface: surfaceName, timing: timing))
             DispatchQueue.main.async {
                 self.overlays = ov
                 self.imageSize = f.size
